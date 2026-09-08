@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@better-auth/api-key": "1.5.3",
+    "@better-auth/drizzle-adapter": "1.5.3",
     "@faker-js/faker": "^10.3.0",
     "@libsql/client": "^0.18.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
