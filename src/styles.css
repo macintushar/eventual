@@ -1,0 +1,319 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * EvenTual — "lagoon" design system.
+ *
+ * One palette drives everything: the shadcn semantic tokens below are defined in
+ * terms of the same teal/palm ramp as the page chrome, so buttons, inputs, tabs
+ * and cards are on-brand by default instead of falling back to neutral zinc.
+ */
+:root {
+  /* Brand ramp */
+  --lagoon-50: #f0faf8;
+  --lagoon-100: #d9f0ec;
+  --lagoon-200: #b6e2dc;
+  --lagoon-300: #85cdc6;
+  --lagoon-400: #4fb8b2;
+  --lagoon-500: #2f9aa0;
+  --lagoon-600: #1f7a80;
+  --lagoon-700: #1a6167;
+  --lagoon-800: #17494f;
+  --lagoon-900: #12333a;
+  --palm-500: #2f8f5f;
+  --palm-600: #1d7a4f;
+  --sand: #e7f0e8;
+  --foam: #f3faf5;
+
+  /* Page chrome */
+  --bg-base: #e9f4ee;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-strong: rgba(255, 255, 255, 0.93);
+  --inset-glint: rgba(255, 255, 255, 0.85);
+  --shadow-color: 30 90 72;
+  --hero-a: rgba(79, 184, 178, 0.34);
+  --hero-b: rgba(47, 143, 95, 0.18);
+  --grid-line: rgba(255, 255, 255, 0.07);
+
+  /* shadcn semantic tokens */
+  --background: #f7fcf9;
+  --foreground: #12333a;
+  --card: #ffffff;
+  --card-foreground: #12333a;
+  --popover: #ffffff;
+  --popover-foreground: #12333a;
+  --primary: #1f7a80;
+  --primary-foreground: #f2fbfa;
+  --secondary: #dcefe8;
+  --secondary-foreground: #12333a;
+  --muted: #e8f2ec;
+  --muted-foreground: #5b7c80;
+  --accent: #d5ece4;
+  --accent-foreground: #12333a;
+  /* Diverging pair for balances — validated for CVD separation (deutan ΔE 8.8)
+     and 3:1 contrast against the card surface. */
+  --destructive: #c2321f;
+  --destructive-foreground: #fff5f4;
+  --positive: #15784e;
+  --negative: #c2321f;
+  /* Reserved status colour — used only for the locked-expense banner. */
+  --warning: #8a5a00;
+  --border: #d3e3dd;
+  --input: #cfe1da;
+  --ring: #4fb8b2;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --lagoon-50: #0a1a1e;
+  --lagoon-100: #10262c;
+  --lagoon-200: #17343b;
+  --lagoon-300: #2a5a60;
+  --lagoon-400: #3f8d90;
+  --lagoon-500: #5fd3cb;
+  --lagoon-600: #7fe0d8;
+  --lagoon-700: #a5ebe4;
+  --lagoon-800: #c8f3ee;
+  --lagoon-900: #e2faf7;
+  --palm-500: #5fd39a;
+  --palm-600: #7ee0ae;
+  --sand: #0f1f24;
+  --foam: #0c1a1f;
+
+  --bg-base: #071418;
+  --surface: rgba(16, 33, 38, 0.78);
+  --surface-strong: rgba(14, 30, 35, 0.94);
+  --inset-glint: rgba(160, 235, 226, 0.1);
+  --shadow-color: 0 0 0;
+  --hero-a: rgba(95, 211, 203, 0.16);
+  --hero-b: rgba(95, 211, 154, 0.1);
+  --grid-line: rgba(160, 235, 226, 0.05);
+
+  --background: #08161a;
+  --foreground: #d9ece8;
+  --card: #0e2126;
+  --card-foreground: #d9ece8;
+  --popover: #102429;
+  --popover-foreground: #d9ece8;
+  --primary: #5fd3cb;
+  --primary-foreground: #062224;
+  --secondary: #17323a;
+  --secondary-foreground: #d9ece8;
+  --muted: #152c33;
+  --muted-foreground: #93b5b2;
+  --accent: #1a3a41;
+  --accent-foreground: #e2faf7;
+  /* Re-stepped for the dark surface rather than flipped (deutan ΔE 8.0). */
+  --destructive: #e8594c;
+  --destructive-foreground: #fff5f4;
+  --positive: #2f9d70;
+  --negative: #e8594c;
+  --warning: #e8b13a;
+  --border: #1e3d44;
+  --input: #22454d;
+  --ring: #5fd3cb;
+}
+
+@theme inline {
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-lagoon-50: var(--lagoon-50);
+  --color-lagoon-100: var(--lagoon-100);
+  --color-lagoon-200: var(--lagoon-200);
+  --color-lagoon-300: var(--lagoon-300);
+  --color-lagoon-400: var(--lagoon-400);
+  --color-lagoon-500: var(--lagoon-500);
+  --color-lagoon-600: var(--lagoon-600);
+  --color-lagoon-700: var(--lagoon-700);
+  --color-lagoon-800: var(--lagoon-800);
+  --color-lagoon-900: var(--lagoon-900);
+  --color-palm-500: var(--palm-500);
+  --color-palm-600: var(--palm-600);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html,
+  body,
+  #app {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    background-color: var(--bg-base);
+    background-image:
+      radial-gradient(1100px 620px at -8% -10%, var(--hero-a), transparent 58%),
+      radial-gradient(1050px 620px at 112% -12%, var(--hero-b), transparent 62%),
+      radial-gradient(720px 380px at 50% 115%, var(--hero-a), transparent 70%),
+      linear-gradient(180deg, var(--sand) 0%, var(--foam) 42%, var(--bg-base) 100%);
+    background-attachment: fixed;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Fine grid texture, faded out toward the edges. */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(circle at 50% 25%, black, transparent 76%);
+  }
+
+  a {
+    color: var(--primary);
+    text-decoration-color: color-mix(in oklab, var(--primary) 40%, transparent);
+    text-underline-offset: 2px;
+  }
+
+  a:hover {
+    color: color-mix(in oklab, var(--primary) 80%, var(--foreground));
+  }
+
+  /* Tabular figures everywhere money is shown keeps columns from jittering. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  code {
+    font-size: 0.9em;
+    border: 1px solid var(--border);
+    background: var(--muted);
+    border-radius: 7px;
+    padding: 2px 7px;
+  }
+}
+
+@layer components {
+  .page-wrap {
+    width: min(1120px, calc(100% - 2rem));
+    margin-inline: auto;
+  }
+
+  .display-title {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.015em;
+  }
+
+  /* Elevated translucent surface — the app's signature panel. */
+  .island-shell {
+    border: 1px solid var(--border);
+    background-image: linear-gradient(165deg, var(--surface-strong), var(--surface));
+    box-shadow:
+      0 1px 0 var(--inset-glint) inset,
+      0 22px 44px rgb(var(--shadow-color) / 0.1),
+      0 6px 18px rgb(var(--shadow-color) / 0.07);
+    backdrop-filter: blur(8px);
+  }
+
+  .feature-card {
+    border: 1px solid var(--border);
+    background-image: linear-gradient(165deg, var(--surface-strong), var(--surface));
+    box-shadow:
+      0 1px 0 var(--inset-glint) inset,
+      0 14px 30px rgb(var(--shadow-color) / 0.08);
+    backdrop-filter: blur(6px);
+    transition:
+      transform 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklab, var(--primary) 40%, var(--border));
+    box-shadow:
+      0 1px 0 var(--inset-glint) inset,
+      0 20px 38px rgb(var(--shadow-color) / 0.12);
+  }
+
+  .island-kicker {
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 700;
+    font-size: 0.69rem;
+    color: color-mix(in oklab, var(--primary) 72%, var(--foreground));
+  }
+
+  .rise-in {
+    animation: rise-in 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Segmented control used for the split-method and group tabs. */
+  .segmented {
+    background: color-mix(in oklab, var(--muted) 74%, transparent);
+    border: 1px solid var(--border);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise-in,
+  .feature-card {
+    animation: none;
+    transition: none;
+  }
+
+  .feature-card:hover {
+    transform: none;
+  }
+}
