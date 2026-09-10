@@ -45,7 +45,9 @@ Configure these server-side variables in the Vercel project for each deployment 
 - `BETTER_AUTH_SECRET`: a secret of at least 32 characters.
 - `BETTER_AUTH_URL`: the deployed application's HTTPS origin.
 
-Run migrations from an environment with the intended database credentials before deploying code that needs them. Vercel project variables are not automatically available in your local shell. Do not run the seed command against production.
+Vercel runs `bun run db:migrate && bun run build` on every deployment, as configured in `vercel.json`. A failed migration stops the deployment. Migrations use the database credentials configured for that deployment environment, including Preview deployments.
+
+Vercel project variables are not automatically available in your local shell. Do not run the seed command against production.
 
 ## Behaviour
 
