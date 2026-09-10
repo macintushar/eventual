@@ -6,14 +6,15 @@ EvenTual is a TanStack Start expense-sharing app for INR groups. It uses Better 
 
 ```bash
 bun install
-cp .env.example .env.local
 bun run db:generate
 bun run db:migrate
 bun run db:seed
 bun run dev
 ```
 
-The seed prints three login accounts. Their shared password is `eventual123`.
+Supply the variables listed in `.env.example` through your shell or runtime before running these commands. Database commands do not load a specific env file.
+
+The seed prints three login accounts. Their shared password is `eventual123`. Seeding deletes existing users and groups; only run it against a disposable development database.
 
 ```text
 tushar@eventual.test
@@ -34,6 +35,17 @@ turso db tokens create eventual
 ```
 
 Set `TURSO_DATABASE_URL=libsql://<db>-<org>.turso.io` and `TURSO_AUTH_TOKEN=<token>`, then run `bun run db:migrate`. Never expose these server variables to the browser.
+
+## Vercel Environment
+
+Configure these server-side variables in the Vercel project for each deployment environment:
+
+- `TURSO_DATABASE_URL`: the Turso Cloud database URL, not a local file URL.
+- `TURSO_AUTH_TOKEN`: the database access token.
+- `BETTER_AUTH_SECRET`: a secret of at least 32 characters.
+- `BETTER_AUTH_URL`: the deployed application's HTTPS origin.
+
+Run migrations from an environment with the intended database credentials before deploying code that needs them. Vercel project variables are not automatically available in your local shell. Do not run the seed command against production.
 
 ## Behaviour
 

@@ -1,11 +1,7 @@
-import { config } from "dotenv";
-
-config({ path: [".env.local", ".env"] });
-
-const { auth } = await import("#/lib/auth");
-const { db } = await import("#/db");
-const schema = await import("#/db/schema");
-const { computeShares } = await import("#/server/domain/split");
+import { auth } from "#/lib/auth";
+import { db } from "#/db";
+import * as schema from "#/db/schema";
+import { computeShares } from "#/server/domain/split";
 
 await db.delete(schema.organization);
 await db.delete(schema.user);
