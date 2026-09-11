@@ -77,11 +77,7 @@ function action(
 }
 
 const apiKey = action("gettext", { WFTextActionText: "" }, "Text");
-const origin = action(
-	"gettext",
-	{ WFTextActionText: defaultOrigin },
-	"Text",
-);
+const origin = action("gettext", { WFTextActionText: defaultOrigin }, "Text");
 const auth = () => dictionary([{ key: "x-api-key", value: [apiKey] }]);
 
 function getJson(...url: (string | Ref)[]) {
@@ -102,21 +98,12 @@ function getJson(...url: (string | Ref)[]) {
 	);
 }
 
-/** Shows the dictionary's labels, then resolves the chosen one to its ID. */
+/** Choose from List displays dictionary keys but outputs the selected value (ID). */
 function choose(options: Ref, prompt: string) {
-	const chosen = action(
+	return action(
 		"choosefromlist",
 		{ WFInput: variable(options), WFChooseFromListActionPrompt: prompt },
 		"Chosen Item",
-	);
-	return action(
-		"getvalueforkey",
-		{
-			WFInput: variable(options),
-			WFGetDictionaryValueType: "Value",
-			WFDictionaryKey: text(chosen),
-		},
-		"Dictionary Value",
 	);
 }
 

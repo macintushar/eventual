@@ -270,8 +270,9 @@ function DocsPage() {
 							</p>
 							<CodeBlock label="EvenTual URL" code={origin} />
 							<p className="text-sm text-muted-foreground">
-								Tip: say "Hey Siri, log to EvenTual", or add it to your Home
-								Screen or Action button.
+								Already installed? Download it again and replace the old
+								shortcut to get fixes. Tip: say "Hey Siri, log to EvenTual", or
+								add it to your Home Screen or Action button.
 							</p>
 						</div>
 
@@ -297,7 +298,8 @@ function DocsPage() {
 							<ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
 								<li>
 									Get Contents of URL (groups) → Get Dictionary from Input →
-									Choose from List → Get Dictionary Value for the chosen key.
+									Choose from List. The chosen item is already the group ID; use
+									it directly in the members and expense URLs.
 								</li>
 								<li>Do the same with the members endpoint to pick who paid.</li>
 								<li>

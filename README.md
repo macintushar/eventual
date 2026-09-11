@@ -132,7 +132,7 @@ $CURL "$BASE/api/shortcut/groups/GROUP_ID/members"     # { "Me (Name)": "USER_ID
 $CURL -X POST -d '{"paidByUserId":"USER_ID","amount":1200.5}' "$BASE/api/shortcut/groups/GROUP_ID/expenses"
 ```
 
-Every response, including errors, has a `message` field that the shortcut shows as a notification. After changing `scripts/build-shortcut.ts`, rebuild and re-sign the file on macOS with `bun run shortcut:build [default-url]`.
+The group and member responses are dictionaries: Choose from List displays their keys but returns the selected value (the ID). Use that output directly, without another dictionary lookup. The expense response and errors have a `message` field. After changing `scripts/build-shortcut.ts`, rebuild and re-sign the file on macOS with `bun run shortcut:build [default-url]`. Existing users must download the updated file and replace their installed shortcut to receive fixes.
 
 ## Verification
 
