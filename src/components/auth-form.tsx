@@ -107,7 +107,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 														field.handleChange(event.target.value)
 													}
 													autoComplete="name"
-													placeholder="Priya Rao"
+													placeholder="Mac"
 												/>
 											</Field>
 										)}

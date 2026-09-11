@@ -18,7 +18,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit pull",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "shortcut:build": "tsx scripts/build-shortcut.ts"
   },
   "dependencies": {
     "@better-auth/api-key": "1.5.3",

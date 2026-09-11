@@ -62,7 +62,7 @@ Vercel project variables are not automatically available in your local shell. Do
 
 ## REST API
 
-Authentication accepts a Better Auth session cookie or a user API key in the `x-api-key` header. Create and revoke keys at `/app/settings`.
+Authentication accepts a Better Auth session cookie or a user API key in the `x-api-key` header (or `Authorization: Bearer ss_…`). Create and revoke keys at `/app/settings`.
 
 The cookie examples assume `cookies.txt` was produced by signing in through `/api/auth/sign-in/email`.
 
@@ -120,7 +120,19 @@ Status mapping: `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `VALIDA
 
 ## MCP
 
-`POST /mcp` exposes `listGroups`, `listExpenses`, `createExpense`, and `getBalances`. It uses the same Better Auth cookie or `x-api-key` header and service layer as REST and server functions. Each HTTP request gets an isolated stateless MCP transport.
+`POST /mcp` exposes `listGroups`, `listExpenses`, `createExpense`, and `getBalances`. It uses the same Better Auth cookie or API key and service layer as REST and server functions. Each HTTP request gets an isolated stateless MCP transport. Setup instructions for each client (Claude Code, the Claude app, Cursor, OpenCode, Hermes, OpenClaw) are at `/docs`.
+
+## Apple Shortcut
+
+`public/eventual.shortcut` asks for a group, then who paid, then an amount, and logs an even split between all group members dated today. On import, Shortcuts asks for an API key and the app URL. It calls:
+
+```bash
+$CURL "$BASE/api/shortcut/groups"                      # { "Group name": "GROUP_ID" }
+$CURL "$BASE/api/shortcut/groups/GROUP_ID/members"     # { "Me (Name)": "USER_ID", ... }
+$CURL -X POST -d '{"paidByUserId":"USER_ID","amount":1200.5}' "$BASE/api/shortcut/groups/GROUP_ID/expenses"
+```
+
+Every response, including errors, has a `message` field that the shortcut shows as a notification. After changing `scripts/build-shortcut.ts`, rebuild and re-sign the file on macOS with `bun run shortcut:build [default-url]`.
 
 ## Verification
 

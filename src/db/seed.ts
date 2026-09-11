@@ -13,7 +13,7 @@ const credentials = [
 		password: "eventual123",
 	},
 	{
-		name: "Priya Rao",
+		name: "Mac",
 		email: "priya@eventual.test",
 		password: "eventual123",
 	},

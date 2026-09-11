@@ -8,10 +8,12 @@ import {
 	createSettlementSchema,
 	inviteSchema,
 	previewExpenseSchema,
+	quickExpenseSchema,
 	roleSchema,
 	updateExpenseSchema,
 } from "#/server/schemas";
 import * as services from "#/server/services/app";
+import * as shortcut from "#/server/services/shortcut";
 
 export async function handle(action: () => Promise<unknown>) {
 	try {
@@ -49,11 +51,50 @@ export async function handle(action: () => Promise<unknown>) {
 
 const jsonBody = async (request: Request) => request.json() as Promise<unknown>;
 
+/**
+ * Apple Shortcut endpoints. Errors gain a top-level `message` so the shortcut
+ * can show the same field in its notification whether the call worked or not.
+ */
+async function dispatchShortcut(
+	request: Request,
+	method: string,
+	parts: string[],
+) {
+	const response = await handle(async () => {
+		const ctx = await buildContext(request);
+		if (method === "GET" && parts.length === 1 && parts[0] === "groups")
+			return shortcut.shortcutGroups(ctx);
+		if (parts[0] === "groups" && parts[1]) {
+			const groupId = parts[1];
+			if (method === "GET" && parts[2] === "members")
+				return shortcut.shortcutMembers(ctx, { groupId });
+			if (method === "POST" && parts[2] === "expenses")
+				return shortcut.quickExpense(
+					ctx,
+					quickExpenseSchema.parse({
+						...((await jsonBody(request)) as object),
+						groupId,
+					}),
+				);
+		}
+		throw new AppError("NOT_FOUND", "Shortcut endpoint not found");
+	});
+	if (response.ok) return response;
+	const body = (await response.json()) as { error: { message: string } };
+	return Response.json(
+		{ ...body, message: `Not logged: ${body.error.message}` },
+		{ status: response.status },
+	);
+}
+
 export async function dispatchApi(request: Request, splat: string) {
 	const method = request.method;
 	const path = splat.replace(/^\/+|\/+$/g, "");
 	const parts = path.split("/");
 	const url = new URL(request.url);
+
+	if (parts[0] === "shortcut")
+		return dispatchShortcut(request, method, parts.slice(1));
 
 	return handle(async () => {
 		if (method === "GET" && path === "groups")

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Inter+Tight:wght@500;600&family=Inter:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
@@ -7,121 +7,135 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * EvenTual — "lagoon" design system.
+ * EvenTual — "paper desk" design system. See DESIGN.md.
  *
- * One palette drives everything: the shadcn semantic tokens below are defined in
- * terms of the same teal/palm ramp as the page chrome, so buttons, inputs, tabs
- * and cards are on-brand by default instead of falling back to neutral zinc.
+ * A pale canvas, white paper cards, a black pill action, and a handful of
+ * physical-looking accents (tape blue, note yellow, badge purple, cardboard
+ * warm). The shadcn semantic tokens below are mapped onto those roles so every
+ * primitive is on-brand without per-component overrides.
  */
 :root {
-  /* Brand ramp */
-  --lagoon-50: #f0faf8;
-  --lagoon-100: #d9f0ec;
-  --lagoon-200: #b6e2dc;
-  --lagoon-300: #85cdc6;
-  --lagoon-400: #4fb8b2;
-  --lagoon-500: #2f9aa0;
-  --lagoon-600: #1f7a80;
-  --lagoon-700: #1a6167;
-  --lagoon-800: #17494f;
-  --lagoon-900: #12333a;
-  --palm-500: #2f8f5f;
-  --palm-600: #1d7a4f;
-  --sand: #e7f0e8;
-  --foam: #f3faf5;
+  /* Accent props — small and deliberate, never large fills. */
+  --accent-blue: #3a9edd;
+  --accent-yellow: #d6c12d;
+  --accent-purple: #5253a4;
+  --accent-warm: #c59e7c;
+  --note: #f3e37a;
+  --note-ink: #2b2605;
+
+  /* Story stages — full-bleed chapter backgrounds. */
+  --stage-dark: #161616;
+  --stage-blue: #0a4169;
+  --stage-ink: #f7f8f4;
+  --stage-grid: rgba(255, 255, 255, 0.08);
 
   /* Page chrome */
-  --bg-base: #e9f4ee;
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-strong: rgba(255, 255, 255, 0.93);
-  --inset-glint: rgba(255, 255, 255, 0.85);
-  --shadow-color: 30 90 72;
-  --hero-a: rgba(79, 184, 178, 0.34);
-  --hero-b: rgba(47, 143, 95, 0.18);
-  --grid-line: rgba(255, 255, 255, 0.07);
+  --bg-base: #f3f6f9;
+  --paper: #ffffff;
+  --shadow-color: 38 34 30;
+
+  /*
+   * Legacy aliases still referenced by member avatars. They now resolve to the
+   * accent props so avatars read as small coloured stickers.
+   */
+  --lagoon-50: #eef6fc;
+  --lagoon-100: #d8ebf8;
+  --lagoon-200: #cfe6f7;
+  --lagoon-300: var(--accent-yellow);
+  --lagoon-400: var(--accent-blue);
+  --lagoon-500: var(--accent-purple);
+  --lagoon-600: #1c5f8f;
+  --lagoon-700: #0a4169;
+  --lagoon-800: #083452;
+  --lagoon-900: #06243a;
+  --palm-500: #6b6765;
+  --palm-600: var(--accent-warm);
 
   /* shadcn semantic tokens */
-  --background: #f7fcf9;
-  --foreground: #12333a;
+  --background: #f3f6f9;
+  --foreground: #000000;
   --card: #ffffff;
-  --card-foreground: #12333a;
+  --card-foreground: #000000;
   --popover: #ffffff;
-  --popover-foreground: #12333a;
-  --primary: #1f7a80;
-  --primary-foreground: #f2fbfa;
-  --secondary: #dcefe8;
-  --secondary-foreground: #12333a;
-  --muted: #e8f2ec;
-  --muted-foreground: #5b7c80;
-  --accent: #d5ece4;
-  --accent-foreground: #12333a;
-  /* Diverging pair for balances — validated for CVD separation (deutan ΔE 8.8)
-     and 3:1 contrast against the card surface. */
-  --destructive: #c2321f;
-  --destructive-foreground: #fff5f4;
-  --positive: #15784e;
-  --negative: #c2321f;
+  --popover-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #e8ecf0;
+  --secondary-foreground: #000000;
+  --muted: #e8ecf0;
+  --muted-foreground: #46403f;
+  --accent: #e6ebf0;
+  --accent-foreground: #000000;
+  /* Diverging pair for balances — functional status colours, not brand
+     colours. Both clear 4.5:1 on the canvas and on white paper. */
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --positive: #1f6b45;
+  --negative: #b42318;
   /* Reserved status colour — used only for the locked-expense banner. */
-  --warning: #8a5a00;
-  --border: #d3e3dd;
-  --input: #cfe1da;
-  --ring: #4fb8b2;
-  --radius: 0.75rem;
+  --warning: #7a5b00;
+  --border: #dbd8d6;
+  --input: #bbb8b7;
+  --ring: var(--accent-blue);
+  --radius: 0.875rem;
 }
 
 .dark {
-  --lagoon-50: #0a1a1e;
-  --lagoon-100: #10262c;
-  --lagoon-200: #17343b;
-  --lagoon-300: #2a5a60;
-  --lagoon-400: #3f8d90;
-  --lagoon-500: #5fd3cb;
-  --lagoon-600: #7fe0d8;
-  --lagoon-700: #a5ebe4;
-  --lagoon-800: #c8f3ee;
-  --lagoon-900: #e2faf7;
-  --palm-500: #5fd39a;
-  --palm-600: #7ee0ae;
-  --sand: #0f1f24;
-  --foam: #0c1a1f;
+  /* Dark mode is the almost-black story stage, so long pages stay calm. */
+  --note: #e8d65a;
+  --stage-dark: #1c1c1c;
+  --stage-grid: rgba(255, 255, 255, 0.06);
 
-  --bg-base: #071418;
-  --surface: rgba(16, 33, 38, 0.78);
-  --surface-strong: rgba(14, 30, 35, 0.94);
-  --inset-glint: rgba(160, 235, 226, 0.1);
+  --bg-base: #111111;
+  --paper: #1a1a1a;
   --shadow-color: 0 0 0;
-  --hero-a: rgba(95, 211, 203, 0.16);
-  --hero-b: rgba(95, 211, 154, 0.1);
-  --grid-line: rgba(160, 235, 226, 0.05);
 
-  --background: #08161a;
-  --foreground: #d9ece8;
-  --card: #0e2126;
-  --card-foreground: #d9ece8;
-  --popover: #102429;
-  --popover-foreground: #d9ece8;
-  --primary: #5fd3cb;
-  --primary-foreground: #062224;
-  --secondary: #17323a;
-  --secondary-foreground: #d9ece8;
-  --muted: #152c33;
-  --muted-foreground: #93b5b2;
-  --accent: #1a3a41;
-  --accent-foreground: #e2faf7;
-  /* Re-stepped for the dark surface rather than flipped (deutan ΔE 8.0). */
-  --destructive: #e8594c;
-  --destructive-foreground: #fff5f4;
-  --positive: #2f9d70;
-  --negative: #e8594c;
-  --warning: #e8b13a;
-  --border: #1e3d44;
-  --input: #22454d;
-  --ring: #5fd3cb;
+  --lagoon-50: #0d1a24;
+  --lagoon-100: #12283a;
+  --lagoon-200: #1b3a52;
+  --lagoon-600: #7cc0ec;
+  --lagoon-700: #a6d4f2;
+  --lagoon-800: #cbe6f8;
+  --lagoon-900: #e6f3fc;
+  --palm-500: #9a9694;
+
+  --background: #111111;
+  --foreground: #f3f3f1;
+  --card: #1a1a1a;
+  --card-foreground: #f3f3f1;
+  --popover: #1e1e1e;
+  --popover-foreground: #f3f3f1;
+  /* The pill inverts: paper-white fill, black type. */
+  --primary: #f3f6f9;
+  --primary-foreground: #000000;
+  --secondary: #252525;
+  --secondary-foreground: #f3f3f1;
+  --muted: #222222;
+  --muted-foreground: #b5b1af;
+  --accent: #2a2a2a;
+  --accent-foreground: #f3f3f1;
+  --destructive: #e8675c;
+  --destructive-foreground: #ffffff;
+  --positive: #6fcb95;
+  --negative: #f2806f;
+  --warning: #e3cf4a;
+  --border: #2e2e2e;
+  --input: #4a4a4a;
+  --ring: #6bbcec;
+}
+
+@theme {
+  /* Soft, directional shadows — objects on a desk, not floating chrome. */
+  --shadow-xs: 0 1px 2px rgb(38 34 30 / 0.06);
+  --shadow-sm: 0 1px 2px rgb(38 34 30 / 0.05), 0 6px 16px -6px rgb(38 34 30 / 0.12);
+  --shadow-md: 0 2px 4px rgb(38 34 30 / 0.05), 0 14px 28px -10px rgb(38 34 30 / 0.18);
+  --shadow-lg: 0 4px 8px rgb(38 34 30 / 0.05), 0 24px 44px -14px rgb(38 34 30 / 0.22);
 }
 
 @theme inline {
-  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-hand: 'Caveat', 'Bradley Hand', cursive;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -145,6 +159,15 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  --color-tape: var(--accent-blue);
+  --color-note: var(--note);
+  --color-note-ink: var(--note-ink);
+  --color-badge: var(--accent-purple);
+  --color-cardboard: var(--accent-warm);
+  --color-stage-dark: var(--stage-dark);
+  --color-stage-blue: var(--stage-blue);
+  --color-stage-ink: var(--stage-ink);
 
   --color-lagoon-50: var(--lagoon-50);
   --color-lagoon-100: var(--lagoon-100);
@@ -181,40 +204,29 @@
     margin: 0;
     color: var(--foreground);
     font-family: var(--font-sans);
+    line-height: 1.5;
+    /* Flat, matte canvas — no gradients or glow. */
     background-color: var(--bg-base);
-    background-image:
-      radial-gradient(1100px 620px at -8% -10%, var(--hero-a), transparent 58%),
-      radial-gradient(1050px 620px at 112% -12%, var(--hero-b), transparent 62%),
-      radial-gradient(720px 380px at 50% 115%, var(--hero-a), transparent 70%),
-      linear-gradient(180deg, var(--sand) 0%, var(--foam) 42%, var(--bg-base) 100%);
-    background-attachment: fixed;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Fine grid texture, faded out toward the edges. */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: -1;
-    background-image:
-      linear-gradient(var(--grid-line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-    background-size: 28px 28px;
-    mask-image: radial-gradient(circle at 50% 25%, black, transparent 76%);
+  ::selection {
+    background: var(--note);
+    color: var(--note-ink);
   }
 
+  /* Links keep the ink colour; blue lives in the underline like a tape strip. */
   a {
-    color: var(--primary);
-    text-decoration-color: color-mix(in oklab, var(--primary) 40%, transparent);
-    text-underline-offset: 2px;
+    color: var(--foreground);
+    text-decoration-color: var(--accent-blue);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
   }
 
   a:hover {
-    color: color-mix(in oklab, var(--primary) 80%, var(--foreground));
+    text-decoration-color: currentColor;
   }
 
   /* Tabular figures everywhere money is shown keeps columns from jittering. */
@@ -238,50 +250,48 @@
     margin-inline: auto;
   }
 
-  .display-title {
-    font-family: var(--font-display);
-    font-optical-sizing: auto;
-    letter-spacing: -0.015em;
-  }
-
-  /* Elevated translucent surface — the app's signature panel. */
+  /* Plain white paper — the app's signature panel. */
   .island-shell {
     border: 1px solid var(--border);
-    background-image: linear-gradient(165deg, var(--surface-strong), var(--surface));
-    box-shadow:
-      0 1px 0 var(--inset-glint) inset,
-      0 22px 44px rgb(var(--shadow-color) / 0.1),
-      0 6px 18px rgb(var(--shadow-color) / 0.07);
-    backdrop-filter: blur(8px);
+    background-color: var(--paper);
+    box-shadow: var(--shadow-md);
   }
 
+  /* Paper card that lifts and tilts a touch, like it was nudged on the desk. */
   .feature-card {
     border: 1px solid var(--border);
-    background-image: linear-gradient(165deg, var(--surface-strong), var(--surface));
-    box-shadow:
-      0 1px 0 var(--inset-glint) inset,
-      0 14px 30px rgb(var(--shadow-color) / 0.08);
-    backdrop-filter: blur(6px);
+    background-color: var(--paper);
+    box-shadow: var(--shadow-sm);
     transition:
-      transform 180ms ease,
-      border-color 180ms ease,
-      box-shadow 180ms ease;
+      transform 200ms ease,
+      box-shadow 200ms ease,
+      border-color 200ms ease;
   }
 
   .feature-card:hover {
-    transform: translateY(-2px);
-    border-color: color-mix(in oklab, var(--primary) 40%, var(--border));
-    box-shadow:
-      0 1px 0 var(--inset-glint) inset,
-      0 20px 38px rgb(var(--shadow-color) / 0.12);
+    transform: translateY(-3px) rotate(-0.4deg);
+    border-color: var(--input);
+    box-shadow: var(--shadow-lg);
   }
 
+  /* Quiet label with a short strip of blue tape in front of it. */
   .island-kicker {
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    font-weight: 700;
-    font-size: 0.69rem;
-    color: color-mix(in oklab, var(--primary) 72%, var(--foreground));
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+
+  .island-kicker::before {
+    content: '';
+    width: 1.25rem;
+    height: 0.5rem;
+    border-radius: 2px;
+    background: color-mix(in oklab, var(--accent-blue) 75%, transparent);
+    transform: rotate(-4deg);
   }
 
   .rise-in {
@@ -290,9 +300,102 @@
 
   /* Segmented control used for the split-method and group tabs. */
   .segmented {
-    background: color-mix(in oklab, var(--muted) 74%, transparent);
+    background: var(--muted);
     border: 1px solid var(--border);
+    border-radius: 9999px;
   }
+
+  .segmented [data-slot='tabs-trigger'] {
+    border-radius: 9999px;
+  }
+
+  /* Handwritten accent — notes and annotations only, never headings. */
+  .handwritten {
+    font-family: var(--font-hand);
+    font-size: 1.25rem;
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+  }
+
+  /* Sticky note prop. */
+  .sticky-note {
+    font-family: var(--font-hand);
+    font-size: 1.25rem;
+    line-height: 1.1;
+    color: var(--note-ink);
+    background: var(--note);
+    padding: 0.875rem 1rem;
+    border-radius: 3px 3px 10px 3px;
+    box-shadow: var(--shadow-md);
+    transform: rotate(-2.5deg);
+  }
+
+  /* Strip of translucent tape; position it on a relative parent. */
+  .tape {
+    position: absolute;
+    width: 4.5rem;
+    height: 1.25rem;
+    background: color-mix(in oklab, var(--accent-blue) 55%, transparent);
+    border-radius: 2px;
+    transform: rotate(-6deg);
+  }
+
+  /* Tilted paper sheet for story stages and hero collages. */
+  .paper-sheet {
+    background: #ffffff;
+    color: #000000;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    transform: rotate(-1.5deg);
+  }
+
+  /* Full-bleed chapter backgrounds with white copy. */
+  .story-stage {
+    color: var(--stage-ink);
+    background-color: var(--stage-dark);
+    background-image:
+      linear-gradient(var(--stage-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--stage-grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .story-stage-deep {
+    color: var(--stage-ink);
+    background-color: var(--stage-blue);
+  }
+
+  .story-stage a,
+  .story-stage-deep a {
+    color: inherit;
+  }
+}
+
+/*
+ * Design-level shape rules. Unlayered on purpose so they win over the
+ * primitives' default rounding utilities: every button is a pill (DESIGN.md →
+ * Primary action), and display type owns its own weight and tracking.
+ */
+[data-slot='button'] {
+  border-radius: 9999px;
+}
+
+[data-slot='button'][data-variant='default'] {
+  box-shadow: var(--shadow-sm);
+}
+
+[data-slot='tabs-list'][data-variant='default'] {
+  border-radius: 9999px;
+}
+
+[data-slot='tabs-list'][data-variant='default'] > [data-slot='tabs-trigger'] {
+  border-radius: 9999px;
+}
+
+.display-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
 }
 
 @keyframes rise-in {

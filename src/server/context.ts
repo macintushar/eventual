@@ -1,5 +1,7 @@
+import { APIError } from "better-auth/api";
+
 import { type Database, db } from "#/db";
-import { auth } from "#/lib/auth";
+import { auth, presentedApiKey } from "#/lib/auth";
 import { AppError } from "#/server/errors";
 
 export type AuthSession = NonNullable<
@@ -14,9 +16,16 @@ export type Ctx = {
 };
 
 export async function buildContext(request: Request): Promise<Ctx> {
-	const session = await auth.api.getSession({ headers: request.headers });
+	// A revoked, expired or mistyped API key throws instead of returning null.
+	const session = await auth.api
+		.getSession({ headers: request.headers })
+		.catch((error: unknown) => {
+			if (error instanceof APIError)
+				throw new AppError("UNAUTHENTICATED", error.message);
+			throw error;
+		});
 	if (!session) throw new AppError("UNAUTHENTICATED", "Sign in to continue");
-	const presentedKey = request.headers.get("x-api-key");
+	const presentedKey = presentedApiKey(request.headers);
 	return {
 		db,
 		user: session.user,

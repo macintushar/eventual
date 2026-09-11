@@ -74,6 +74,14 @@ export const pageSchema = z.object({
 	limit: z.coerce.number().int().min(1).max(100).default(30),
 });
 
+/** Apple Shortcut quick log: rupees in, even split across the whole group. */
+export const quickExpenseSchema = z.object({
+	groupId: idSchema,
+	paidByUserId: idSchema,
+	amount: z.union([z.number(), z.string()]),
+	description: z.string().trim().min(1).max(200).optional(),
+});
+
 export type CreateGroupInput = z.infer<typeof createGroupSchema>;
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;

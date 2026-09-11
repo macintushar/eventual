@@ -8,6 +8,19 @@ import { db } from "#/db";
 import * as schema from "#/db/schema";
 import { env } from "#/env";
 
+const API_KEY_PREFIX = "ss_";
+
+/**
+ * Reads a user API key from `x-api-key`, or from `Authorization: Bearer ss_…`
+ * for MCP clients (Hermes, OpenClaw) configured with bearer tokens.
+ */
+export function presentedApiKey(headers: Headers | undefined) {
+	const direct = headers?.get("x-api-key");
+	if (direct) return direct;
+	const bearer = headers?.get("authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
+	return bearer?.startsWith(API_KEY_PREFIX) ? bearer : null;
+}
+
 export const auth = betterAuth({
 	appName: "EvenTual",
 	baseURL: env.BETTER_AUTH_URL,
@@ -30,7 +43,8 @@ export const auth = betterAuth({
 			enableSessionForAPIKeys: true,
 			requireName: true,
 			maximumNameLength: 64,
-			defaultPrefix: "ss_",
+			defaultPrefix: API_KEY_PREFIX,
+			customAPIKeyGetter: (ctx) => presentedApiKey(ctx.headers),
 			rateLimit: {
 				enabled: true,
 				timeWindow: 1000 * 60 * 60,

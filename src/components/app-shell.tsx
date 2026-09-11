@@ -1,5 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { KeyRound, LogOut } from "lucide-react";
+import { KeyRound, LogOut, Plug } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { MemberAvatar } from "#/components/member-avatar";
@@ -34,6 +34,12 @@ export function AppShell({
 					<Wordmark to="/app" />
 					<div className="flex items-center gap-1">
 						<ThemeToggle />
+						<Button variant="ghost" size="sm" asChild>
+							<Link to="/docs">
+								<Plug data-icon="inline-start" />
+								<span className="hidden sm:inline">Integrations</span>
+							</Link>
+						</Button>
 						<Button variant="ghost" size="sm" asChild>
 							<Link to="/app/settings">
 								<KeyRound data-icon="inline-start" />
