@@ -1,6 +1,6 @@
 /**
  * Builds `public/eventual.shortcut`: pick a group, pick who paid, type the
- * amount. Import asks for the user's API key and EvenTual URL.
+ * amount. Import asks for the user's API key and Eventual URL.
  *
  * macOS only — signing needs the `shortcuts` CLI.
  *   bun run shortcut:build [https://your-eventual-url]
@@ -156,7 +156,7 @@ const message = action(
 action(
 	"notification",
 	{
-		WFNotificationActionTitle: "EvenTual",
+		WFNotificationActionTitle: "Eventual",
 		WFNotificationActionBody: text(message),
 	},
 	"Notification",
@@ -180,14 +180,14 @@ const workflow = {
 			ActionIndex: 0,
 			Category: "Parameter",
 			ParameterKey: "WFTextActionText",
-			Text: "Paste an EvenTual API key (create one under API keys)",
+			Text: "Paste an Eventual API key (create one under API keys)",
 			DefaultValue: "",
 		},
 		{
 			ActionIndex: 1,
 			Category: "Parameter",
 			ParameterKey: "WFTextActionText",
-			Text: "Your EvenTual URL, without a trailing slash",
+			Text: "Your Eventual URL, without a trailing slash",
 			DefaultValue: defaultOrigin,
 		},
 	],

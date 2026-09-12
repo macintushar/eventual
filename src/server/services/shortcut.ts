@@ -56,7 +56,7 @@ export async function quickExpense(
 ) {
 	let amountMinor: number;
 	try {
-		amountMinor = toMinor(input.amount);
+		amountMinor = toMinor(input.amount, input.currency);
 	} catch (error) {
 		throw new AppError(
 			"VALIDATION",
@@ -71,7 +71,7 @@ export async function quickExpense(
 		description: input.description ?? "Quick expense",
 		notes: "Logged from Apple Shortcuts",
 		amountMinor,
-		currency: "INR",
+		currency: input.currency,
 		paidByUserId: input.paidByUserId,
 		splitMethod: "even",
 		date: new Date(),
@@ -82,6 +82,6 @@ export async function quickExpense(
 	return {
 		expenseId: created.id,
 		groupId: created.organizationId,
-		message: `${formatMinor(amountMinor)} logged. ${payer} paid, split evenly between ${members.length}.`,
+		message: `${formatMinor(amountMinor, input.currency)} logged. ${payer} paid, split evenly between ${members.length}.`,
 	};
 }

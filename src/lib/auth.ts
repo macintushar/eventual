@@ -8,21 +8,28 @@ import { db } from "#/db";
 import * as schema from "#/db/schema";
 import { env } from "#/env";
 
-const API_KEY_PREFIX = "ss_";
+const API_KEY_PREFIX = "ev_";
+const LEGACY_API_KEY_PREFIX = "ss_";
 
 /**
- * Reads a user API key from `x-api-key`, or from `Authorization: Bearer ss_…`
- * for MCP clients (Hermes, OpenClaw) configured with bearer tokens.
+ * Reads a user API key from `x-api-key`, or from `Authorization: Bearer ev_…`
+ * for MCP clients (Hermes, OpenClaw) configured with bearer tokens. The old
+ * `ss_` bearer prefix remains accepted so keys created before the rename keep
+ * working.
  */
 export function presentedApiKey(headers: Headers | undefined) {
 	const direct = headers?.get("x-api-key");
 	if (direct) return direct;
 	const bearer = headers?.get("authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
-	return bearer?.startsWith(API_KEY_PREFIX) ? bearer : null;
+	return bearer &&
+		(bearer.startsWith(API_KEY_PREFIX) ||
+			bearer.startsWith(LEGACY_API_KEY_PREFIX))
+		? bearer
+		: null;
 }
 
 export const auth = betterAuth({
-	appName: "EvenTual",
+	appName: "Eventual",
 	baseURL: env.BETTER_AUTH_URL,
 	secret: env.BETTER_AUTH_SECRET,
 	// Vite falls back to 3001+ when 3000 is taken; trust any local origin in dev.

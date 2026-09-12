@@ -1,6 +1,6 @@
-# Build prompt: EvenTual (Splitwise-style expense splitting)
+# Build prompt: Eventual (Splitwise-style expense splitting)
 
-You are building **EvenTual** in the current repository. The repo is a fresh
+You are building **Eventual** in the current repository. The repo is a fresh
 TanStack Start scaffold with nothing app-specific built yet. Build the complete feature set
 described below: data model, service layer, REST API, MCP-ready wiring, and a functional UI.
 
@@ -171,7 +171,7 @@ participant. A participant may owe 0 (e.g. 0 shares) — that's legal.
 
 - Locked ⇒ `PATCH /expenses/:id` and `DELETE /expenses/:id` fail with **409 `EXPENSE_LOCKED`**.
   The error payload lists which members locked it (`{ userId, name, paidAt }[]`), so the UI can say
-  "Priya marked their share paid — ask them to unmark it to edit."
+  "Mac marked their share paid — ask them to unmark it to edit."
 - The lock covers **everything**: amount, currency, split method, participants, payer, description,
   notes, date. No partial editability.
 - Marking/unmarking paid is always allowed on a locked expense (others still need to settle).
@@ -372,7 +372,7 @@ Percent), used by both create and edit:
 - Percent input in whole/decimal percent, converted to basis points at the boundary.
 
 **Locked state**: on a locked expense, disable every field, show a prominent banner —
-"Locked · Priya marked their share paid on 3 Sep" — and hide Edit/Delete. Each member's row shows
+"Locked · Mac marked their share paid on 3 Sep" — and hide Edit/Delete. Each member's row shows
 a paid checkbox they can toggle (their own row, or any row if they're the payer).
 
 **Balances tab**: per-member net (green = owed to them, red = they owe), the simplified transfer

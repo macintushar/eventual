@@ -1,6 +1,6 @@
-import { auth } from "#/lib/auth";
 import { db } from "#/db";
 import * as schema from "#/db/schema";
+import { auth } from "#/lib/auth";
 import { computeShares } from "#/server/domain/split";
 
 await db.delete(schema.organization);
@@ -14,7 +14,7 @@ const credentials = [
 	},
 	{
 		name: "Mac",
-		email: "priya@eventual.test",
+		email: "mac@eventual.test",
 		password: "eventual123",
 	},
 	{

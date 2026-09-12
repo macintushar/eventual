@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Wordmark } from "#/components/app-shell";
+import { PublicDock } from "#/components/dock";
 import { Button } from "#/components/ui/button";
 import {
 	Card,
@@ -32,7 +33,7 @@ function InvitePage() {
 	const [joining, setJoining] = useState(false);
 
 	return (
-		<main className="page-wrap grid min-h-screen place-items-center py-12">
+		<main className="page-wrap pad-dock grid min-h-[100dvh] place-items-center py-12">
 			<div className="w-full max-w-lg">
 				<div className="mb-6 flex justify-center">
 					<Wordmark />
@@ -116,6 +117,7 @@ function InvitePage() {
 					</CardContent>
 				</Card>
 			</div>
+			<PublicDock />
 		</main>
 	);
 }

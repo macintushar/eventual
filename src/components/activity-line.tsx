@@ -119,18 +119,25 @@ function sentence(item: ActivityItem, nameOf: (userId: string) => string) {
 			return (
 				<>
 					{actor} added {strong(str(meta.description))} for{" "}
-					<span className="tabular">{formatMinor(num(meta.amountMinor))}</span>
+					<span className="tabular">
+						{formatMinor(num(meta.amountMinor), str(meta.currency) || "INR")}
+					</span>
 				</>
 			);
 		case "expense.updated": {
 			const from = num(meta.fromAmountMinor);
 			const to = num(meta.amountMinor);
-			if (from !== to)
+			if (from !== to || meta.fromCurrency !== meta.currency)
 				return (
 					<>
 						{actor} changed {strong(str(meta.description))} from{" "}
-						<span className="tabular">{formatMinor(from)}</span> to{" "}
-						<span className="tabular">{formatMinor(to)}</span>
+						<span className="tabular">
+							{formatMinor(from, str(meta.fromCurrency) || "INR")}
+						</span>{" "}
+						to{" "}
+						<span className="tabular">
+							{formatMinor(to, str(meta.currency) || "INR")}
+						</span>
 					</>
 				);
 			return (
@@ -143,7 +150,10 @@ function sentence(item: ActivityItem, nameOf: (userId: string) => string) {
 			return (
 				<>
 					{actor} deleted {strong(str(meta.description))} (
-					<span className="tabular">{formatMinor(num(meta.amountMinor))}</span>)
+					<span className="tabular">
+						{formatMinor(num(meta.amountMinor), str(meta.currency) || "INR")}
+					</span>
+					)
 				</>
 			);
 		case "share.marked_paid":
@@ -162,14 +172,18 @@ function sentence(item: ActivityItem, nameOf: (userId: string) => string) {
 			return (
 				<>
 					{actor} recorded a payment to {strong(nameOf(str(meta.toUserId)))} of{" "}
-					<span className="tabular">{formatMinor(num(meta.amountMinor))}</span>
+					<span className="tabular">
+						{formatMinor(num(meta.amountMinor), str(meta.currency) || "INR")}
+					</span>
 				</>
 			);
 		case "settlement.deleted":
 			return (
 				<>
 					{actor} deleted a settlement of{" "}
-					<span className="tabular">{formatMinor(num(meta.amountMinor))}</span>
+					<span className="tabular">
+						{formatMinor(num(meta.amountMinor), str(meta.currency) || "INR")}
+					</span>
 				</>
 			);
 	}
@@ -201,12 +215,19 @@ export function ActivityLine({
 }): ReactNode {
 	const Icon = icons[item.type] ?? Receipt;
 	return (
-		<Item size="sm">
-			<ItemMedia variant="icon">
+		<Item size="sm" className="flex-nowrap">
+			<ItemMedia variant="icon" className="shrink-0">
 				<Icon />
 			</ItemMedia>
-			<ItemContent>
-				<ItemTitle className="font-normal">{sentence(item, nameOf)}</ItemTitle>
+			<ItemContent className="min-w-0">
+				{/*
+				 * `ItemTitle` is a flex row, which turns each name and fragment of
+				 * the sentence into its own wrapping box — on a phone that reads as
+				 * a ransom note. This one is prose, so it flows as prose.
+				 */}
+				<ItemTitle className="block w-full font-normal text-pretty">
+					{sentence(item, nameOf)}
+				</ItemTitle>
 				<ItemDescription>
 					<time
 						dateTime={new Date(item.createdAt).toISOString()}

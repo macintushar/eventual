@@ -47,7 +47,8 @@ function createMcpServer(ctx: Ctx) {
 	server.registerTool(
 		"createExpense",
 		{
-			description: "Create and split an expense",
+			description:
+				"Create and split an expense in its original currency. amountMinor uses that currency's smallest unit; no exchange conversion is performed.",
 			inputSchema: createExpenseToolShape,
 		},
 		async (input) =>
@@ -56,7 +57,8 @@ function createMcpServer(ctx: Ctx) {
 	server.registerTool(
 		"getBalances",
 		{
-			description: "Get member balances and simplified transfers",
+			description:
+				"Get member balances and simplified transfers, separately for each currency. Every balance and transfer includes its currency code.",
 			inputSchema: groupIdSchema.shape,
 		},
 		async (input) => text(await getBalances(ctx, input)),

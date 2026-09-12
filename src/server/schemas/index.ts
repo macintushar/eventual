@@ -1,4 +1,12 @@
 import { z } from "zod";
+import { currencies, isCurrency } from "#/lib/currencies";
+
+export const currencySchema = z
+	.string()
+	.refine(isCurrency, "Unsupported currency")
+	.describe(
+		`ISO currency code: ${currencies.map((currency) => currency.code).join(", ")}`,
+	);
 
 export const idSchema = z.string().min(1);
 export const roleSchema = z.enum(["owner", "admin", "member"]);
@@ -28,8 +36,8 @@ export const createExpenseSchema = z.object({
 	groupId: idSchema,
 	description: z.string().trim().min(1).max(200),
 	notes: z.string().trim().max(2000).nullable().optional(),
-	amountMinor: z.number().int().positive(),
-	currency: z.literal("INR").default("INR"),
+	amountMinor: z.number().int().safe().positive(),
+	currency: currencySchema.default("INR"),
 	paidByUserId: idSchema,
 	splitMethod: splitMethodSchema,
 	date: z.coerce.date(),
@@ -37,9 +45,10 @@ export const createExpenseSchema = z.object({
 });
 export const updateExpenseSchema = createExpenseSchema
 	.omit({ groupId: true })
-	.extend({ expenseId: idSchema });
+	.extend({ expenseId: idSchema, currency: currencySchema });
 export const previewExpenseSchema = createExpenseSchema.pick({
 	amountMinor: true,
+	currency: true,
 	splitMethod: true,
 	participants: true,
 });
@@ -50,7 +59,8 @@ export const sharePaidSchema = z.object({
 export const createSettlementSchema = z.object({
 	groupId: idSchema,
 	toUserId: idSchema,
-	amountMinor: z.number().int().positive(),
+	amountMinor: z.number().int().safe().positive(),
+	currency: currencySchema,
 	note: z.string().trim().max(500).nullable().optional(),
 });
 export const settlementIdSchema = z.object({ settlementId: idSchema });
@@ -74,11 +84,12 @@ export const pageSchema = z.object({
 	limit: z.coerce.number().int().min(1).max(100).default(30),
 });
 
-/** Apple Shortcut quick log: rupees in, even split across the whole group. */
+/** Apple Shortcut quick log: major units in, even split across the whole group. */
 export const quickExpenseSchema = z.object({
 	groupId: idSchema,
 	paidByUserId: idSchema,
 	amount: z.union([z.number(), z.string()]),
+	currency: currencySchema.default("INR"),
 	description: z.string().trim().min(1).max(200).optional(),
 });
 

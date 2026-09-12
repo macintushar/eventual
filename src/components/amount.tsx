@@ -3,14 +3,16 @@ import { cn } from "#/lib/utils";
 
 /**
  * Money is rendered in exactly one place so sign colouring, tabular figures and
- * INR formatting stay consistent across dashboards, balances and expense rows.
+ * currency formatting stay consistent across dashboards, balances and expense rows.
  */
 export function Amount({
 	minor,
+	currency = "INR",
 	tone = "plain",
 	className,
 }: {
 	minor: number;
+	currency?: string;
 	/** `signed` colours by sign (owed to you / you owe); `plain` inherits colour. */
 	tone?: "plain" | "signed";
 	className?: string;
@@ -28,7 +30,7 @@ export function Amount({
 				className,
 			)}
 		>
-			{formatMinor(minor)}
+			{formatMinor(minor, currency)}
 		</span>
 	);
 }

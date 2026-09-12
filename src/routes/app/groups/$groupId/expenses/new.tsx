@@ -25,8 +25,8 @@ function NewExpense() {
 				<p className="island-kicker">New expense</p>
 				<h1 className="display-title text-4xl font-bold">Add an expense</h1>
 				<p className="mt-1 text-sm text-muted-foreground">
-					Splits are computed in paise, so shares always add up to the total
-					exactly.
+					Splits use the currency's smallest unit, so shares always add up to
+					the total exactly.
 				</p>
 			</div>
 			<ExpenseEditor

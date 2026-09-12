@@ -1,4 +1,4 @@
-# How EvenTual is designed
+# How Eventual is designed
 
 Last updated: 2026-09-11
 
@@ -6,7 +6,7 @@ The tokens and shared classes described here live in `src/styles.css`. Change th
 
 ## Overview
 
-EvenTual is a shared-expense app. It uses a scrapbook-like editorial style: a pale canvas, oversized headlines, white paper cards, sticky-note accents, and soft shadows that make each screen feel arranged by hand. It stays polished, but tilted cards, handwritten notes, tape strips and a few loud accent colours give it a handmade edge.
+Eventual is a shared-expense app. It uses a scrapbook-like editorial style: a pale canvas, oversized headlines, white paper cards, sticky-note accents, and soft shadows that make each screen feel arranged by hand. It stays polished, but tilted cards, handwritten notes, tape strips and a few loud accent colours give it a handmade edge.
 
 The mood changes by chapter. Everyday screens (dashboard, groups, expenses, settings) stay airy and neutral so black type, balances and paper cards lead. Story sections on the landing page switch to almost-black or deep blue backgrounds, where white copy, paper sheets and bright badges tell the story. Across both, the type stays large, the primary button stays a dark pill, and the rhythm comes from generous space rather than decoration.
 
@@ -76,7 +76,7 @@ FAQ-style content goes back to a calm, table-like rhythm: a centred question, a 
 
 ## Visual language
 
-EvenTual looks assembled from paper, tape and printed scraps. Props are slightly oversized and often tilted, which adds handmade energy without hurting clarity. Shadows are soft and directional, like objects on a desk rather than software widgets with heavy elevation. The collage style is strongest on the landing hero and the story stages.
+Eventual looks assembled from paper, tape and printed scraps. Props are slightly oversized and often tilted, which adds handmade energy without hurting clarity. Shadows are soft and directional, like objects on a desk rather than software widgets with heavy elevation. The collage style is strongest on the landing hero and the story stages.
 
 The background matters as much as the props. The canvas is flat and matte, with no gradients, glow or glass blur. Dark and blue stages set a denser mood and make white paper pop. Cards have rounded corners, but not so soft that the structure disappears.
 

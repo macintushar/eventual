@@ -1,20 +1,44 @@
 export type BalanceMember = { userId: string; name: string };
 export type BalanceExpense = {
+	currency: string;
 	paidByUserId: string;
 	shares: { userId: string; amountMinor: number; paidAt: Date | null }[];
 };
 export type BalanceSettlement = {
+	currency: string;
 	fromUserId: string;
 	toUserId: string;
 	amountMinor: number;
 	allocations: { amountMinor: number }[];
 };
-export type MemberBalance = BalanceMember & { balanceMinor: number };
+export type MemberBalance = BalanceMember & {
+	currency: string;
+	balanceMinor: number;
+};
 
 export function computeBalances(
 	members: BalanceMember[],
 	expenses: BalanceExpense[],
 	settlements: BalanceSettlement[],
+): MemberBalance[] {
+	const currencies = [
+		...new Set([...expenses, ...settlements].map((row) => row.currency)),
+	].sort();
+	return currencies.flatMap((currency) =>
+		computeCurrencyBalances(
+			members,
+			expenses.filter((row) => row.currency === currency),
+			settlements.filter((row) => row.currency === currency),
+			currency,
+		),
+	);
+}
+
+function computeCurrencyBalances(
+	members: BalanceMember[],
+	expenses: BalanceExpense[],
+	settlements: BalanceSettlement[],
+	currency: string,
 ): MemberBalance[] {
 	const balances = new Map(members.map((member) => [member.userId, 0]));
 	for (const expense of expenses) {
@@ -49,6 +73,7 @@ export function computeBalances(
 	}
 	const result = members.map((member) => ({
 		...member,
+		currency,
 		balanceMinor: balances.get(member.userId) ?? 0,
 	}));
 	if (result.reduce((sum, row) => sum + row.balanceMinor, 0) !== 0)
@@ -57,6 +82,17 @@ export function computeBalances(
 }
 
 export function simplifyBalances(balances: MemberBalance[]) {
+	return [...new Set(balances.map((row) => row.currency))]
+		.sort()
+		.flatMap((currency) =>
+			simplifyCurrencyBalances(
+				balances.filter((row) => row.currency === currency),
+				currency,
+			),
+		);
+}
+
+function simplifyCurrencyBalances(balances: MemberBalance[], currency: string) {
 	const debtors = balances
 		.filter((row) => row.balanceMinor < 0)
 		.map((row) => ({ ...row, remaining: -row.balanceMinor }));
@@ -67,6 +103,7 @@ export function simplifyBalances(balances: MemberBalance[]) {
 		from: BalanceMember;
 		to: BalanceMember;
 		amountMinor: number;
+		currency: string;
 	}[] = [];
 	while (debtors.length && creditors.length) {
 		debtors.sort(
@@ -79,6 +116,7 @@ export function simplifyBalances(balances: MemberBalance[]) {
 		const creditor = creditors[0];
 		const amountMinor = Math.min(debtor.remaining, creditor.remaining);
 		transfers.push({
+			currency,
 			from: { userId: debtor.userId, name: debtor.name },
 			to: { userId: creditor.userId, name: creditor.name },
 			amountMinor,

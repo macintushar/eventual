@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 import {
 	Bot,
 	Download,
@@ -13,6 +12,7 @@ import {
 import { Wordmark } from "#/components/app-shell";
 import { type Brand, BrandLogo } from "#/components/brand-logo";
 import { CodeBlock } from "#/components/code-block";
+import { PublicDock } from "#/components/dock";
 import { ThemeToggle } from "#/components/theme";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Badge } from "#/components/ui/badge";
@@ -26,18 +26,19 @@ import {
 } from "#/components/ui/card";
 import { Separator } from "#/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
+import { env } from "#/env";
 
 const getOriginFn = createServerFn({ method: "GET" }).handler(
-	() => new URL(getRequest().url).origin,
+	() => new URL(env.BETTER_AUTH_URL).origin,
 );
 
 export const Route = createFileRoute("/docs")({
 	loader: () => getOriginFn(),
-	head: () => ({ meta: [{ title: "Integrations · EvenTual" }] }),
+	head: () => ({ meta: [{ title: "Integrations · Eventual" }] }),
 	component: DocsPage,
 });
 
-const KEY = "ss_your_api_key";
+const KEY = "ev_your_api_key";
 
 const shortcutSteps = [
 	{ icon: Users, title: "Pick the group", text: "Every group you belong to." },
@@ -81,7 +82,7 @@ function clients(mcp: string): Client[] {
 			logo: "claude",
 			steps: [
 				"Open Settings → Connectors → Add custom connector on claude.ai or Claude Desktop.",
-				`Name it EvenTual and set the URL to ${mcp}.`,
+				`Name it Eventual and set the URL to ${mcp}.`,
 				"Under Authentication, pick None, then add an x-api-key request header containing your key.",
 			],
 			note: "Connectors you add on claude.ai also appear in Claude Desktop and mobile.",
@@ -137,7 +138,7 @@ function clients(mcp: string): Client[] {
 			name: "Hermes",
 			logo: "hermes",
 			steps: [
-				"Add EvenTual under mcp_servers in ~/.hermes/config.yaml.",
+				"Add Eventual under mcp_servers in ~/.hermes/config.yaml.",
 				"Restart Hermes or run /reload-mcp.",
 			],
 			code: {
@@ -150,7 +151,7 @@ function clients(mcp: string): Client[] {
 			name: "OpenClaw",
 			logo: "openclaw",
 			steps: [
-				"Add EvenTual to the mcp.servers block of your OpenClaw config, or paste the same values into Settings → MCP.",
+				"Add Eventual to the mcp.servers block of your OpenClaw config, or paste the same values into Settings → MCP.",
 			],
 			code: {
 				label: "OpenClaw config",
@@ -180,30 +181,33 @@ function DocsPage() {
 	const list = clients(mcp);
 
 	return (
-		<div className="flex min-h-screen flex-col">
-			<header className="page-wrap flex h-20 items-center justify-between">
+		<div className="pad-dock flex min-h-[100dvh] flex-col">
+			<header className="page-wrap flex h-16 items-center justify-between gap-3 sm:h-20">
 				<Wordmark />
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-1 sm:gap-2">
 					<ThemeToggle />
-					<Button variant="ghost" asChild>
+					{/* Three controls plus the wordmark overflow 390px, and "Open app"
+					    is already the dock's home slot on a phone. */}
+					<Button variant="ghost" className="hidden sm:inline-flex" asChild>
 						<Link to="/app">Open app</Link>
 					</Button>
-					<Button asChild>
+					<Button className="press" asChild>
 						<Link to="/app/settings">
 							<KeyRound data-icon="inline-start" />
-							Get an API key
+							<span className="sm:hidden">API key</span>
+							<span className="hidden sm:inline">Get an API key</span>
 						</Link>
 					</Button>
 				</div>
 			</header>
 
-			<main className="page-wrap flex flex-1 flex-col gap-10 py-10">
+			<main className="page-wrap flex flex-1 flex-col gap-8 py-8 sm:gap-10 sm:py-10">
 				<section className="rise-in max-w-2xl">
 					<p className="island-kicker">Integrations</p>
-					<h1 className="display-title mt-4 text-4xl leading-tight font-bold md:text-5xl">
+					<h1 className="display-title mt-4 text-[2.125rem] leading-tight font-bold sm:text-4xl md:text-5xl">
 						Log it where you already are.
 					</h1>
-					<p className="mt-4 text-lg text-muted-foreground">
+					<p className="mt-4 text-base text-muted-foreground sm:text-lg">
 						Log an expense from your iPhone, or ask an AI assistant to do it.
 						Each integration signs in with an API key from your account.
 					</p>
@@ -223,8 +227,10 @@ function DocsPage() {
 
 				<Card id="shortcut" className="island-shell scroll-mt-8 rounded-3xl">
 					<CardHeader>
-						<div className="flex items-center gap-2">
-							<BrandLogo brand="shortcuts" className="size-7" />
+						{/* The platform badge wraps under the title rather than
+						    squeezing it into two lines on a phone. */}
+						<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+							<BrandLogo brand="shortcuts" className="size-7 shrink-0" />
 							<CardTitle className="display-title text-2xl font-bold">
 								Apple Shortcut
 							</CardTitle>
@@ -268,10 +274,10 @@ function DocsPage() {
 								When you add it, Shortcuts asks for two things: your API key and
 								this URL.
 							</p>
-							<CodeBlock label="EvenTual URL" code={origin} />
+							<CodeBlock label="Eventual URL" code={origin} />
 							<p className="text-sm text-muted-foreground">
 								Already installed? Download it again and replace the old
-								shortcut to get fixes. Tip: say "Hey Siri, log to EvenTual", or
+								shortcut to get fixes. Tip: say "Hey Siri, log to Eventual", or
 								add it to your Home Screen or Action button.
 							</p>
 						</div>
@@ -324,7 +330,7 @@ function DocsPage() {
 							</CardTitle>
 						</div>
 						<CardDescription>
-							Connect any assistant that supports MCP. Then just say "Priya paid
+							Connect any assistant that supports MCP. Then just say "Mac paid
 							₹3,600 for dinner in Goa weekend, split it evenly" or "Who owes me
 							money?"
 						</CardDescription>
@@ -332,8 +338,8 @@ function DocsPage() {
 					<CardContent className="flex flex-col gap-6">
 						<CodeBlock label="MCP server URL (Streamable HTTP)" code={mcp} />
 						<p className="text-sm text-muted-foreground">
-							Authenticate with <code>x-api-key: ss_…</code> or{" "}
-							<code>Authorization: Bearer ss_…</code>, whichever your client
+							Authenticate with <code>x-api-key: ev_…</code> or{" "}
+							<code>Authorization: Bearer ev_…</code>, whichever your client
 							supports.
 						</p>
 
@@ -394,8 +400,10 @@ function DocsPage() {
 
 			<footer className="page-wrap py-8 text-xs text-muted-foreground">
 				<Separator className="mb-8" />
-				EvenTual · expenses without the spreadsheet.
+				Eventual · expenses without the spreadsheet.
 			</footer>
+
+			<PublicDock />
 		</div>
 	);
 }

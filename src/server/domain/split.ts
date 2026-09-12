@@ -48,6 +48,7 @@ export function computeShares(
 	totalMinor: number,
 	method: SplitMethod,
 	participants: Participant[],
+	currency = "INR",
 ): ComputedShare[] {
 	assertInteger(totalMinor, "Total");
 	if (totalMinor <= 0) throw new Error("Total must be greater than zero");
@@ -81,8 +82,8 @@ export function computeShares(
 				const delta = totalMinor - sum;
 				throw new Error(
 					delta > 0
-						? `${formatMinor(delta)} left to assign`
-						: `${formatMinor(-delta)} over-assigned`,
+						? `${formatMinor(delta, currency)} left to assign`
+						: `${formatMinor(-delta, currency)} over-assigned`,
 				);
 			}
 			result = values.map((row) => ({

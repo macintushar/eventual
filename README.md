@@ -1,6 +1,6 @@
-# EvenTual
+# Eventual
 
-EvenTual is a TanStack Start expense-sharing app for INR groups. It uses Better Auth organizations, Drizzle ORM, libSQL/Turso, typed server functions, a JSON REST API, and an authenticated MCP endpoint.
+Eventual is a TanStack Start expense-sharing app for multi-currency groups. It uses Better Auth organizations, Drizzle ORM, libSQL/Turso, typed server functions, a JSON REST API, and an authenticated MCP endpoint.
 
 ## Local setup
 
@@ -18,7 +18,7 @@ The seed prints three login accounts. Their shared password is `eventual123`. Se
 
 ```text
 tushar@eventual.test
-priya@eventual.test
+mac@eventual.test
 arjun@eventual.test
 ```
 
@@ -43,7 +43,7 @@ Configure these server-side variables in the Vercel project for each deployment 
 - `TURSO_DATABASE_URL`: the Turso Cloud database URL, not a local file URL.
 - `TURSO_AUTH_TOKEN`: the database access token.
 - `BETTER_AUTH_SECRET`: a secret of at least 32 characters.
-- `BETTER_AUTH_URL`: the deployed application's HTTPS origin.
+- `BETTER_AUTH_URL`: the deployed application's HTTPS origin (e.g. `https://app.example.com`). Shared by Better Auth and the Shortcut, MCP, and API URLs shown on Integrations; these URLs do not use the incoming request's host. Defaults to `http://localhost:3000` for local development.
 
 Vercel runs `bun run db:migrate && bun run build` on every deployment, as configured in `vercel.json`. A failed migration stops the deployment. Migrations use the database credentials configured for that deployment environment, including Preview deployments.
 
@@ -51,18 +51,26 @@ Vercel project variables are not automatically available in your local shell. Do
 
 ## Behaviour
 
-- Money is stored as integer paise and formatted as INR only at the UI edge.
-- Even splits distribute remainder paise by ascending user ID.
+- Money is stored as integer minor units with its original ISO currency code. INR and USD use 100 minor units per major unit; JPY uses 1 and KWD uses 1,000. No exchange conversion or cross-currency netting happens in the backend.
+- Supported currencies and precision live in `src/lib/currencies.ts`: INR, USD, EUR, GBP, AED, AUD, CAD, CHF, CNY, HKD, JPY, KRW, KWD, MYR, NPR, NZD, SAR, SGD, THB and VND. Every currency has an explicit display symbol, including ₹, US$, CA$, £ and €.
+- Even splits distribute remainder minor units by ascending user ID.
 - Shares and percentages use largest-remainder allocation with user-ID tie breaking.
 - Exact inputs must equal the expense total; percentages must equal 10,000 basis points.
 - Any paid share locks every editable field and deletion. Clearing the final paid flag unlocks it.
 - Balances use unpaid expense shares plus settlement records. Settlement allocations mark complete matching shares paid FIFO and never partially settle a share.
-- A settlement moves the balance by its *unallocated* remainder only. The allocated part already moved the balance by marking those shares paid, so counting the raw amount as well would double-count it. Over-paying therefore leaves the payer a credit for the leftover.
-- Positive balance means others owe that member. The simplified debt list greedily pairs largest debtors and creditors.
+- A settlement moves the balance by its *unallocated* remainder only. The allocated part already moved the balance by marking those shares paid, so counting the raw amount as well would double-count it. Partial and indirect repayments reduce the same-currency net balance even when no complete direct share can be marked paid.
+- Positive balance means others owe that member. The simplified debt list greedily pairs largest debtors and creditors separately for each currency.
+- Repayments require an explicit currency and cannot exceed the current simplified transfer from the payer to the recipient in that currency. The shared validator in `src/lib/settlements.ts` runs in the UI and again against fresh balances inside the database transaction. Invalid or excessive repayments return `VALIDATION` (HTTP 422). A paid-status toggle cannot bypass this limit; undo a linked settlement before unmarking an allocated share.
+
+### Currency-aware API responses
+
+`GET /api/groups` returns each group's `balances: [{ currency, balanceMinor }]` for the current user, replacing the former single `balanceMinor` total. `GET /api/groups/{groupId}/balances` returns `members` and `transfers` arrays with a `currency` on every row. The same user or pair can have multiple rows, one per currency. Empty groups return empty arrays.
+
+Expense creation accepts `currency` (omitting it defaults to INR for existing clients). Expense updates and settlements require it explicitly. For example, `{"toUserId":"B","currency":"USD","amountMinor":20000}` records a US$200 repayment and can only reduce USD debt. If the current suggested payment is US$200, attempting US$200.01 or US$400 is rejected. INR debt is unaffected.
 
 ## REST API
 
-Authentication accepts a Better Auth session cookie or a user API key in the `x-api-key` header (or `Authorization: Bearer ss_…`). Create and revoke keys at `/app/settings`.
+Authentication accepts a Better Auth session cookie or a user API key in the `x-api-key` header (or `Authorization: Bearer ev_…`). Legacy `ss_…` bearer keys remain accepted. Create and revoke keys at `/app/settings`.
 
 The cookie examples assume `cookies.txt` was produced by signing in through `/api/auth/sign-in/email`.
 
@@ -105,7 +113,7 @@ $CURL -X DELETE "$BASE/api/expenses/EXPENSE_ID/shares/USER_ID/paid"
 
 $CURL "$BASE/api/groups/GROUP_ID/balances"
 $CURL "$BASE/api/groups/GROUP_ID/settlements"
-$CURL -X POST -d '{"toUserId":"USER_ID","amountMinor":50000,"note":"UPI"}' "$BASE/api/groups/GROUP_ID/settlements"
+$CURL -X POST -d '{"toUserId":"USER_ID","currency":"INR","amountMinor":50000,"note":"UPI"}' "$BASE/api/groups/GROUP_ID/settlements"
 $CURL -X DELETE "$BASE/api/settlements/SETTLEMENT_ID"
 $CURL "$BASE/api/groups/GROUP_ID/activity?limit=30"
 ```
@@ -139,5 +147,6 @@ The group and member responses are dictionaries: Choose from List displays their
 ```bash
 bun run check
 bunx tsc --noEmit
+node --import tsx --test src/lib/money.test.ts src/server/services/settlements.test.ts
 bun run build
 ```

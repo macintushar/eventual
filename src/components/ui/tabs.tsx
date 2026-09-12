@@ -81,7 +81,13 @@ function TabsContent({
 	return (
 		<TabsPrimitive.Content
 			data-slot="tabs-content"
-			className={cn("flex-1 outline-none", className)}
+			className={cn(
+				"flex-1 outline-none",
+				// Panels deal in rather than cutting, so switching tabs reads as one
+				// surface being replaced instead of the page jumping.
+				"data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-bottom-2 data-[state=active]:duration-300 data-[state=active]:ease-[cubic-bezier(0.16,1,0.3,1)]",
+				className,
+			)}
 			{...props}
 		/>
 	);

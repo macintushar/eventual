@@ -7,6 +7,7 @@ import {
 	type Brand,
 	BrandLogo,
 } from "#/components/brand-logo";
+import { PublicDock } from "#/components/dock";
 import { ThemeToggle } from "#/components/theme";
 import { Alert, AlertDescription } from "#/components/ui/alert";
 import { Badge } from "#/components/ui/badge";
@@ -26,16 +27,19 @@ import {
 	ItemTitle,
 } from "#/components/ui/item";
 import { Separator } from "#/components/ui/separator";
+import { cn } from "#/lib/utils";
 import { getSessionFn } from "#/server/fn/auth";
 
 export const Route = createFileRoute("/")({
 	head: () => ({
 		meta: [
-			{ title: "EvenTual · Split group expenses in rupees, to the last paisa" },
+			{
+				title: "Eventual · Split group expenses in rupees, to the last paisa",
+			},
 			{
 				name: "description",
 				content:
-					"Log what everyone paid on trips, in flats and on nights out. EvenTual splits it evenly or any way you like and tells each person exactly what they owe.",
+					"Log what everyone paid on trips, in flats and on nights out. Eventual splits it evenly or any way you like and tells each person exactly what they owe.",
 			},
 		],
 	}),
@@ -78,7 +82,7 @@ const integrations: {
 	{
 		logos: assistantBrands,
 		title: "Or just tell your AI assistant",
-		text: "“Priya paid ₹3,600 for dinner, split it evenly.” Works with Claude, Cursor, OpenCode, Hermes and OpenClaw.",
+		text: "“Mac paid ₹3,600 for dinner, split it evenly.” Works with Claude, Cursor, OpenCode, Hermes and OpenClaw.",
 		hash: "mcp",
 	},
 ];
@@ -88,42 +92,45 @@ const integrations: {
  * up: ₹11,760 split three ways is ₹3,920 each, so you're owed ₹2,440.
  */
 const sampleRows = [
-	{ name: "Beach shack dinner", who: "Priya paid", amount: "₹3,600" },
+	{ name: "Beach shack dinner", who: "Mac paid", amount: "₹3,600" },
 	{ name: "Scooter rental", who: "Arjun paid", amount: "₹1,800" },
 	{ name: "Villa booking", who: "You paid", amount: "₹6,360" },
 ];
 
 function Home() {
 	return (
-		<div className="flex min-h-screen flex-col">
-			<header className="page-wrap flex h-20 items-center justify-between">
+		<div className="pad-dock flex min-h-[100dvh] flex-col">
+			<header className="page-wrap flex h-16 items-center justify-between gap-3 sm:h-20">
 				<Wordmark />
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-1 sm:gap-2">
 					<ThemeToggle />
 					<Button variant="ghost" className="hidden sm:inline-flex" asChild>
 						<Link to="/docs">Integrations</Link>
 					</Button>
-					<Button variant="ghost" asChild>
+					{/* The hero repeats both calls to action a screen below, and the
+					    dock's profile slot is sign-in, so the phone header only needs
+					    the one that starts the journey. */}
+					<Button variant="ghost" className="hidden sm:inline-flex" asChild>
 						<Link to="/login">Log in</Link>
 					</Button>
-					<Button asChild>
+					<Button className="press" asChild>
 						<Link to="/signup">Start a group</Link>
 					</Button>
 				</div>
 			</header>
 
 			<main className="page-wrap flex-1">
-				<section className="grid items-center gap-12 py-12 lg:grid-cols-[1.1fr_.9fr] lg:py-20">
+				<section className="grid items-center gap-8 py-8 sm:gap-12 sm:py-12 lg:grid-cols-[1.1fr_.9fr] lg:py-20">
 					<div className="rise-in">
 						<p className="island-kicker">For trips, flats and every chai run</p>
-						<h1 className="display-title mt-4 text-5xl leading-[1.05] font-bold md:text-6xl">
+						<h1 className="display-title mt-4 text-[2.5rem] leading-[1.05] font-bold sm:text-5xl md:text-6xl">
 							Settle up without the group-chat maths.
 						</h1>
-						<p className="mt-6 max-w-xl text-lg text-muted-foreground">
-							Log what everyone paid. EvenTual splits it and tells each person
+						<p className="mt-5 max-w-xl text-base text-muted-foreground sm:mt-6 sm:text-lg">
+							Log what everyone paid. Eventual splits it and tells each person
 							exactly who to pay and how much, down to the last paisa.
 						</p>
-						<div className="mt-8 flex flex-wrap gap-3">
+						<div className="mt-7 flex flex-wrap gap-3">
 							<Button size="lg" asChild>
 								<Link to="/signup">
 									Create your first group
@@ -166,7 +173,7 @@ function Home() {
 							</ItemGroup>
 							<Alert className="border-positive/30 bg-positive/10 text-positive">
 								<AlertDescription>
-									Arjun pays you ₹2,120 and Priya pays you ₹320. Then you're all
+									Arjun pays you ₹2,120 and Mac pays you ₹320. Then you're all
 									square.
 								</AlertDescription>
 							</Alert>
@@ -174,7 +181,7 @@ function Home() {
 					</Card>
 				</section>
 
-				<section className="grid gap-4 pb-16 md:grid-cols-3">
+				<section className="grid gap-3 pb-12 sm:gap-4 sm:pb-16 md:grid-cols-3">
 					{features.map(({ icon: Icon, title, text }) => (
 						<Card key={title} className="feature-card">
 							<CardHeader>
@@ -188,7 +195,7 @@ function Home() {
 					))}
 				</section>
 
-				<section className="grid gap-4 pb-16 md:grid-cols-2">
+				<section className="grid gap-3 pb-12 sm:gap-4 sm:pb-16 md:grid-cols-2">
 					{integrations.map(({ logos, title, text, hash }) => (
 						<Link key={title} to="/docs" hash={hash} className="no-underline">
 							<Card className="feature-card h-full">
@@ -197,13 +204,18 @@ function Home() {
 										{logos.map((brand) => (
 											<div
 												key={brand}
-												className="grid size-10 place-items-center rounded-xl border bg-background/70"
+												className={cn(
+													"grid size-10 place-items-center rounded-xl border bg-background/70",
+													brand === "shortcuts" && "bg-transparent border-0",
+												)}
 											>
 												<BrandLogo
 													brand={brand}
-													className={
-														brand === "shortcuts" ? "size-8" : "size-5"
-													}
+													className={cn(
+														"size-5",
+														brand === "shortcuts" &&
+															"size-10 object-cover rounded-full",
+													)}
 												/>
 											</div>
 										))}
@@ -219,9 +231,9 @@ function Home() {
 					))}
 				</section>
 
-				<section className="island-shell mb-16 flex flex-col items-start gap-4 rounded-3xl border p-8 md:flex-row md:items-center md:justify-between">
+				<section className="island-shell mb-12 flex flex-col items-start gap-4 rounded-3xl border p-6 sm:mb-16 sm:p-8 md:flex-row md:items-center md:justify-between">
 					<div>
-						<h2 className="display-title text-3xl font-bold">
+						<h2 className="display-title text-[1.75rem] font-bold sm:text-3xl">
 							Planning a trip? Start the group before the first bill.
 						</h2>
 						<p className="mt-2 text-muted-foreground">
@@ -240,8 +252,10 @@ function Home() {
 
 			<footer className="page-wrap py-8 text-xs text-muted-foreground">
 				<Separator className="mb-8" />
-				EvenTual · split it fairly, settle it once.
+				Eventual · split it fairly, settle it once.
 			</footer>
+
+			<PublicDock />
 		</div>
 	);
 }

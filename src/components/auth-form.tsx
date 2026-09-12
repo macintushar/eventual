@@ -4,6 +4,7 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { Wordmark } from "#/components/app-shell";
+import { PublicDock } from "#/components/dock";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Button } from "#/components/ui/button";
 import {
@@ -70,7 +71,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 	});
 
 	return (
-		<main className="page-wrap grid min-h-screen place-items-center py-12">
+		<main className="page-wrap pad-dock grid min-h-[100dvh] place-items-center py-12">
 			<div className="w-full max-w-md">
 				<div className="mb-6 flex justify-center">
 					<Wordmark />
@@ -194,6 +195,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 					</CardFooter>
 				</Card>
 			</div>
+			<PublicDock />
 		</main>
 	);
 }

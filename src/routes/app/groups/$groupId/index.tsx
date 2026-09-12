@@ -7,6 +7,7 @@ import {
 import {
 	ArrowRight,
 	Check,
+	ChevronRight,
 	Copy,
 	History,
 	Lock,
@@ -21,6 +22,7 @@ import { toast } from "sonner";
 import { ActivityLine } from "#/components/activity-line";
 import { Amount } from "#/components/amount";
 import { BalanceBar } from "#/components/balance-bar";
+import { CurrencySelect } from "#/components/currency-select";
 import { EmptyState } from "#/components/empty-state";
 import { MemberAvatar } from "#/components/member-avatar";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
@@ -45,6 +47,7 @@ import {
 import {
 	Field,
 	FieldDescription,
+	FieldError,
 	FieldGroup,
 	FieldLabel,
 } from "#/components/ui/field";
@@ -77,7 +80,10 @@ import { Separator } from "#/components/ui/separator";
 import { Spinner } from "#/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { Textarea } from "#/components/ui/textarea";
-import { formatMinor, toMinor } from "#/lib/money";
+import { currencySymbol } from "#/lib/currencies";
+import { formatShortDate } from "#/lib/dates";
+import { formatMinor, fromMinor, parseMinor } from "#/lib/money";
+import { repaymentLimit, validateRepayment } from "#/lib/settlements";
 import { getActivityFn, getGroupPageFn, mutateFn } from "#/server/fn/app";
 
 export const Route = createFileRoute("/app/groups/$groupId/")({
@@ -89,7 +95,7 @@ type LoaderData = Awaited<ReturnType<typeof getGroupPageFn>>;
 type Run = (
 	action: Parameters<typeof mutateFn>[0]["data"],
 	message: string,
-) => Promise<void>;
+) => Promise<boolean>;
 
 function GroupPage() {
 	const data = Route.useLoaderData();
@@ -102,36 +108,44 @@ function GroupPage() {
 			await mutateFn({ data: action });
 			toast.success(message);
 			await router.invalidate();
+			return true;
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Action failed");
+			return false;
 		}
 	};
 
-	const mine = data.balances.members.find(
+	const mine = data.balances.members.filter(
 		(row) => row.userId === data.user.id,
-	)?.balanceMinor;
+	);
 
 	return (
-		<div className="flex flex-col gap-6">
-			<header className="flex flex-wrap items-end justify-between gap-4">
-				<div>
+		<div className="flex flex-col gap-5 sm:gap-6">
+			<header className="rise-in flex flex-wrap items-end justify-between gap-4">
+				<div className="min-w-0">
 					<p className="island-kicker capitalize">{data.group.myRole}</p>
-					<h1 className="display-title text-4xl font-bold sm:text-5xl">
+					<h1 className="display-title text-[2.125rem] font-bold sm:text-5xl">
 						{data.group.name}
 					</h1>
 					<p className="mt-1 text-sm text-muted-foreground">
 						{data.group.members.length}{" "}
-						{data.group.members.length === 1 ? "member" : "members"} · INR
-						{mine !== undefined && mine !== 0 && (
-							<>
-								{" · "}
-								{mine > 0 ? "you are owed " : "you owe "}
-								<Amount minor={Math.abs(mine)} />
-							</>
-						)}
+						{data.group.members.length === 1 ? "member" : "members"}
+						{mine
+							.filter((row) => row.balanceMinor !== 0)
+							.map((row) => (
+								<span key={row.currency}>
+									{" · "}
+									{row.balanceMinor > 0 ? "you are owed " : "you owe "}
+									<Amount
+										minor={Math.abs(row.balanceMinor)}
+										currency={row.currency}
+									/>
+								</span>
+							))}
 					</p>
 				</div>
-				<Button asChild>
+				{/* Duplicated by the tab bar's centre action on a phone. */}
+				<Button className="hidden sm:inline-flex" asChild>
 					<Link to="/app/groups/$groupId/expenses/new" params={{ groupId }}>
 						<Plus data-icon="inline-start" />
 						Add expense
@@ -140,7 +154,26 @@ function GroupPage() {
 			</header>
 
 			<Tabs defaultValue="expenses">
-				<TabsList className="segmented h-auto w-full justify-start overflow-x-auto p-1">
+				{/*
+				 * Five tabs never fit across a phone, so the track scrolls and snaps
+				 * instead of squeezing, and `shrink-0` stops the triggers collapsing
+				 * to fit. Radix doesn't scroll its own track, so tapping a pill that
+				 * is only half on screen pulls it the rest of the way in — otherwise
+				 * "Settings" sits permanently clipped at the right edge. Keyboard
+				 * users get this free: the browser scrolls whatever it focuses.
+				 */}
+				<TabsList
+					className="segmented rail h-auto w-full justify-start p-1 [&>*]:shrink-0"
+					onClick={(event) =>
+						(event.target as HTMLElement)
+							.closest('[data-slot="tabs-trigger"]')
+							?.scrollIntoView({
+								behavior: "smooth",
+								inline: "nearest",
+								block: "nearest",
+							})
+					}
+				>
 					<TabsTrigger value="expenses">Expenses</TabsTrigger>
 					<TabsTrigger value="balances">Balances</TabsTrigger>
 					<TabsTrigger value="members">Members</TabsTrigger>
@@ -181,7 +214,7 @@ function ExpensesTab({ data, groupId }: { data: LoaderData; groupId: string }) {
 			<EmptyState
 				icon={Receipt}
 				title="No expenses yet"
-				description="Add the first shared cost and EvenTual works out who owes what, down to the paise."
+				description="Add the first shared cost and Eventual works out who owes what in each currency."
 				action={
 					<Button asChild>
 						<Link to="/app/groups/$groupId/expenses/new" params={{ groupId }}>
@@ -195,8 +228,19 @@ function ExpensesTab({ data, groupId }: { data: LoaderData; groupId: string }) {
 
 	return (
 		<ItemGroup className="island-shell overflow-hidden rounded-2xl">
-			{data.expenses.items.map((item) => (
-				<Item key={item.id} asChild size="sm">
+			{data.expenses.items.map((item, index) => (
+				<Item
+					key={item.id}
+					asChild
+					size="sm"
+					/*
+					 * `flex-nowrap` matters on a phone: the default wrap drops the
+					 * amount onto its own line as soon as a description gets long,
+					 * which breaks the column of figures the list is read down.
+					 */
+					className="press rise-in flex-nowrap rounded-none border-b-border/60 last:border-b-transparent"
+					style={{ "--i": index } as React.CSSProperties}
+				>
 					<Link
 						to="/app/groups/$groupId/expenses/$expenseId"
 						params={{ groupId, expenseId: item.id }}
@@ -204,29 +248,28 @@ function ExpensesTab({ data, groupId }: { data: LoaderData; groupId: string }) {
 						<ItemMedia>
 							<MemberAvatar name={item.payer.name} seed={item.payer.id} />
 						</ItemMedia>
-						<ItemContent>
-							<ItemTitle>
-								{item.description}
+						<ItemContent className="min-w-0">
+							<ItemTitle className="w-full min-w-0">
+								<span className="truncate">{item.description}</span>
 								{item.locked ? (
-									<Badge variant="secondary">
+									<Badge variant="secondary" className="shrink-0">
 										<Lock data-icon="inline-start" />
 										Locked
 									</Badge>
 								) : null}
 							</ItemTitle>
-							<ItemDescription>
-								Paid by {item.payer.name} ·{" "}
-								{new Date(item.date).toLocaleDateString("en-IN", {
-									day: "numeric",
-									month: "short",
-									year: "numeric",
-								})}
+							<ItemDescription className="line-clamp-1">
+								Paid by {item.payer.name} · {formatShortDate(item.date)}
 							</ItemDescription>
 						</ItemContent>
-						<ItemActions>
-							<span className="text-lg font-bold">
-								<Amount minor={item.amountMinor} />
+						<ItemActions className="shrink-0">
+							<span className="font-bold sm:text-lg">
+								<Amount minor={item.amountMinor} currency={item.currency} />
 							</span>
+							<ChevronRight
+								className="size-4 text-muted-foreground"
+								aria-hidden="true"
+							/>
 						</ItemActions>
 					</Link>
 				</Item>
@@ -253,11 +296,27 @@ function BalancesTab({
 	const [settleAmount, setSettleAmount] = useState("");
 	const [settleNote, setSettleNote] = useState("");
 	const [settleOpen, setSettleOpen] = useState(false);
-
-	const max = Math.max(
-		1,
-		...data.balances.members.map((row) => Math.abs(row.balanceMinor)),
+	const [settleCurrency, setSettleCurrency] = useState(
+		data.balances.transfers.find((row) => row.from.userId === data.user.id)
+			?.currency ?? "INR",
 	);
+	const [saving, setSaving] = useState(false);
+	const repayment = {
+		fromUserId: data.user.id,
+		toUserId: settleTo,
+		currency: settleCurrency,
+		amountMinor: parseMinor(settleAmount, settleCurrency),
+	};
+	const invalid = validateRepayment(data.balances.transfers, repayment);
+	const limit = repaymentLimit(data.balances.transfers, repayment);
+
+	const max = (currency: string) =>
+		Math.max(
+			1,
+			...data.balances.members
+				.filter((row) => row.currency === currency)
+				.map((row) => Math.abs(row.balanceMinor)),
+		);
 
 	return (
 		<div className="grid gap-5 lg:grid-cols-2">
@@ -265,13 +324,17 @@ function BalancesTab({
 				<CardHeader>
 					<CardTitle>Net balances</CardTitle>
 					<CardDescription>
-						A positive amount means the group owes them.
+						A positive amount means the group owes them. Each currency is
+						settled separately.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<ul className="flex flex-col gap-4">
 						{data.balances.members.map((row) => (
-							<li key={row.userId} className="flex flex-col gap-2">
+							<li
+								key={`${row.userId}-${row.currency}`}
+								className="flex flex-col gap-2"
+							>
 								<div className="flex items-center gap-3">
 									<MemberAvatar
 										name={row.name}
@@ -286,7 +349,11 @@ function BalancesTab({
 									</span>
 									<span className="text-right">
 										<span className="block font-bold">
-											<Amount minor={row.balanceMinor} tone="signed" />
+											<Amount
+												minor={row.balanceMinor}
+												currency={row.currency}
+												tone="signed"
+											/>
 										</span>
 										<span className="block text-[11px] text-muted-foreground">
 											{row.balanceMinor === 0
@@ -299,13 +366,13 @@ function BalancesTab({
 								</div>
 								<BalanceBar
 									minor={row.balanceMinor}
-									max={max}
+									max={max(row.currency)}
 									label={`${row.name} ${
 										row.balanceMinor === 0
 											? "is settled up"
 											: row.balanceMinor > 0
-												? `is owed ${formatMinor(row.balanceMinor)}`
-												: `owes ${formatMinor(-row.balanceMinor)}`
+												? `is owed ${formatMinor(row.balanceMinor, row.currency)}`
+												: `owes ${formatMinor(-row.balanceMinor, row.currency)}`
 									}`}
 								/>
 							</li>
@@ -319,7 +386,7 @@ function BalancesTab({
 					<CardHeader>
 						<CardTitle>Simplified debts</CardTitle>
 						<CardDescription>
-							The fewest payments that settle everyone.
+							Suggested payments to settle everyone, per currency.
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="flex flex-col gap-2">
@@ -331,7 +398,7 @@ function BalancesTab({
 							<ItemGroup>
 								{data.balances.transfers.map((transfer) => (
 									<Item
-										key={`${transfer.from.userId}-${transfer.to.userId}`}
+										key={`${transfer.from.userId}-${transfer.to.userId}-${transfer.currency}`}
 										variant="outline"
 										size="sm"
 									>
@@ -347,15 +414,19 @@ function BalancesTab({
 										</ItemContent>
 										<ItemActions>
 											<strong className="tabular">
-												{formatMinor(transfer.amountMinor)}
+												{formatMinor(transfer.amountMinor, transfer.currency)}
 											</strong>
 											{transfer.from.userId === data.user.id ? (
 												<Button
 													size="sm"
 													onClick={() => {
 														setSettleTo(transfer.to.userId);
+														setSettleCurrency(transfer.currency);
 														setSettleAmount(
-															(transfer.amountMinor / 100).toFixed(2),
+															fromMinor(
+																transfer.amountMinor,
+																transfer.currency,
+															),
 														);
 														setSettleOpen(true);
 													}}
@@ -385,6 +456,17 @@ function BalancesTab({
 								</DialogHeader>
 								<FieldGroup>
 									<Field>
+										<FieldLabel htmlFor="settle-currency">Currency</FieldLabel>
+										<CurrencySelect
+											id="settle-currency"
+											value={settleCurrency}
+											onValueChange={(value) => {
+												setSettleCurrency(value);
+												setSettleAmount("");
+											}}
+										/>
+									</Field>
+									<Field>
 										<FieldLabel htmlFor="settle-to">Paid to</FieldLabel>
 										<Select value={settleTo} onValueChange={setSettleTo}>
 											<SelectTrigger id="settle-to" className="w-full">
@@ -406,14 +488,18 @@ function BalancesTab({
 											</SelectContent>
 										</Select>
 									</Field>
-									<Field>
+									<Field data-invalid={Boolean(settleAmount && invalid)}>
 										<FieldLabel htmlFor="settle-amount">Amount</FieldLabel>
 										<InputGroup>
 											<InputGroupAddon>
-												<InputGroupText>₹</InputGroupText>
+												<InputGroupText>
+													{currencySymbol(settleCurrency)}
+												</InputGroupText>
 											</InputGroupAddon>
 											<InputGroupInput
 												id="settle-amount"
+												aria-invalid={Boolean(settleAmount && invalid)}
+												aria-describedby="settle-limit settle-error"
 												inputMode="decimal"
 												className="tabular"
 												value={settleAmount}
@@ -422,6 +508,13 @@ function BalancesTab({
 												}
 											/>
 										</InputGroup>
+										<FieldDescription id="settle-limit">
+											Maximum: {formatMinor(limit, settleCurrency)} based on
+											current simplified debts.
+										</FieldDescription>
+										<FieldError id="settle-error">
+											{settleAmount ? invalid : null}
+										</FieldError>
 									</Field>
 									<Field>
 										<FieldLabel htmlFor="settle-note">Note</FieldLabel>
@@ -437,20 +530,26 @@ function BalancesTab({
 								</FieldGroup>
 								<DialogFooter>
 									<Button
-										disabled={!settleTo || !settleAmount}
+										disabled={Boolean(invalid) || saving}
 										onClick={async () => {
-											await run(
+											if (invalid || repayment.amountMinor === null || saving)
+												return;
+											setSaving(true);
+											const saved = await run(
 												{
 													action: "settlement.create",
 													input: {
 														groupId,
 														toUserId: settleTo,
-														amountMinor: toMinor(settleAmount),
+														amountMinor: repayment.amountMinor,
+														currency: settleCurrency,
 														note: settleNote || null,
 													},
 												},
 												"Settlement recorded",
 											);
+											setSaving(false);
+											if (!saved) return;
 											setSettleOpen(false);
 											setSettleAmount("");
 											setSettleNote("");
@@ -490,13 +589,14 @@ function BalancesTab({
 										</ItemContent>
 										<ItemActions>
 											<strong className="tabular">
-												{formatMinor(row.amountMinor)}
+												{formatMinor(row.amountMinor, row.currency)}
 											</strong>
 											<Button
 												size="icon"
 												variant="ghost"
 												aria-label={`Delete settlement of ${formatMinor(
 													row.amountMinor,
+													row.currency,
 												)}`}
 												onClick={() =>
 													run(
@@ -570,7 +670,7 @@ function MembersTab({
 							<DialogHeader>
 								<DialogTitle>Invite a member</DialogTitle>
 								<DialogDescription>
-									EvenTual doesn't send email — create a link and share it
+									Eventual doesn't send email — create a link and share it
 									yourself.
 								</DialogDescription>
 							</DialogHeader>

@@ -7,7 +7,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * EvenTual — "paper desk" design system. See DESIGN.md.
+ * Eventual — "paper desk" design system. See DESIGN.md.
  *
  * A pale canvas, white paper cards, a black pill action, and a handful of
  * physical-looking accents (tape blue, note yellow, badge purple, cardboard
@@ -33,6 +33,21 @@
   --bg-base: #f3f6f9;
   --paper: #ffffff;
   --shadow-color: 38 34 30;
+
+  /*
+   * Mobile chrome metrics. Every fixed element (masthead, dock, sticky action
+   * bars) measures itself from these, so each scroll container reserves space
+   * once and nothing ends up under a notch, a home bar or the dock.
+   */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --header-h: 3.5rem;
+  /* Dock pill (3.5rem) plus the gap it floats above the bottom edge. */
+  --dock-h: 4.25rem;
+  /* Springy ease used by every transition in the app. */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
 
   /*
    * Legacy aliases still referenced by member avatars. They now resolve to the
@@ -200,6 +215,14 @@
     min-height: 100%;
   }
 
+  html {
+    /* Landscape on iOS must not silently inflate type. */
+    -webkit-text-size-adjust: 100%;
+    /* Anchors and focus scrolls have to clear the sticky masthead. */
+    scroll-padding-top: calc(var(--header-h) + var(--safe-top) + 1rem);
+    scroll-padding-bottom: calc(var(--dock-h) + var(--safe-bottom) + 1rem);
+  }
+
   body {
     margin: 0;
     color: var(--foreground);
@@ -210,6 +233,10 @@
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* A tap should feel like the surface moved, not like a grey box flashed. */
+    -webkit-tap-highlight-color: transparent;
+    /* Scrolling a list to its end shouldn't drag the whole page with it. */
+    overscroll-behavior-y: contain;
   }
 
   ::selection {
@@ -294,8 +321,13 @@
     transform: rotate(-4deg);
   }
 
+  /*
+   * Entrance animation. Set `--i` on each item of a list and they deal in,
+   * one after another, instead of all arriving at once.
+   */
   .rise-in {
-    animation: rise-in 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: rise-in 620ms var(--ease-out-soft) both;
+    animation-delay: calc(var(--i, 0) * 55ms);
   }
 
   /* Segmented control used for the split-method and group tabs. */
@@ -307,6 +339,133 @@
 
   .segmented [data-slot='tabs-trigger'] {
     border-radius: 9999px;
+  }
+
+  /* ------------------------------------------------------------- Touch UI */
+
+  /*
+   * Press feedback. Touch has no hover, so the only way a control can
+   * acknowledge a finger is to move under it. Everything tappable that isn't
+   * already a `.feature-card` gets this.
+   */
+  .press {
+    transition: transform 200ms var(--ease-out-soft);
+    touch-action: manipulation;
+  }
+
+  .press:active {
+    transform: scale(0.97);
+  }
+
+  /*
+   * Horizontal scroller for tab rails and chip rows. Snaps, hides its
+   * scrollbar, and fades at both ends so a cut-off item reads as "more this
+   * way" rather than as a layout bug.
+   */
+  .rail {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rail > * {
+    scroll-snap-align: center;
+  }
+
+  /*
+   * The dock — primary navigation at every width. A paper pill lifted off the
+   * bottom edge rather than a bar welded to it, so it reads as an object on
+   * the desk and the page stays visible sliding underneath. It sits above the
+   * sticky action bar (z-30) rather than replacing it.
+   */
+  .dock {
+    position: fixed;
+    z-index: 40;
+    bottom: calc(var(--safe-bottom) + 0.75rem);
+    left: 50%;
+    translate: -50% 0;
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.375rem;
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    background-color: var(--paper);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .dock-item {
+    position: relative;
+    display: grid;
+    place-items: center;
+    /* 44px — the smallest target a thumb hits reliably. */
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    color: var(--muted-foreground);
+    text-decoration: none;
+    transition:
+      color 220ms ease,
+      background-color 220ms ease,
+      transform 260ms var(--ease-out-soft);
+    touch-action: manipulation;
+  }
+
+  .dock-item:active {
+    transform: scale(0.88);
+  }
+
+  .dock-item[data-active='true'] {
+    color: var(--foreground);
+    background-color: var(--muted);
+  }
+
+  /*
+   * Sticky action bar for long forms, pinned to the bottom edge so the primary
+   * button stays under a thumb for the whole scroll. Apply to a container that
+   * already sets its own inline padding — the negative margin bleeds the fill
+   * out to the card's edges — and give that card `max-sm:pb-0` so the bar sits
+   * flush. Above `sm` the form fits, so it goes back to being an ordinary
+   * footer and the page's own bottom padding clears the dock.
+   */
+  .action-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    margin-inline: -1.5rem;
+    /*
+     * The fill runs the whole way down to the bottom edge and the dock floats
+     * on top of it, so the button clears the dock without leaving a band of
+     * scrolling page content wedged between two bars.
+     */
+    padding-top: 0.875rem;
+    padding-bottom: calc(var(--dock-h) + var(--safe-bottom));
+    border-top: 1px solid var(--border);
+    background-color: var(--card);
+    box-shadow: 0 -10px 24px -16px rgb(38 34 30 / 0.35);
+  }
+
+  @media (width >= 40rem) {
+    .action-bar {
+      position: static;
+      margin-inline: 0;
+      padding-block: 0;
+      border-top: 0;
+      background-color: transparent;
+      box-shadow: none;
+    }
+  }
+
+  /* Room for the dock so the last row of a list is never trapped under it. */
+  .pad-dock {
+    padding-bottom: calc(var(--dock-h) + var(--safe-bottom) + 1rem);
   }
 
   /* Handwritten accent — notes and annotations only, never headings. */
@@ -398,6 +557,78 @@
   line-height: 0.95;
 }
 
+/*
+ * Phone layout rules. Unlayered like the shape rules above so they override
+ * the primitives' utility classes without every call site repeating a
+ * `max-sm:` prefix. 40rem is Tailwind's `sm` breakpoint.
+ */
+@media (width < 40rem) {
+  /*
+   * Dialogs become bottom sheets. The shell is repositioned here and the
+   * slide is handed to tw-animate's existing enter/exit keyframes by swapping
+   * the translate/scale custom properties, so open and close stay in sync
+   * with Radix's mount lifecycle.
+   */
+  [data-slot='dialog-content'],
+  [data-slot='alert-dialog-content'] {
+    inset: auto 0 0 0;
+    translate: none;
+    width: 100%;
+    max-width: none;
+    max-height: 88dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    padding-top: 1.75rem;
+    padding-bottom: calc(1.5rem + var(--safe-bottom));
+    --tw-enter-translate-y: 100%;
+    --tw-exit-translate-y: 100%;
+    --tw-enter-scale: 1;
+    --tw-exit-scale: 1;
+    --tw-duration: 320ms;
+    --tw-ease: var(--ease-out-soft);
+  }
+
+  /* Grab handle, so the sheet reads as something you could pull down. */
+  [data-slot='dialog-content']::before,
+  [data-slot='alert-dialog-content']::before {
+    content: '';
+    position: absolute;
+    top: 0.625rem;
+    left: 50%;
+    translate: -50% 0;
+    width: 2.25rem;
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: var(--border);
+  }
+
+  /* Sheet footers stack full-width; a thumb shouldn't hunt for a small button. */
+  [data-slot='dialog-footer'] > *,
+  [data-slot='alert-dialog-footer'] > * {
+    width: 100%;
+  }
+
+  /* Controls grow to the 44px comfortable target. */
+  [data-slot='button'][data-size='default'],
+  [data-slot='button'][data-size='lg'] {
+    height: 2.75rem;
+  }
+
+  [data-slot='button'][data-size='icon'] {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  /*
+   * Display type is set for a 1120px column. On a 390px screen the same sizes
+   * wrap to four lines, so the scale steps down while the tracking holds.
+   */
+  .display-title {
+    letter-spacing: -0.03em;
+  }
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -409,14 +640,55 @@
   }
 }
 
+/*
+ * Cross-document-style page transitions, driven by the router's
+ * `defaultViewTransition`. Outgoing content drops and fades, incoming content
+ * rises into place — the same motion as `.rise-in`, so navigation and content
+ * entrance feel like one system.
+ */
+::view-transition-old(root) {
+  animation: page-out 180ms ease-in both;
+}
+
+::view-transition-new(root) {
+  animation: page-in 320ms var(--ease-out-soft) both;
+}
+
+@keyframes page-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rise-in,
-  .feature-card {
+  .feature-card,
+  .press,
+  .dock-item {
     animation: none;
     transition: none;
   }
 
-  .feature-card:hover {
+  .feature-card:hover,
+  .press:active,
+  .dock-item:active {
     transform: none;
+  }
+
+  .rail {
+    scroll-behavior: auto;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
   }
 }

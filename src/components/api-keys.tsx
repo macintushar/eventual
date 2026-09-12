@@ -19,7 +19,6 @@ import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
 	Card,
-	CardAction,
 	CardContent,
 	CardDescription,
 	CardHeader,
@@ -48,15 +47,15 @@ import {
 	InputGroupButton,
 	InputGroupInput,
 } from "#/components/ui/input-group";
-import { Spinner } from "#/components/ui/spinner";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "#/components/ui/table";
+	Item,
+	ItemActions,
+	ItemContent,
+	ItemDescription,
+	ItemGroup,
+	ItemTitle,
+} from "#/components/ui/item";
+import { Spinner } from "#/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
 import {
 	type ApiKeySummary,
@@ -113,15 +112,22 @@ export function ApiKeys({ initialKeys }: { initialKeys: ApiKeySummary[] }) {
 		<>
 			<Card className="island-shell">
 				<CardHeader>
-					<CardTitle>API keys</CardTitle>
-					<CardDescription>
-						Keys belong to your account. Send them as an{" "}
-						<code className="rounded bg-muted px-1 py-0.5 text-xs">
-							x-api-key
-						</code>{" "}
-						header to call the REST API or MCP endpoint.
-					</CardDescription>
-					<CardAction>
+					{/*
+					 * `CardAction` pins the button to a second grid column, which on a
+					 * phone squeezes the description into a four-line ribbon. A flex
+					 * row that wraps puts the button under the text instead.
+					 */}
+					<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+						<div className="min-w-0 sm:flex-1">
+							<CardTitle>API keys</CardTitle>
+							<CardDescription className="mt-1.5">
+								Keys belong to your account. Send them as an{" "}
+								<code className="rounded bg-muted px-1 py-0.5 text-xs">
+									x-api-key
+								</code>{" "}
+								header to call the REST API or MCP endpoint.
+							</CardDescription>
+						</div>
 						<Dialog
 							open={createOpen}
 							onOpenChange={(open) => {
@@ -130,7 +136,7 @@ export function ApiKeys({ initialKeys }: { initialKeys: ApiKeySummary[] }) {
 							}}
 						>
 							<DialogTrigger asChild>
-								<Button>
+								<Button className="press self-start">
 									<Plus data-icon="inline-start" />
 									New key
 								</Button>
@@ -238,14 +244,14 @@ export function ApiKeys({ initialKeys }: { initialKeys: ApiKeySummary[] }) {
 								</form>
 							</DialogContent>
 						</Dialog>
-					</CardAction>
+					</div>
 				</CardHeader>
 				<CardContent>
 					{initialKeys.length === 0 ? (
 						<EmptyState
 							icon={KeyRound}
 							title="No API keys yet"
-							description="Create a key to authenticate scripts, MCP clients, and anything you build on top of EvenTual."
+							description="Create a key to authenticate scripts, MCP clients, and anything you build on top of Eventual."
 							action={
 								<Button onClick={() => setCreateOpen(true)}>
 									<Plus data-icon="inline-start" />
@@ -254,60 +260,51 @@ export function ApiKeys({ initialKeys }: { initialKeys: ApiKeySummary[] }) {
 							}
 						/>
 					) : (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Name</TableHead>
-									<TableHead>Key</TableHead>
-									<TableHead>Expires</TableHead>
-									<TableHead>Last used</TableHead>
-									<TableHead className="text-right"> </TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{initialKeys.map((key) => {
-									const expired = isExpired(key.expiresAt);
-									return (
-										<TableRow key={key.id}>
-											<TableCell className="font-medium">
-												<div className="flex items-center gap-2">
-													<span>{key.name ?? "Untitled"}</span>
-													{expired ? (
-														<Badge variant="outline">Expired</Badge>
-													) : null}
-													{!key.enabled ? (
-														<Badge variant="secondary">Disabled</Badge>
-													) : null}
-												</div>
-											</TableCell>
-											<TableCell>
-												<code className="text-muted-foreground">
-													{key.start ? `${key.start}…` : "ss_…"}
-												</code>
-											</TableCell>
-											<TableCell className="text-muted-foreground">
-												{formatDate(key.expiresAt)}
-											</TableCell>
-											<TableCell className="text-muted-foreground">
+						<ItemGroup>
+							{initialKeys.map((key) => {
+								const expired = isExpired(key.expiresAt);
+								return (
+									<Item key={key.id} size="sm" className="flex-nowrap">
+										<ItemContent className="min-w-0">
+											<ItemTitle className="w-full min-w-0">
+												<span className="truncate">
+													{key.name ?? "Untitled"}
+												</span>
+												{expired ? (
+													<Badge variant="outline" className="shrink-0">
+														Expired
+													</Badge>
+												) : null}
+												{!key.enabled ? (
+													<Badge variant="secondary" className="shrink-0">
+														Disabled
+													</Badge>
+												) : null}
+											</ItemTitle>
+											<ItemDescription>
+												<code>{key.start ? `${key.start}…` : "ev_…"}</code> ·
+												expires {formatDate(key.expiresAt)} · last used{" "}
 												{key.lastRequest
 													? formatDate(key.lastRequest)
-													: "Never"}
-											</TableCell>
-											<TableCell className="text-right">
-												<Button
-													variant="ghost"
-													size="sm"
-													onClick={() => setPendingDelete(key)}
-												>
-													<Trash2 data-icon="inline-start" />
-													Revoke
-												</Button>
-											</TableCell>
-										</TableRow>
-									);
-								})}
-							</TableBody>
-						</Table>
+													: "never"}
+											</ItemDescription>
+										</ItemContent>
+										<ItemActions className="shrink-0">
+											<Button
+												variant="ghost"
+												size="sm"
+												className="press text-destructive"
+												aria-label={`Revoke ${key.name ?? "this key"}`}
+												onClick={() => setPendingDelete(key)}
+											>
+												<Trash2 data-icon="inline-start" />
+												<span className="sr-only sm:not-sr-only">Revoke</span>
+											</Button>
+										</ItemActions>
+									</Item>
+								);
+							})}
+						</ItemGroup>
 					)}
 				</CardContent>
 			</Card>

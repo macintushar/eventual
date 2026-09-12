@@ -23,6 +23,7 @@ import {
 	settlementAllocation,
 	user,
 } from "#/db/schema";
+import { validateRepayment, validateSharePayment } from "#/lib/settlements";
 import type { Ctx } from "#/server/context";
 import { computeBalances, simplifyBalances } from "#/server/domain/balances";
 import { computeShares } from "#/server/domain/split";
@@ -88,9 +89,9 @@ export async function listGroups(ctx: Ctx) {
 			return {
 				...group,
 				role,
-				balanceMinor:
-					balances.members.find((row) => row.userId === ctx.user.id)
-						?.balanceMinor ?? 0,
+				balances: balances.members
+					.filter((row) => row.userId === ctx.user.id)
+					.map(({ currency, balanceMinor }) => ({ currency, balanceMinor })),
 			};
 		}),
 	);
@@ -200,8 +201,9 @@ export async function listMembers(ctx: Ctx, input: { groupId: string }) {
 
 async function assertCanExit(ctx: Ctx, groupId: string, userId: string) {
 	const balances = await getBalances(ctx, { groupId });
-	const balance =
-		balances.members.find((row) => row.userId === userId)?.balanceMinor ?? 0;
+	const hasBalance = balances.members.some(
+		(row) => row.userId === userId && row.balanceMinor !== 0,
+	);
 	const unpaid = await ctx.db
 		.select({ id: expenseShare.id })
 		.from(expenseShare)
@@ -215,7 +217,7 @@ async function assertCanExit(ctx: Ctx, groupId: string, userId: string) {
 			),
 		)
 		.limit(1);
-	if (balance !== 0 || unpaid.length)
+	if (hasBalance || unpaid.length)
 		throw new AppError(
 			"CONFLICT",
 			"Settle this member's balance and unpaid shares before they leave",
@@ -514,7 +516,11 @@ async function assertExpenseMembers(
 export async function getExpense(ctx: Ctx, input: { expenseId: string }) {
 	const row = await ctx.db.query.expense.findFirst({
 		where: eq(expense.id, input.expenseId),
-		with: { payer: true, creator: true, shares: { with: { user: true } } },
+		with: {
+			payer: true,
+			creator: true,
+			shares: { with: { user: true, allocations: true } },
+		},
 	});
 	if (!row) throw new AppError("NOT_FOUND", "Expense not found");
 	await membership(ctx, row.organizationId);
@@ -568,6 +574,7 @@ export async function listExpenses(
 
 export function previewExpense(input: {
 	amountMinor: number;
+	currency?: string;
 	splitMethod: CreateExpenseInput["splitMethod"];
 	participants: CreateExpenseInput["participants"];
 }) {
@@ -575,6 +582,7 @@ export function previewExpense(input: {
 		input.amountMinor,
 		input.splitMethod,
 		input.participants,
+		input.currency,
 	);
 }
 
@@ -592,6 +600,7 @@ export async function createExpense(ctx: Ctx, input: CreateExpenseInput) {
 			input.amountMinor,
 			input.splitMethod,
 			input.participants,
+			input.currency,
 		);
 	} catch (error) {
 		throw new AppError(
@@ -625,18 +634,20 @@ export async function createExpense(ctx: Ctx, input: CreateExpenseInput) {
 				splitInput: share.splitInput,
 			})),
 		);
-		await tx
-			.insert(activity)
-			.values(
-				activityRow(
-					input.groupId,
-					ctx.user.id,
-					"expense.created",
-					"expense",
-					expenseId,
-					{ description: input.description, amountMinor: input.amountMinor },
-				),
-			);
+		await tx.insert(activity).values(
+			activityRow(
+				input.groupId,
+				ctx.user.id,
+				"expense.created",
+				"expense",
+				expenseId,
+				{
+					description: input.description,
+					amountMinor: input.amountMinor,
+					currency: input.currency,
+				},
+			),
+		);
 	});
 	return getExpense(ctx, { expenseId });
 }
@@ -666,6 +677,7 @@ export async function updateExpense(ctx: Ctx, input: UpdateExpenseInput) {
 			input.amountMinor,
 			input.splitMethod,
 			input.participants,
+			input.currency,
 		);
 	} catch (error) {
 		throw new AppError(
@@ -709,7 +721,9 @@ export async function updateExpense(ctx: Ctx, input: UpdateExpenseInput) {
 				{
 					description: input.description,
 					fromAmountMinor: current.amountMinor,
+					fromCurrency: current.currency,
 					amountMinor: input.amountMinor,
+					currency: input.currency,
 				},
 			),
 		);
@@ -730,6 +744,7 @@ export async function deleteExpense(ctx: Ctx, input: { expenseId: string }) {
 				{
 					description: current.description,
 					amountMinor: current.amountMinor,
+					currency: current.currency,
 				},
 			),
 		);
@@ -751,7 +766,33 @@ export async function setSharePaid(
 		);
 	const share = current.shares.find((row) => row.userId === input.userId);
 	if (!share) throw new AppError("NOT_FOUND", "Expense share not found");
+	const members = await listMembers(ctx, { groupId: current.organizationId });
 	await ctx.db.transaction(async (tx) => {
+		const latest = await tx.query.expense.findFirst({
+			where: eq(expense.id, input.expenseId),
+		});
+		const latestShare = await tx.query.expenseShare.findFirst({
+			where: eq(expenseShare.id, share.id),
+			with: { allocations: true },
+		});
+		if (!latest || !latestShare)
+			throw new AppError("NOT_FOUND", "Expense share not found");
+		if (ctx.user.id !== input.userId && ctx.user.id !== latest.paidByUserId)
+			throw new AppError(
+				"FORBIDDEN",
+				"Only the share owner or expense payer can change this paid status",
+			);
+		if (Boolean(latestShare.paidAt) === paid) return;
+		const balances = await readBalances(tx, latest.organizationId, members);
+		const invalid = validateSharePayment(balances.transfers, {
+			fromUserId: input.userId,
+			toUserId: latest.paidByUserId,
+			currency: latest.currency,
+			amountMinor: latestShare.amountMinor,
+			paid,
+			hasAllocations: latestShare.allocations.length > 0,
+		});
+		if (invalid) throw new AppError("VALIDATION", invalid);
 		await tx
 			.update(expenseShare)
 			.set({
@@ -777,12 +818,20 @@ export async function setSharePaid(
 
 export async function getBalances(ctx: Ctx, input: { groupId: string }) {
 	const members = await listMembers(ctx, input);
-	const expenses = await ctx.db.query.expense.findMany({
-		where: eq(expense.organizationId, input.groupId),
+	return readBalances(ctx.db, input.groupId, members);
+}
+
+async function readBalances(
+	db: Pick<Ctx["db"], "query">,
+	groupId: string,
+	members: { userId: string; name: string }[],
+) {
+	const expenses = await db.query.expense.findMany({
+		where: eq(expense.organizationId, groupId),
 		with: { shares: true },
 	});
-	const settlements = await ctx.db.query.settlement.findMany({
-		where: eq(settlement.organizationId, input.groupId),
+	const settlements = await db.query.settlement.findMany({
+		where: eq(settlement.organizationId, groupId),
 		with: { allocations: true },
 	});
 	const balances = computeBalances(
@@ -810,29 +859,37 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 			"A settlement must be between two different members",
 		);
 	await assertExpenseMembers(ctx, input.groupId, input.toUserId, [ctx.user.id]);
-	const candidates = await ctx.db
-		.select({ share: expenseShare, expense })
-		.from(expenseShare)
-		.innerJoin(expense, eq(expenseShare.expenseId, expense.id))
-		.where(
-			and(
-				eq(expense.organizationId, input.groupId),
-				eq(expenseShare.userId, ctx.user.id),
-				eq(expense.paidByUserId, input.toUserId),
-				isNull(expenseShare.paidAt),
-			),
-		)
-		.orderBy(asc(expense.date), asc(expense.createdAt));
+	const members = await listMembers(ctx, input);
 	const settlementId = id();
 	const now = new Date();
 	await ctx.db.transaction(async (tx) => {
+		const balances = await readBalances(tx, input.groupId, members);
+		const invalid = validateRepayment(balances.transfers, {
+			...input,
+			fromUserId: ctx.user.id,
+		});
+		if (invalid) throw new AppError("VALIDATION", invalid);
+		const candidates = await tx
+			.select({ share: expenseShare, expense })
+			.from(expenseShare)
+			.innerJoin(expense, eq(expenseShare.expenseId, expense.id))
+			.where(
+				and(
+					eq(expense.organizationId, input.groupId),
+					eq(expenseShare.userId, ctx.user.id),
+					eq(expense.paidByUserId, input.toUserId),
+					eq(expense.currency, input.currency),
+					isNull(expenseShare.paidAt),
+				),
+			)
+			.orderBy(asc(expense.date), asc(expense.createdAt));
 		await tx.insert(settlement).values({
 			id: settlementId,
 			organizationId: input.groupId,
 			fromUserId: ctx.user.id,
 			toUserId: input.toUserId,
 			amountMinor: input.amountMinor,
-			currency: "INR",
+			currency: input.currency,
 			note: input.note,
 			createdByUserId: ctx.user.id,
 			createdAt: now,
@@ -863,6 +920,7 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 					fromUserId: ctx.user.id,
 					toUserId: input.toUserId,
 					amountMinor: input.amountMinor,
+					currency: input.currency,
 				},
 			),
 		);
@@ -903,7 +961,7 @@ export async function deleteSettlement(
 					"settlement.deleted",
 					"settlement",
 					row.id,
-					{ amountMinor: row.amountMinor },
+					{ amountMinor: row.amountMinor, currency: row.currency },
 				),
 			);
 		await tx.delete(settlement).where(eq(settlement.id, row.id));

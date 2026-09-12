@@ -17,6 +17,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
 		<Sonner
 			theme={theme as ToasterProps["theme"]}
 			className="toaster group"
+			position="bottom-center"
+			// On a phone the default bottom-right corner sits underneath the tab
+			// bar, so toasts are lifted clear of it and span the gutter instead.
+			mobileOffset={{
+				bottom: "calc(var(--dock-h) + var(--safe-bottom) + 0.75rem)",
+				left: "1rem",
+				right: "1rem",
+			}}
 			icons={{
 				success: <CircleCheckIcon className="size-4" />,
 				info: <InfoIcon className="size-4" />,

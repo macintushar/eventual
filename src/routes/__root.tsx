@@ -12,11 +12,27 @@ export const Route = createRootRoute({
 				charSet: "utf-8",
 			},
 			{
+				// `viewport-fit=cover` lets the layout run under the notch and home
+				// bar; the safe-area insets in styles.css keep content clear of both.
 				name: "viewport",
-				content: "width=device-width, initial-scale=1",
+				content: "width=device-width, initial-scale=1, viewport-fit=cover",
 			},
 			{
-				title: "EvenTual · expenses without the spreadsheet",
+				name: "theme-color",
+				media: "(prefers-color-scheme: light)",
+				content: "#f3f6f9",
+			},
+			{
+				name: "theme-color",
+				media: "(prefers-color-scheme: dark)",
+				content: "#111111",
+			},
+			{
+				name: "mobile-web-app-capable",
+				content: "yes",
+			},
+			{
+				title: "Eventual · expenses without the spreadsheet",
 			},
 		],
 		links: [

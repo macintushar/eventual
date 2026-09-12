@@ -42,6 +42,7 @@ import {
 } from "#/components/ui/item";
 import { Separator } from "#/components/ui/separator";
 import { formatMinor } from "#/lib/money";
+import { validateSharePayment } from "#/lib/settlements";
 import { getExpenseFn, getGroupPageFn, mutateFn } from "#/server/fn/app";
 
 export const Route = createFileRoute(
@@ -99,12 +100,12 @@ function ExpenseDetail() {
 					<CardDescription className="island-kicker">
 						{methodLabel[expense.splitMethod]}
 					</CardDescription>
-					<CardTitle className="display-title text-4xl font-bold">
+					<CardTitle className="display-title text-[2.125rem] font-bold sm:text-4xl">
 						{expense.description}
 					</CardTitle>
 					<p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
 						<span className="text-2xl font-bold text-foreground">
-							<Amount minor={expense.amountMinor} />
+							<Amount minor={expense.amountMinor} currency={expense.currency} />
 						</span>
 						<span>· paid by {expense.payer.name}</span>
 						<span>
@@ -163,17 +164,32 @@ function ExpenseDetail() {
 								page.user.id === share.userId ||
 								page.user.id === expense.paidByUserId;
 							const paid = share.paidAt !== null;
+							const invalid = validateSharePayment(page.balances.transfers, {
+								fromUserId: share.userId,
+								toUserId: expense.paidByUserId,
+								currency: expense.currency,
+								amountMinor: share.amountMinor,
+								paid: !paid,
+								hasAllocations: share.allocations.length > 0,
+							});
 							return (
-								<Item key={share.id} size="sm">
+								/*
+								 * `flex-nowrap` keeps the amount and its checkbox on the
+								 * member's line; wrapping put a long name, its status and
+								 * its figure on three separate rows at phone width.
+								 */
+								<Item key={share.id} size="sm" className="flex-nowrap">
 									<ItemMedia>
 										<MemberAvatar name={share.user.name} seed={share.userId} />
 									</ItemMedia>
-									<ItemContent>
-										<ItemTitle>
-											{share.user.name}
-											{share.userId === page.user.id ? (
-												<span className="text-muted-foreground"> (you)</span>
-											) : null}
+									<ItemContent className="min-w-0">
+										<ItemTitle className="w-full min-w-0">
+											<span className="truncate">
+												{share.user.name}
+												{share.userId === page.user.id ? (
+													<span className="text-muted-foreground"> (you)</span>
+												) : null}
+											</span>
 										</ItemTitle>
 										<ItemDescription>
 											{paid && share.paidAt
@@ -183,24 +199,34 @@ function ExpenseDetail() {
 													)}`
 												: "Unpaid"}
 										</ItemDescription>
+										{canToggle && invalid && (
+											<ItemDescription className="line-clamp-none text-pretty">
+												{invalid}
+											</ItemDescription>
+										)}
 									</ItemContent>
-									<ItemActions>
+									<ItemActions className="shrink-0">
 										<span className="font-semibold">
-											<Amount minor={share.amountMinor} />
+											<Amount
+												minor={share.amountMinor}
+												currency={expense.currency}
+											/>
 										</span>
 										<Field orientation="horizontal" className="w-auto">
 											<Checkbox
 												id={`paid-${share.id}`}
 												checked={paid}
 												aria-label={`Mark ${share.user.name}'s share paid`}
-												disabled={!canToggle}
+												disabled={!canToggle || Boolean(invalid)}
 												onCheckedChange={(checked) =>
 													toggle(share.userId, checked === true)
 												}
 											/>
+											{/* The row already reads Paid/Unpaid underneath the
+											    name, so the label only earns its width at `sm`. */}
 											<FieldLabel
 												htmlFor={`paid-${share.id}`}
-												className="font-normal"
+												className="font-normal max-sm:sr-only"
 											>
 												Paid
 											</FieldLabel>
@@ -243,8 +269,9 @@ function ExpenseDetail() {
 							<DialogHeader>
 								<DialogTitle>Delete this expense?</DialogTitle>
 								<DialogDescription>
-									“{expense.description}” for {formatMinor(expense.amountMinor)}{" "}
-									will be removed for everyone, along with its shares.
+									“{expense.description}” for{" "}
+									{formatMinor(expense.amountMinor, expense.currency)} will be
+									removed for everyone, along with its shares.
 								</DialogDescription>
 							</DialogHeader>
 							<DialogFooter>
