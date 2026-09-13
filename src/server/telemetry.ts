@@ -1,7 +1,7 @@
-import * as Sentry from "@sentry/tanstackstart-react";
 import { PostHog } from "posthog-node";
 
 import { env } from "#/env";
+import { runInBackground } from "#/server/background";
 
 export const mcpToolNames = [
 	"listGroups",
@@ -66,7 +66,7 @@ function posthogClient() {
  * Sends an allow-listed, count-only event. Telemetry is never allowed to fail
  * the product operation it describes.
  */
-export async function captureEvent<Name extends keyof AnalyticsEvent>(input: {
+export function captureEvent<Name extends keyof AnalyticsEvent>(input: {
 	event: Name;
 	distinctId: string;
 	properties: AnalyticsEvent[Name];
@@ -74,18 +74,15 @@ export async function captureEvent<Name extends keyof AnalyticsEvent>(input: {
 }) {
 	const client = posthogClient();
 	if (!client) return;
-	try {
-		await client.captureImmediate({
+	runInBackground(
+		client.captureImmediate({
 			distinctId: input.distinctId,
 			event: input.event,
 			properties: {
 				...input.properties,
 				...(input.anonymous ? { $process_person_profile: false } : {}),
 			},
-		});
-	} catch (error) {
-		Sentry.captureException(error, {
-			tags: { component: "posthog", event: input.event },
-		});
-	}
+		}),
+		{ component: "posthog", event: input.event },
+	);
 }

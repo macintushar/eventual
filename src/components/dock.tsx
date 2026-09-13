@@ -17,7 +17,6 @@ import {
 import { type ReactNode, useEffect, useState } from "react";
 
 import { MemberAvatar } from "#/components/member-avatar";
-import { loadSession } from "#/lib/session";
 import { Button } from "#/components/ui/button";
 import {
 	DropdownMenu,
@@ -25,6 +24,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
+import { loadSession } from "#/lib/session";
 import { cn } from "#/lib/utils";
 
 const ICON = "size-[1.375rem]";
@@ -233,9 +233,18 @@ export function PublicDock({
 			setUser(initialUser);
 			return;
 		}
-		void loadSession().then((session) => {
-			setUser(session?.user ?? null);
-		});
+		let active = true;
+		void loadSession().then(
+			(session) => {
+				if (active) setUser(session?.user ?? null);
+			},
+			() => {
+				if (active) setUser(null);
+			},
+		);
+		return () => {
+			active = false;
+		};
 	}, [initialUser]);
 
 	const accountActive = user
@@ -259,11 +268,7 @@ export function PublicDock({
 			</DockItem>
 
 			{user ? (
-				<DockItem
-					to="/app/settings"
-					active={accountActive}
-					label="Account"
-				>
+				<DockItem to="/app/settings" active={accountActive} label="Account">
 					<MemberAvatar
 						name={user.name}
 						seed={user.email}
@@ -271,11 +276,7 @@ export function PublicDock({
 					/>
 				</DockItem>
 			) : (
-				<DockItem
-					to="/login"
-					active={accountActive}
-					label="Sign in"
-				>
+				<DockItem to="/login" active={accountActive} label="Sign in">
 					<UserRound className={ICON} aria-hidden="true" />
 				</DockItem>
 			)}

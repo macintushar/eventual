@@ -25,10 +25,10 @@ import {
 } from "#/db/schema";
 import { emailKey } from "#/lib/auth-email";
 import { validateRepayment, validateSharePayment } from "#/lib/settlements";
+import { runInBackground } from "#/server/background";
 import type { Ctx } from "#/server/context";
 import { computeBalances, simplifyBalances } from "#/server/domain/balances";
 import { computeShares } from "#/server/domain/split";
-import { reportError } from "#/server/error-reporting";
 import { AppError } from "#/server/errors";
 import type {
 	CreateExpenseInput,
@@ -388,19 +388,38 @@ export async function createInvitation(
 		where: eq(organization.id, input.groupId),
 	});
 	if (!group) throw new AppError("NOT_FOUND", "Group not found");
-	const invitationId = id();
-	const expiresAt = new Date(Date.now() + 7 * 86400000);
-	await ctx.db.transaction(async (tx) => {
-		await tx.insert(invitation).values({
-			id: invitationId,
+	const normalizedEmail = input.email.toLowerCase();
+	const created = await ctx.db.transaction(async (tx) => {
+		const existing = await tx.query.invitation.findFirst({
+			where: and(
+				eq(invitation.organizationId, input.groupId),
+				eq(invitation.email, normalizedEmail),
+				eq(invitation.status, "pending"),
+				gte(invitation.expiresAt, new Date()),
+			),
+			orderBy: desc(invitation.createdAt),
+		});
+		if (existing) {
+			if (existing.role !== input.role)
+				throw new AppError(
+					"CONFLICT",
+					`That email already has a pending ${existing.role ?? "member"} invitation`,
+				);
+			return existing;
+		}
+
+		const createdAt = new Date();
+		const createdInvitation = {
+			id: id(),
 			organizationId: input.groupId,
-			email: input.email.toLowerCase(),
+			email: normalizedEmail,
 			role: input.role,
 			status: "pending",
 			inviterId: ctx.user.id,
-			createdAt: new Date(),
-			expiresAt,
-		});
+			createdAt,
+			expiresAt: new Date(createdAt.getTime() + 7 * 86400000),
+		};
+		await tx.insert(invitation).values(createdInvitation);
 		await tx
 			.insert(activity)
 			.values(
@@ -409,42 +428,38 @@ export async function createInvitation(
 					ctx.user.id,
 					"member.invited",
 					"invitation",
-					invitationId,
+					createdInvitation.id,
 					{ email: input.email, role: input.role },
 				),
 			);
+		return createdInvitation;
 	});
-	let emailDelivery: "sent" | "unconfigured" | "failed" = "unconfigured";
-	const [{ env }, { sendEmail }] = await Promise.all([
-		import("#/env"),
-		import("#/server/email"),
-	]);
-	if (env.RESEND_API_KEY && env.EMAIL_FROM) {
-		try {
-			await sendEmail(
-				input.email.toLowerCase(),
+	let emailDelivery: "scheduled" | "unconfigured" = "unconfigured";
+	if (process.env.RESEND_API_KEY && process.env.EMAIL_FROM) {
+		const [{ env }, { sendEmail }] = await Promise.all([
+			import("#/env"),
+			import("#/server/email"),
+		]);
+		runInBackground(
+			sendEmail(
+				normalizedEmail,
 				{
 					kind: "invitation",
-					url: new URL(
-						`/invite/${invitationId}`,
-						env.BETTER_AUTH_URL,
-					).toString(),
+					url: new URL(`/invite/${created.id}`, env.BETTER_AUTH_URL).toString(),
 					groupName: group.name,
 					inviterName: ctx.user.name,
-					inviteeRole: input.role,
-					expiresAt,
+					inviteeRole: created.role ?? "member",
+					expiresAt: created.expiresAt,
 				},
-				emailKey("invitation", invitationId),
-			);
-			emailDelivery = "sent";
-		} catch (error) {
-			emailDelivery = "failed";
-			reportError(error, { component: "email", kind: "invitation" });
-		}
+				emailKey("invitation", created.id),
+			),
+			{ component: "email", kind: "invitation" },
+		);
+		emailDelivery = "scheduled";
 	}
 	return {
-		invitationId,
-		inviteUrl: `/invite/${invitationId}`,
+		invitationId: created.id,
+		inviteUrl: `/invite/${created.id}`,
 		emailDelivery,
 	};
 }

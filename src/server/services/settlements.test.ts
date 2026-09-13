@@ -8,6 +8,7 @@ import { validateRepayment } from "#/lib/settlements";
 import type { Ctx } from "#/server/context";
 import {
 	createExpense,
+	createInvitation,
 	createSettlement,
 	deleteSettlement,
 	getBalances,
@@ -199,6 +200,33 @@ test("simultaneous repayments cannot both consume the same outstanding debt", as
 		assert.equal(
 			(await getBalances(f.ctx, { groupId: "G" })).transfers.length,
 			0,
+		);
+	} finally {
+		f.client.close();
+	}
+});
+
+test("retrying an invitation reuses the live pending invitation", async () => {
+	const f = await fixture();
+	try {
+		const input = {
+			groupId: "G",
+			email: "guest@example.com",
+			role: "member" as const,
+		};
+		const first = await createInvitation(f.ctx, input);
+		const retry = await createInvitation(f.ctx, input);
+		assert.equal(retry.invitationId, first.invitationId);
+		assert.equal((await f.db.query.invitation.findMany()).length, 1);
+		assert.equal(
+			(await f.db.query.activity.findMany()).filter(
+				(row) => row.type === "member.invited",
+			).length,
+			1,
+		);
+		await assert.rejects(
+			createInvitation(f.ctx, { ...input, role: "admin" }),
+			/already has a pending member invitation/,
 		);
 	} finally {
 		f.client.close();

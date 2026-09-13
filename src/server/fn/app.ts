@@ -168,7 +168,7 @@ export const mutateFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		const ctx = await routeContext();
 		const result = await dispatchMutation(ctx, data);
-		await captureEvent({
+		captureEvent({
 			event: "product_mutation_completed",
 			distinctId: ctx.user.id,
 			properties: { action: data.action, surface: "web" },

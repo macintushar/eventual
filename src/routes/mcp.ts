@@ -55,7 +55,7 @@ async function measuredTool<Result>(
 	const startedAt = performance.now();
 	try {
 		const result = await run();
-		await captureEvent({
+		captureEvent({
 			event: "mcp_tool_called",
 			distinctId: ctx.user.id,
 			properties: {
@@ -66,7 +66,7 @@ async function measuredTool<Result>(
 		});
 		return result;
 	} catch (error) {
-		await captureEvent({
+		captureEvent({
 			event: "mcp_tool_called",
 			distinctId: ctx.user.id,
 			properties: {
@@ -141,7 +141,7 @@ async function handleMcp(request: Request) {
 	try {
 		ctx = await buildContext(request);
 	} catch (error) {
-		await captureEvent({
+		captureEvent({
 			event: "mcp_request_completed",
 			distinctId: "anonymous:mcp",
 			anonymous: true,
@@ -171,7 +171,7 @@ async function handleMcp(request: Request) {
 	await server.connect(transport);
 	try {
 		const response = await transport.handleRequest(request);
-		await captureEvent({
+		captureEvent({
 			event: "mcp_request_completed",
 			distinctId: ctx.user.id,
 			properties: {
@@ -183,7 +183,7 @@ async function handleMcp(request: Request) {
 		});
 		return response;
 	} catch (error) {
-		await captureEvent({
+		captureEvent({
 			event: "mcp_request_completed",
 			distinctId: ctx.user.id,
 			properties: {
