@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
+import { PublicPage, publicSignedInActions } from "#/components/public-header";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 
 export const Route = createFileRoute("/verify-email")({
@@ -11,7 +12,10 @@ export const Route = createFileRoute("/verify-email")({
 function VerificationResult() {
 	const { error } = Route.useSearch();
 	return (
-		<main className="page-wrap grid min-h-[100dvh] place-items-center py-12">
+		<PublicPage
+			actions={publicSignedInActions}
+			mainClassName="items-center justify-center py-12"
+		>
 			<Card className="w-full max-w-md island-shell">
 				<CardHeader>
 					<CardTitle>
@@ -31,6 +35,6 @@ function VerificationResult() {
 					</Link>
 				</CardContent>
 			</Card>
-		</main>
+		</PublicPage>
 	);
 }

@@ -3,8 +3,7 @@ import { Link, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 
-import { Wordmark } from "#/components/app-shell";
-import { PublicDock } from "#/components/dock";
+import { PublicPage } from "#/components/public-header";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Button } from "#/components/ui/button";
 import {
@@ -72,11 +71,15 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 	});
 
 	return (
-		<main className="page-wrap pad-dock grid min-h-[100dvh] place-items-center py-12">
+		<PublicPage
+			actions={
+				mode === "signup"
+					? [{ to: "/login", label: "Log in", variant: "default" }]
+					: [{ to: "/signup", label: "Start a group", variant: "default" }]
+			}
+			mainClassName="items-center justify-center py-12"
+		>
 			<div className="w-full max-w-md">
-				<div className="mb-6 flex justify-center">
-					<Wordmark />
-				</div>
 				<Card className="island-shell rise-in">
 					<CardHeader>
 						<CardTitle className="display-title text-2xl">
@@ -201,7 +204,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 					</CardFooter>
 				</Card>
 			</div>
-			<PublicDock />
-		</main>
+		</PublicPage>
 	);
 }

@@ -131,6 +131,45 @@ export async function listGroups(ctx: Ctx) {
 	}));
 }
 
+/**
+ * Every group the caller belongs to, with its member list. The expense
+ * composer opens from anywhere — the dock, the dashboard, a group page — so it
+ * needs the whole picture up front to offer a group step. `listGroups` carries
+ * balances the composer never reads and no members it always needs, so this is
+ * a separate, cheaper pair of reads rather than a flag on that one.
+ */
+export async function listGroupsWithMembers(ctx: Ctx) {
+	const rows = await ctx.db
+		.select({ id: organization.id, name: organization.name })
+		.from(member)
+		.innerJoin(organization, eq(member.organizationId, organization.id))
+		.where(eq(member.userId, ctx.user.id))
+		.orderBy(asc(organization.name));
+	if (!rows.length) return [];
+	const groupIds = rows.map((row) => row.id);
+	const memberRows = await ctx.db
+		.select({
+			organizationId: member.organizationId,
+			userId: user.id,
+			name: user.name,
+		})
+		.from(member)
+		.innerJoin(user, eq(member.userId, user.id))
+		.where(inArray(member.organizationId, groupIds))
+		.orderBy(asc(user.name));
+	const byGroup = new Map(
+		groupIds.map((groupId) => [
+			groupId,
+			[] as { userId: string; name: string }[],
+		]),
+	);
+	for (const row of memberRows)
+		byGroup
+			.get(row.organizationId)
+			?.push({ userId: row.userId, name: row.name });
+	return rows.map((row) => ({ ...row, members: byGroup.get(row.id) ?? [] }));
+}
+
 export async function createGroup(ctx: Ctx, input: CreateGroupInput) {
 	const groupId = id();
 	const now = new Date();

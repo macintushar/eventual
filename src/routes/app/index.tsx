@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Mail, Plus, Users } from "lucide-react";
 
 import { Amount } from "#/components/amount";
+import { useComposer } from "#/components/composer";
 import { EmptyState } from "#/components/empty-state";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/app/")({
 
 function Dashboard() {
 	const { groups, invitations, user } = Route.useLoaderData();
+	const composer = useComposer();
 	const balances = groups.flatMap((group) => group.balances);
 	const totals = [...new Set(balances.map((row) => row.currency))]
 		.sort()
@@ -149,11 +151,12 @@ function Dashboard() {
 					</div>
 					{/* On a phone the tab bar's centre action already creates groups,
 					    so this duplicate only shows once there's room for it. */}
-					<Button className="hidden sm:inline-flex" asChild>
-						<Link to="/app/groups/new">
-							<Plus data-icon="inline-start" />
-							New group
-						</Link>
+					<Button
+						className="hidden sm:inline-flex"
+						onClick={() => composer.group()}
+					>
+						<Plus data-icon="inline-start" />
+						New group
 					</Button>
 				</div>
 				{groups.length ? (
@@ -222,11 +225,9 @@ function Dashboard() {
 						title="No groups yet"
 						description="Create one for your flat, a dinner, or the next trip — then invite people with a link."
 						action={
-							<Button asChild>
-								<Link to="/app/groups/new">
-									<Plus data-icon="inline-start" />
-									New group
-								</Link>
+							<Button onClick={() => composer.group()}>
+								<Plus data-icon="inline-start" />
+								New group
 							</Button>
 						}
 					/>

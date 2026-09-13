@@ -3,8 +3,11 @@ import { Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { Wordmark } from "#/components/app-shell";
-import { PublicDock } from "#/components/dock";
+import {
+	PublicPage,
+	publicSignedInActions,
+	publicSignedOutActions,
+} from "#/components/public-header";
 import { Button } from "#/components/ui/button";
 import {
 	Card,
@@ -33,11 +36,12 @@ function InvitePage() {
 	const [joining, setJoining] = useState(false);
 
 	return (
-		<main className="page-wrap pad-dock grid min-h-[100dvh] place-items-center py-12">
+		<PublicPage
+			user={session?.user ?? null}
+			actions={session ? publicSignedInActions : publicSignedOutActions}
+			mainClassName="items-center justify-center py-12"
+		>
 			<div className="w-full max-w-lg">
-				<div className="mb-6 flex justify-center">
-					<Wordmark />
-				</div>
 				<Card className="island-shell rise-in">
 					<CardHeader className="items-center text-center">
 						<EmptyMedia
@@ -117,7 +121,6 @@ function InvitePage() {
 					</CardContent>
 				</Card>
 			</div>
-			<PublicDock user={session?.user ?? null} />
-		</main>
+		</PublicPage>
 	);
 }

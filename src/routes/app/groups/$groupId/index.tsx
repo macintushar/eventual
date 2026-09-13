@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { ActivityLine } from "#/components/activity-line";
 import { Amount } from "#/components/amount";
 import { BalanceBar } from "#/components/balance-bar";
+import { useComposer } from "#/components/composer";
 import { CurrencySelect } from "#/components/currency-select";
 import { EmptyState } from "#/components/empty-state";
 import { MemberAvatar } from "#/components/member-avatar";
@@ -71,6 +72,10 @@ import {
 	ItemTitle,
 } from "#/components/ui/item";
 import {
+	hasOpenPopup,
+	PopupContainerProvider,
+} from "#/components/ui/popup-container";
+import {
 	Select,
 	SelectContent,
 	SelectGroup,
@@ -117,6 +122,7 @@ function GroupPage() {
 	const { groupId } = Route.useParams();
 	const router = useRouter();
 	const navigate = useNavigate();
+	const composer = useComposer();
 
 	const run: Run = async (action, message) => {
 		try {
@@ -160,11 +166,12 @@ function GroupPage() {
 					</p>
 				</div>
 				{/* Duplicated by the tab bar's centre action on a phone. */}
-				<Button className="hidden sm:inline-flex" asChild>
-					<Link to="/app/groups/$groupId/expenses/new" params={{ groupId }}>
-						<Plus data-icon="inline-start" />
-						Add expense
-					</Link>
+				<Button
+					className="hidden sm:inline-flex"
+					onClick={() => composer.expense({ groupId })}
+				>
+					<Plus data-icon="inline-start" />
+					Add expense
 				</Button>
 			</header>
 
@@ -224,6 +231,8 @@ function GroupPage() {
 /* ---------------------------------------------------------------- Expenses */
 
 function ExpensesTab({ data, groupId }: { data: LoaderData; groupId: string }) {
+	const composer = useComposer();
+
 	if (data.expenses.items.length === 0)
 		return (
 			<EmptyState
@@ -231,11 +240,9 @@ function ExpensesTab({ data, groupId }: { data: LoaderData; groupId: string }) {
 				title="No expenses yet"
 				description="Add the first shared cost and Eventual works out who owes what in each currency."
 				action={
-					<Button asChild>
-						<Link to="/app/groups/$groupId/expenses/new" params={{ groupId }}>
-							<Plus data-icon="inline-start" />
-							Add expense
-						</Link>
+					<Button onClick={() => composer.expense({ groupId })}>
+						<Plus data-icon="inline-start" />
+						Add expense
 					</Button>
 				}
 			/>
@@ -304,6 +311,11 @@ function BalancesTab({
 	groupId: string;
 	run: Run;
 }) {
+	/*
+	 * The currency picker is a combobox, and its list portals into whatever this
+	 * provides — `popup-container.tsx` explains why it cannot go to the body.
+	 */
+	const [settleContent, setSettleContent] = useState<HTMLElement | null>(null);
 	const [settleTo, setSettleTo] = useState(
 		data.balances.transfers.find((row) => row.from.userId === data.user.id)?.to
 			.userId ?? "",
@@ -461,118 +473,131 @@ function BalancesTab({
 									Record settlement
 								</Button>
 							</DialogTrigger>
-							<DialogContent>
-								<DialogHeader>
-									<DialogTitle>Record settlement</DialogTitle>
-									<DialogDescription>
-										Record money you actually paid to another member. Matching
-										shares are marked paid automatically.
-									</DialogDescription>
-								</DialogHeader>
-								<FieldGroup>
-									<Field>
-										<FieldLabel htmlFor="settle-currency">Currency</FieldLabel>
-										<CurrencySelect
-											id="settle-currency"
-											value={settleCurrency}
-											onValueChange={(value) => {
-												setSettleCurrency(value);
-												setSettleAmount("");
-											}}
-										/>
-									</Field>
-									<Field>
-										<FieldLabel htmlFor="settle-to">Paid to</FieldLabel>
-										<Select value={settleTo} onValueChange={setSettleTo}>
-											<SelectTrigger id="settle-to" className="w-full">
-												<SelectValue placeholder="Choose member" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectGroup>
-													{data.group.members
-														.filter((member) => member.userId !== data.user.id)
-														.map((member) => (
-															<SelectItem
-																key={member.userId}
-																value={member.userId}
-															>
-																{member.name}
-															</SelectItem>
-														))}
-												</SelectGroup>
-											</SelectContent>
-										</Select>
-									</Field>
-									<Field data-invalid={Boolean(settleAmount && invalid)}>
-										<FieldLabel htmlFor="settle-amount">Amount</FieldLabel>
-										<InputGroup>
-											<InputGroupAddon>
-												<InputGroupText>
-													{currencySymbol(settleCurrency)}
-												</InputGroupText>
-											</InputGroupAddon>
-											<InputGroupInput
-												id="settle-amount"
-												aria-invalid={Boolean(settleAmount && invalid)}
-												aria-describedby="settle-limit settle-error"
-												inputMode="decimal"
-												className="tabular"
-												value={settleAmount}
-												onChange={(event) =>
-													setSettleAmount(event.target.value)
-												}
+							<DialogContent
+								ref={setSettleContent}
+								onEscapeKeyDown={(event) => {
+									// The currency list gets the first Escape, this dialog the
+									// second. See `hasOpenPopup`.
+									if (hasOpenPopup(settleContent)) event.preventDefault();
+								}}
+							>
+								<PopupContainerProvider container={settleContent}>
+									<DialogHeader>
+										<DialogTitle>Record settlement</DialogTitle>
+										<DialogDescription>
+											Record money you actually paid to another member. Matching
+											shares are marked paid automatically.
+										</DialogDescription>
+									</DialogHeader>
+									<FieldGroup>
+										<Field>
+											<FieldLabel htmlFor="settle-currency">
+												Currency
+											</FieldLabel>
+											<CurrencySelect
+												id="settle-currency"
+												value={settleCurrency}
+												onValueChange={(value) => {
+													setSettleCurrency(value);
+													setSettleAmount("");
+												}}
 											/>
-										</InputGroup>
-										<FieldDescription id="settle-limit">
-											Maximum: {formatMinor(limit, settleCurrency)} based on
-											current simplified debts.
-										</FieldDescription>
-										<FieldError id="settle-error">
-											{settleAmount ? invalid : null}
-										</FieldError>
-									</Field>
-									<Field>
-										<FieldLabel htmlFor="settle-note">Note</FieldLabel>
-										<Textarea
-											id="settle-note"
-											rows={2}
-											placeholder="UPI, cash, …"
-											value={settleNote}
-											onChange={(event) => setSettleNote(event.target.value)}
-										/>
-										<FieldDescription>Optional.</FieldDescription>
-									</Field>
-								</FieldGroup>
-								<DialogFooter>
-									<Button
-										disabled={Boolean(invalid) || saving}
-										onClick={async () => {
-											if (invalid || repayment.amountMinor === null || saving)
-												return;
-											setSaving(true);
-											const saved = await run(
-												{
-													action: "settlement.create",
-													input: {
-														groupId,
-														toUserId: settleTo,
-														amountMinor: repayment.amountMinor,
-														currency: settleCurrency,
-														note: settleNote || null,
+										</Field>
+										<Field>
+											<FieldLabel htmlFor="settle-to">Paid to</FieldLabel>
+											<Select value={settleTo} onValueChange={setSettleTo}>
+												<SelectTrigger id="settle-to" className="w-full">
+													<SelectValue placeholder="Choose member" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectGroup>
+														{data.group.members
+															.filter(
+																(member) => member.userId !== data.user.id,
+															)
+															.map((member) => (
+																<SelectItem
+																	key={member.userId}
+																	value={member.userId}
+																>
+																	{member.name}
+																</SelectItem>
+															))}
+													</SelectGroup>
+												</SelectContent>
+											</Select>
+										</Field>
+										<Field data-invalid={Boolean(settleAmount && invalid)}>
+											<FieldLabel htmlFor="settle-amount">Amount</FieldLabel>
+											<InputGroup>
+												<InputGroupAddon>
+													<InputGroupText>
+														{currencySymbol(settleCurrency)}
+													</InputGroupText>
+												</InputGroupAddon>
+												<InputGroupInput
+													id="settle-amount"
+													aria-invalid={Boolean(settleAmount && invalid)}
+													aria-describedby="settle-limit settle-error"
+													inputMode="decimal"
+													className="tabular"
+													value={settleAmount}
+													onChange={(event) =>
+														setSettleAmount(event.target.value)
+													}
+												/>
+											</InputGroup>
+											<FieldDescription id="settle-limit">
+												Maximum: {formatMinor(limit, settleCurrency)} based on
+												current simplified debts.
+											</FieldDescription>
+											<FieldError id="settle-error">
+												{settleAmount ? invalid : null}
+											</FieldError>
+										</Field>
+										<Field>
+											<FieldLabel htmlFor="settle-note">Note</FieldLabel>
+											<Textarea
+												id="settle-note"
+												rows={2}
+												placeholder="UPI, cash, …"
+												value={settleNote}
+												onChange={(event) => setSettleNote(event.target.value)}
+											/>
+											<FieldDescription>Optional.</FieldDescription>
+										</Field>
+									</FieldGroup>
+									<DialogFooter>
+										<Button
+											disabled={Boolean(invalid) || saving}
+											onClick={async () => {
+												if (invalid || repayment.amountMinor === null || saving)
+													return;
+												setSaving(true);
+												const saved = await run(
+													{
+														action: "settlement.create",
+														input: {
+															groupId,
+															toUserId: settleTo,
+															amountMinor: repayment.amountMinor,
+															currency: settleCurrency,
+															note: settleNote || null,
+														},
 													},
-												},
-												"Settlement recorded",
-											);
-											setSaving(false);
-											if (!saved) return;
-											setSettleOpen(false);
-											setSettleAmount("");
-											setSettleNote("");
-										}}
-									>
-										Record
-									</Button>
-								</DialogFooter>
+													"Settlement recorded",
+												);
+												setSaving(false);
+												if (!saved) return;
+												setSettleOpen(false);
+												setSettleAmount("");
+												setSettleNote("");
+											}}
+										>
+											Record
+										</Button>
+									</DialogFooter>
+								</PopupContainerProvider>
 							</DialogContent>
 						</Dialog>
 					</CardContent>

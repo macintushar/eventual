@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as HelpRouteImport } from './routes/help'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -21,12 +22,12 @@ import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as ApiSplatRouteImport } from './routes/api/$'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as HelpIndexRouteImport } from './routes/help/index'
+import { Route as HelpSlugRouteImport } from './routes/help/$slug'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite/$invitationId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
-import { Route as AppGroupsNewRouteImport } from './routes/app/groups/new'
 import { Route as AppGroupsGroupIdIndexRouteImport } from './routes/app/groups/$groupId/index'
 import { Route as AppGroupsGroupIdExpensesExpenseIdRouteImport } from './routes/app/groups/$groupId/expenses/$expenseId'
-import { Route as AppGroupsGroupIdExpensesNewRouteImport } from './routes/app/groups/$groupId/expenses/new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,11 @@ const DocsRoute = DocsRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -88,6 +94,16 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const HelpIndexRoute = HelpIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => HelpRoute,
+} as any)
+const HelpSlugRoute = HelpSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => HelpRoute,
+} as any)
 const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
   id: '/invite/$invitationId',
   path: '/invite/$invitationId',
@@ -97,11 +113,6 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AppGroupsNewRoute = AppGroupsNewRouteImport.update({
-  id: '/groups/new',
-  path: '/groups/new',
-  getParentRoute: () => AppRoute,
 } as any)
 const AppGroupsGroupIdIndexRoute = AppGroupsGroupIdIndexRouteImport.update({
   id: '/groups/$groupId/',
@@ -114,18 +125,13 @@ const AppGroupsGroupIdExpensesExpenseIdRoute =
     path: '/groups/$groupId/expenses/$expenseId',
     getParentRoute: () => AppRoute,
   } as any)
-const AppGroupsGroupIdExpensesNewRoute =
-  AppGroupsGroupIdExpensesNewRouteImport.update({
-    id: '/groups/$groupId/expenses/new',
-    path: '/groups/$groupId/expenses/new',
-    getParentRoute: () => AppRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/docs': typeof DocsRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/help': typeof HelpRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -133,13 +139,13 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof VerifyEmailRoute
   '/api/$': typeof ApiSplatRoute
   '/app/settings': typeof AppSettingsRoute
+  '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/app/': typeof AppIndexRoute
+  '/help/': typeof HelpIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/app/groups/new': typeof AppGroupsNewRoute
   '/app/groups/$groupId/': typeof AppGroupsGroupIdIndexRoute
   '/app/groups/$groupId/expenses/$expenseId': typeof AppGroupsGroupIdExpensesExpenseIdRoute
-  '/app/groups/$groupId/expenses/new': typeof AppGroupsGroupIdExpensesNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -152,13 +158,13 @@ export interface FileRoutesByTo {
   '/verify-email': typeof VerifyEmailRoute
   '/api/$': typeof ApiSplatRoute
   '/app/settings': typeof AppSettingsRoute
+  '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/app': typeof AppIndexRoute
+  '/help': typeof HelpIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/app/groups/new': typeof AppGroupsNewRoute
   '/app/groups/$groupId': typeof AppGroupsGroupIdIndexRoute
   '/app/groups/$groupId/expenses/$expenseId': typeof AppGroupsGroupIdExpensesExpenseIdRoute
-  '/app/groups/$groupId/expenses/new': typeof AppGroupsGroupIdExpensesNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -166,6 +172,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/docs': typeof DocsRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/help': typeof HelpRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -173,13 +180,13 @@ export interface FileRoutesById {
   '/verify-email': typeof VerifyEmailRoute
   '/api/$': typeof ApiSplatRoute
   '/app/settings': typeof AppSettingsRoute
+  '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/app/': typeof AppIndexRoute
+  '/help/': typeof HelpIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/app/groups/new': typeof AppGroupsNewRoute
   '/app/groups/$groupId/': typeof AppGroupsGroupIdIndexRoute
   '/app/groups/$groupId/expenses/$expenseId': typeof AppGroupsGroupIdExpensesExpenseIdRoute
-  '/app/groups/$groupId/expenses/new': typeof AppGroupsGroupIdExpensesNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -188,6 +195,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/docs'
     | '/forgot-password'
+    | '/help'
     | '/login'
     | '/mcp'
     | '/reset-password'
@@ -195,13 +203,13 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/api/$'
     | '/app/settings'
+    | '/help/$slug'
     | '/invite/$invitationId'
     | '/app/'
+    | '/help/'
     | '/api/auth/$'
-    | '/app/groups/new'
     | '/app/groups/$groupId/'
     | '/app/groups/$groupId/expenses/$expenseId'
-    | '/app/groups/$groupId/expenses/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -214,19 +222,20 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/api/$'
     | '/app/settings'
+    | '/help/$slug'
     | '/invite/$invitationId'
     | '/app'
+    | '/help'
     | '/api/auth/$'
-    | '/app/groups/new'
     | '/app/groups/$groupId'
     | '/app/groups/$groupId/expenses/$expenseId'
-    | '/app/groups/$groupId/expenses/new'
   id:
     | '__root__'
     | '/'
     | '/app'
     | '/docs'
     | '/forgot-password'
+    | '/help'
     | '/login'
     | '/mcp'
     | '/reset-password'
@@ -234,13 +243,13 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/api/$'
     | '/app/settings'
+    | '/help/$slug'
     | '/invite/$invitationId'
     | '/app/'
+    | '/help/'
     | '/api/auth/$'
-    | '/app/groups/new'
     | '/app/groups/$groupId/'
     | '/app/groups/$groupId/expenses/$expenseId'
-    | '/app/groups/$groupId/expenses/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -248,6 +257,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   DocsRoute: typeof DocsRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  HelpRoute: typeof HelpRouteWithChildren
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -286,6 +296,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -344,6 +361,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/help/': {
+      id: '/help/'
+      path: '/'
+      fullPath: '/help/'
+      preLoaderRoute: typeof HelpIndexRouteImport
+      parentRoute: typeof HelpRoute
+    }
+    '/help/$slug': {
+      id: '/help/$slug'
+      path: '/$slug'
+      fullPath: '/help/$slug'
+      preLoaderRoute: typeof HelpSlugRouteImport
+      parentRoute: typeof HelpRoute
+    }
     '/invite/$invitationId': {
       id: '/invite/$invitationId'
       path: '/invite/$invitationId'
@@ -357,13 +388,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/app/groups/new': {
-      id: '/app/groups/new'
-      path: '/groups/new'
-      fullPath: '/app/groups/new'
-      preLoaderRoute: typeof AppGroupsNewRouteImport
-      parentRoute: typeof AppRoute
     }
     '/app/groups/$groupId/': {
       id: '/app/groups/$groupId/'
@@ -379,42 +403,44 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppGroupsGroupIdExpensesExpenseIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/groups/$groupId/expenses/new': {
-      id: '/app/groups/$groupId/expenses/new'
-      path: '/groups/$groupId/expenses/new'
-      fullPath: '/app/groups/$groupId/expenses/new'
-      preLoaderRoute: typeof AppGroupsGroupIdExpensesNewRouteImport
-      parentRoute: typeof AppRoute
-    }
   }
 }
 
 interface AppRouteChildren {
   AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
-  AppGroupsNewRoute: typeof AppGroupsNewRoute
   AppGroupsGroupIdIndexRoute: typeof AppGroupsGroupIdIndexRoute
   AppGroupsGroupIdExpensesExpenseIdRoute: typeof AppGroupsGroupIdExpensesExpenseIdRoute
-  AppGroupsGroupIdExpensesNewRoute: typeof AppGroupsGroupIdExpensesNewRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
-  AppGroupsNewRoute: AppGroupsNewRoute,
   AppGroupsGroupIdIndexRoute: AppGroupsGroupIdIndexRoute,
   AppGroupsGroupIdExpensesExpenseIdRoute:
     AppGroupsGroupIdExpensesExpenseIdRoute,
-  AppGroupsGroupIdExpensesNewRoute: AppGroupsGroupIdExpensesNewRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
+interface HelpRouteChildren {
+  HelpSlugRoute: typeof HelpSlugRoute
+  HelpIndexRoute: typeof HelpIndexRoute
+}
+
+const HelpRouteChildren: HelpRouteChildren = {
+  HelpSlugRoute: HelpSlugRoute,
+  HelpIndexRoute: HelpIndexRoute,
+}
+
+const HelpRouteWithChildren = HelpRoute._addFileChildren(HelpRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   DocsRoute: DocsRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  HelpRoute: HelpRouteWithChildren,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   ResetPasswordRoute: ResetPasswordRoute,

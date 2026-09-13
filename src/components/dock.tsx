@@ -7,7 +7,9 @@ import {
 import {
 	ArrowLeft,
 	Blocks,
+	CircleHelp,
 	House,
+	LogIn,
 	Plus,
 	Receipt,
 	UserRound,
@@ -16,6 +18,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 
+import { useComposer } from "#/components/composer";
 import { MemberAvatar } from "#/components/member-avatar";
 import { Button } from "#/components/ui/button";
 import {
@@ -79,10 +82,19 @@ function ComposeBody({
 
 const COMPOSE_ITEM = "gap-3 rounded-xl p-2.5 [&_svg]:text-foreground";
 
+function profileActive(pathname: string, signedIn: boolean) {
+	if (pathname.startsWith("/help")) return true;
+	if (signedIn) return pathname.startsWith("/app/settings");
+	return pathname === "/login" || pathname === "/signup";
+}
+
 /**
  * The compose menu behind the dock's centre button. Both ways of starting
  * something live here rather than the button guessing from the route — an
  * action you can see is an action you can find again.
+ *
+ * Neither one navigates: they open a stepped dialog over whatever you were
+ * looking at, so a half-finished expense never costs you your place.
  */
 function ComposeButton({
 	groupId,
@@ -93,6 +105,8 @@ function ComposeButton({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
+	const composer = useComposer();
+
 	return (
 		<DropdownMenu open={open} onOpenChange={onOpenChange}>
 			<DropdownMenuTrigger asChild>
@@ -119,35 +133,114 @@ function ComposeButton({
 				sideOffset={14}
 				className="dock-menu"
 			>
-				{groupId ? (
+				{/* The composer carries its own group step now, so this is offered
+				    everywhere — inside a group it just arrives preselected. */}
+				<DropdownMenuItem
+					className={COMPOSE_ITEM}
+					onSelect={() => composer.expense({ groupId })}
+				>
+					<ComposeBody
+						icon={<Receipt className="size-[1.125rem]" />}
+						title="New expense"
+						hint={
+							groupId
+								? "Split a cost with this group"
+								: "Pick a group and split"
+						}
+					/>
+				</DropdownMenuItem>
+
+				<DropdownMenuItem
+					className={COMPOSE_ITEM}
+					onSelect={() => composer.group()}
+				>
+					<ComposeBody
+						icon={<UsersRound className="size-[1.125rem]" />}
+						title="New group"
+						hint="Start a shared tab with people"
+					/>
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
+/**
+ * The dock's last slot. Help used to live in every footer; it belongs with
+ * who you are, because that is the same place you already reach for settings
+ * or sign-in.
+ */
+function ProfileButton({
+	user,
+	open,
+	onOpenChange,
+	active,
+}: {
+	user?: { name: string; email: string } | null;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	active?: boolean;
+}) {
+	return (
+		<DropdownMenu open={open} onOpenChange={onOpenChange}>
+			<DropdownMenuTrigger asChild>
+				<button
+					type="button"
+					className="dock-item"
+					data-active={active || open}
+					aria-label="Account menu"
+					title="Account menu"
+					aria-current={active ? "page" : undefined}
+				>
+					{user ? (
+						<MemberAvatar
+							name={user.name}
+							seed={user.email}
+							className="size-[1.625rem] text-[9px]"
+						/>
+					) : (
+						<UserRound className={ICON} aria-hidden="true" />
+					)}
+				</button>
+			</DropdownMenuTrigger>
+
+			<DropdownMenuContent
+				side="top"
+				align="end"
+				sideOffset={14}
+				className="dock-menu"
+			>
+				<DropdownMenuItem asChild className={COMPOSE_ITEM}>
+					<Link to="/help">
+						<ComposeBody
+							icon={<CircleHelp className="size-[1.125rem]" />}
+							title="Help"
+							hint="Guides for groups, expenses and splits"
+						/>
+					</Link>
+				</DropdownMenuItem>
+
+				{user ? (
 					<DropdownMenuItem asChild className={COMPOSE_ITEM}>
-						<Link to="/app/groups/$groupId/expenses/new" params={{ groupId }}>
+						<Link to="/app/settings">
 							<ComposeBody
-								icon={<Receipt className="size-[1.125rem]" />}
-								title="New expense"
-								hint="Split a cost with this group"
+								icon={<UserRound className="size-[1.125rem]" />}
+								title="Account"
+								hint="API keys and your details"
 							/>
 						</Link>
 					</DropdownMenuItem>
 				) : (
-					<DropdownMenuItem disabled className={COMPOSE_ITEM}>
-						<ComposeBody
-							icon={<Receipt className="size-[1.125rem]" />}
-							title="New expense"
-							hint="Open a group first"
-						/>
+					<DropdownMenuItem asChild className={COMPOSE_ITEM}>
+						<Link to="/login">
+							<ComposeBody
+								icon={<LogIn className="size-[1.125rem]" />}
+								title="Sign in"
+								hint="Log in to your groups"
+							/>
+						</Link>
 					</DropdownMenuItem>
 				)}
-
-				<DropdownMenuItem asChild className={COMPOSE_ITEM}>
-					<Link to="/app/groups/new">
-						<ComposeBody
-							icon={<UsersRound className="size-[1.125rem]" />}
-							title="New group"
-							hint="Start a shared tab with people"
-						/>
-					</Link>
-				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
@@ -162,8 +255,9 @@ export function AppDock({ user }: { user: { name: string; email: string } }) {
 	const { groupId } = useParams({ strict: false }) as { groupId?: string };
 	const { pathname } = useLocation();
 	const [composeOpen, setComposeOpen] = useState(false);
+	const [profileOpen, setProfileOpen] = useState(false);
 
-	const active = pathname.startsWith("/app/settings")
+	const active = profileActive(pathname, true)
 		? "account"
 		: pathname.startsWith("/docs")
 			? "docs"
@@ -181,24 +275,25 @@ export function AppDock({ user }: { user: { name: string; email: string } }) {
 				<ComposeButton
 					groupId={groupId}
 					open={composeOpen}
-					onOpenChange={setComposeOpen}
+					onOpenChange={(next) => {
+						setComposeOpen(next);
+						if (next) setProfileOpen(false);
+					}}
 				/>
 
 				<DockItem to="/docs" active={active === "docs"} label="Integrations">
 					<Blocks className={ICON} aria-hidden="true" />
 				</DockItem>
 
-				<DockItem
-					to="/app/settings"
+				<ProfileButton
+					user={user}
+					open={profileOpen}
+					onOpenChange={(next) => {
+						setProfileOpen(next);
+						if (next) setComposeOpen(false);
+					}}
 					active={active === "account"}
-					label="Account"
-				>
-					<MemberAvatar
-						name={user.name}
-						seed={user.email}
-						className="size-[1.625rem] text-[9px]"
-					/>
-				</DockItem>
+				/>
 			</nav>
 
 			{/*
@@ -207,17 +302,19 @@ export function AppDock({ user }: { user: { name: string; email: string } }) {
 			 * make this fixed element resolve against the dock instead of the
 			 * viewport. Radix treats a tap here as an outside click and closes.
 			 */}
-			{composeOpen ? <div className="dock-scrim" aria-hidden="true" /> : null}
+			{composeOpen || profileOpen ? (
+				<div className="dock-scrim" aria-hidden="true" />
+			) : null}
 		</>
 	);
 }
 
 /**
  * Signed-out navigation for the landing page, docs, auth and invite screens.
- * There is nothing to add and no account yet, so the slots are the three moves
- * that always make sense: go back, go home, or sign in. When a session is
- * already live — someone reading docs while logged in, or accepting an invite
- * — the third slot swaps to the same avatar the app dock uses.
+ * There is nothing to add yet, so the slots are go back, go home, and the
+ * account menu — help, plus sign-in or your profile. When a session is already
+ * live — someone reading docs while logged in, or accepting an invite — the
+ * third slot uses the same avatar the app dock does.
  */
 export function PublicDock({
 	user: initialUser,
@@ -227,6 +324,7 @@ export function PublicDock({
 	const router = useRouter();
 	const { pathname } = useLocation();
 	const [user, setUser] = useState(initialUser ?? null);
+	const [profileOpen, setProfileOpen] = useState(false);
 
 	useEffect(() => {
 		if (initialUser !== undefined) {
@@ -247,39 +345,34 @@ export function PublicDock({
 		};
 	}, [initialUser]);
 
-	const accountActive = user
-		? pathname.startsWith("/app/settings")
-		: pathname === "/login" || pathname === "/signup";
+	const accountActive = profileActive(pathname, Boolean(user));
 
 	return (
-		<nav className="dock" aria-label="Primary">
-			<button
-				type="button"
-				className="dock-item"
-				aria-label="Go back"
-				title="Go back"
-				onClick={() => router.history.back()}
-			>
-				<ArrowLeft className={ICON} aria-hidden="true" />
-			</button>
+		<>
+			<nav className="dock" aria-label="Primary">
+				<button
+					type="button"
+					className="dock-item"
+					aria-label="Go back"
+					title="Go back"
+					onClick={() => router.history.back()}
+				>
+					<ArrowLeft className={ICON} aria-hidden="true" />
+				</button>
 
-			<DockItem to="/" active={pathname === "/"} label="Home">
-				<House className={ICON} aria-hidden="true" />
-			</DockItem>
+				<DockItem to="/" active={pathname === "/"} label="Home">
+					<House className={ICON} aria-hidden="true" />
+				</DockItem>
 
-			{user ? (
-				<DockItem to="/app/settings" active={accountActive} label="Account">
-					<MemberAvatar
-						name={user.name}
-						seed={user.email}
-						className="size-[1.625rem] text-[9px]"
-					/>
-				</DockItem>
-			) : (
-				<DockItem to="/login" active={accountActive} label="Sign in">
-					<UserRound className={ICON} aria-hidden="true" />
-				</DockItem>
-			)}
-		</nav>
+				<ProfileButton
+					user={user}
+					open={profileOpen}
+					onOpenChange={setProfileOpen}
+					active={accountActive}
+				/>
+			</nav>
+
+			{profileOpen ? <div className="dock-scrim" aria-hidden="true" /> : null}
+		</>
 	);
 }
