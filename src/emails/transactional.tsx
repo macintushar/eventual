@@ -1,13 +1,17 @@
+import { Fragment } from "react";
 import {
 	Body,
 	Button,
+	Column,
 	Container,
+	Font,
 	Head,
 	Heading,
 	Html,
 	Link,
 	Preview,
 	pixelBasedPreset,
+	Row,
 	Section,
 	Tailwind,
 	Text,
@@ -37,6 +41,18 @@ function formatExpiry(expiresAt: Date) {
 		timeZone: "UTC",
 		timeZoneName: "short",
 	}).format(expiresAt);
+}
+
+/*
+ * Word-rendered Outlook honours no wrapping property at all — not
+ * `overflow-wrap`, not `word-break`, not the legacy `word-wrap` — so a token
+ * URL printed as one string pushes the card sideways there. Splitting the
+ * visible text at the query separators gives every engine a real line break to
+ * use instead. The href stays whole, and so does the URL in the plain-text
+ * part, which `toPlainText` takes from the href rather than the label.
+ */
+function urlSegments(url: string) {
+	return url.split(/(?=[?&])/g);
 }
 
 export function emailCopy({ kind, expiresAt }: TransactionalEmailProps) {
@@ -101,6 +117,42 @@ const shadowMd =
 	"0 2px 4px rgba(38, 34, 30, 0.05), 0 14px 28px -10px rgba(38, 34, 30, 0.18)";
 const shadowXs = "0 1px 2px rgba(38, 34, 30, 0.06)";
 
+/*
+ * Webfonts reach Apple Mail and iOS; everywhere else falls back to a face the
+ * machine already has. `Font` writes an @font-face plus an `mso-font-alt` hint
+ * rather than a `<link>`, which Gmail, Outlook and Yahoo strip from the head.
+ * Caveat falls back to script faces that ship with macOS and Windows, so the
+ * note still reads as handwriting when the webfont never loads.
+ */
+const webFonts = [
+	{
+		fontFamily: "Inter Tight",
+		fallback: "Helvetica" as const,
+		weight: 500,
+		url: "https://fonts.gstatic.com/s/intertight/v9/NGSnv5HMAFg6IuGlBNMjxJEL2VmU3NS7Z2mjPQ-aWy5SgqoUP_C5.woff2",
+	},
+	{
+		fontFamily: "Caveat",
+		fallback: "cursive" as const,
+		weight: 400,
+		url: "https://fonts.gstatic.com/s/caveat/v23/WnznHAc5bAfYB2QRah7pcpNvOx-pjfJ9eIWpYT5Kmgq3sw.woff2",
+	},
+	{
+		fontFamily: "Inter",
+		fallback: "Helvetica" as const,
+		weight: 500,
+		url: "https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2",
+	},
+	// Body weight last: `Font` also emits a `* { font-family }` rule, and the
+	// final one wins for anything that somehow renders without its own family.
+	{
+		fontFamily: "Inter",
+		fallback: "Helvetica" as const,
+		weight: 400,
+		url: "https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2",
+	},
+];
+
 export default function TransactionalEmail(props: TransactionalEmailProps) {
 	const copy = emailCopy(props);
 	return (
@@ -119,7 +171,10 @@ export default function TransactionalEmail(props: TransactionalEmailProps) {
 									"Arial",
 									"sans-serif",
 								],
-								hand: ["Caveat", "Bradley Hand", "cursive"],
+								// Bradley Hand ships with macOS, Segoe Script with Windows,
+								// so the note keeps a script face wherever the webfont is
+								// blocked. `mso-font-alt` can only name a generic family.
+								hand: ["Caveat", "Bradley Hand", "Segoe Script", "cursive"],
 							},
 						},
 					},
@@ -133,11 +188,15 @@ export default function TransactionalEmail(props: TransactionalEmailProps) {
 					 */}
 					<meta name="color-scheme" content="light" />
 					<meta name="supported-color-schemes" content="light" />
-					{/* Apple Mail and iOS honour this; everywhere else falls back to Helvetica. */}
-					<link
-						rel="stylesheet"
-						href="https://fonts.googleapis.com/css2?family=Caveat:wght@400&family=Inter+Tight:wght@500&family=Inter:wght@400;500&display=swap"
-					/>
+					{webFonts.map((font) => (
+						<Font
+							key={`${font.fontFamily}-${font.weight}`}
+							fontFamily={font.fontFamily}
+							fallbackFontFamily={font.fallback}
+							fontWeight={font.weight}
+							webFont={{ url: font.url, format: "woff2" }}
+						/>
+					))}
 				</Head>
 				<Body
 					className="m-0 p-0 font-sans"
@@ -165,42 +224,34 @@ export default function TransactionalEmail(props: TransactionalEmailProps) {
 							}}
 						>
 							{/* `.island-kicker`: a strip of blue tape, then a quiet label. */}
-							<table
-								role="presentation"
-								cellPadding={0}
-								cellSpacing={0}
-								border={0}
-								style={{ width: "auto", borderCollapse: "collapse" }}
-							>
-								<tbody>
-									<tr>
-										<td
-											style={{
-												verticalAlign: "middle",
-												fontSize: 0,
-												lineHeight: 0,
-											}}
+							<Row>
+								<Column width={28} style={{ verticalAlign: "middle" }}>
+									{/*
+									 * The strip is a nested table sized by width/height
+									 * attributes: a lone `td` would stretch to the row, and
+									 * Yahoo drops the CSS `height` property. Its own line
+									 * height, not a CSS box, gives it its 8px.
+									 */}
+									<Row
+										width={20}
+										bgcolor={tape}
+										style={{ borderRadius: "2px" }}
+									>
+										<Column
+											height={8}
+											style={{ fontSize: "1px", lineHeight: "8px" }}
 										>
-											{/* The strip lives in a div: a `td` stretches to the row height. */}
-											<div
-												style={{
-													width: "20px",
-													height: "8px",
-													backgroundColor: tape,
-													borderRadius: "2px",
-													transform: "rotate(-4deg)",
-												}}
-											/>
-										</td>
-										<td
-											className="pl-2 font-sans text-[14px] font-medium leading-[1.4]"
-											style={{ color: mutedInk, verticalAlign: "middle" }}
-										>
-											{copy.kicker}
-										</td>
-									</tr>
-								</tbody>
-							</table>
+											&nbsp;
+										</Column>
+									</Row>
+								</Column>
+								<Column
+									className="font-sans text-[14px] font-medium leading-[1.4]"
+									style={{ color: mutedInk, verticalAlign: "middle" }}
+								>
+									{copy.kicker}
+								</Column>
+							</Row>
 
 							<Heading
 								as="h1"
@@ -228,11 +279,14 @@ export default function TransactionalEmail(props: TransactionalEmailProps) {
 							{/* Primary action: the same black pill used across the app. */}
 							<Button
 								href={props.url}
-								className="mt-8 box-border inline-block rounded-full px-7 py-[14px] text-center font-sans text-[15px] font-medium no-underline"
+								className="mt-8 inline-block rounded-full px-7 py-[14px] text-center font-sans text-[15px] font-medium"
 								style={{
 									backgroundColor: ink,
 									color: paper,
 									boxShadow: shadowXs,
+									// Shorthand: Outlook ignores the `text-decoration-line`
+									// longhand and would underline the label inside the pill.
+									textDecoration: "none",
 								}}
 							>
 								{copy.action}
@@ -252,46 +306,42 @@ export default function TransactionalEmail(props: TransactionalEmailProps) {
 								<br />
 								<Link
 									href={props.url}
-									className="break-all underline"
 									style={{
 										color: mutedInk,
+										textDecoration: "underline",
 										textDecorationColor: tape,
-										overflowWrap: "anywhere",
-										wordBreak: "break-all",
 									}}
 								>
-									{props.url}
+									{urlSegments(props.url).map((segment, index) => (
+										// biome-ignore lint/suspicious/noArrayIndexKey: segments of one string
+										<Fragment key={index}>
+											{index > 0 ? <br /> : null}
+											{segment}
+										</Fragment>
+									))}
 								</Link>
 							</Text>
 						</Section>
 
 						{/* The one handwritten mark per screen: a sticky note by the card. */}
 						<Section className="pt-6">
-							<table
-								role="presentation"
-								cellPadding={0}
-								cellSpacing={0}
-								border={0}
-								style={{ width: "auto", borderCollapse: "collapse" }}
-							>
-								<tbody>
-									<tr>
-										<td
-											className="font-hand text-[20px] leading-[22px]"
-											style={{
-												backgroundColor: note,
-												color: noteInk,
-												padding: "14px 16px",
-												borderRadius: "3px 3px 10px 3px",
-												boxShadow: shadowMd,
-												transform: "rotate(-2.5deg)",
-											}}
-										>
-											{copy.note}
-										</td>
-									</tr>
-								</tbody>
-							</table>
+							<Row align="left" style={{ width: "auto" }}>
+								<Column
+									className="font-hand text-[20px] leading-[22px]"
+									style={{
+										backgroundColor: note,
+										color: noteInk,
+										padding: "14px 16px",
+										// No rotation: transforms are dropped by Gmail, Outlook
+										// and Yahoo. The peeled corner and the script face carry
+										// the handmade feel instead.
+										borderRadius: "3px 3px 10px 3px",
+										boxShadow: shadowMd,
+									}}
+								>
+									{copy.note}
+								</Column>
+							</Row>
 						</Section>
 
 						{/* Footer sits on the bare canvas, quieter than the paper above it. */}

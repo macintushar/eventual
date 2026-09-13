@@ -6,7 +6,7 @@
     "#/*": "./src/*"
   },
   "scripts": {
-	"email:dev": "email dev --dir src/emails --port 3002",
+    "email:dev": "email dev --dir src/emails --port 3002",
     "dev": "vite dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vite build",
@@ -59,6 +59,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
+    "@react-email/ui": "6.9.5",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/router-cli": "^1.132.0",
