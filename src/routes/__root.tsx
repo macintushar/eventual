@@ -1,6 +1,7 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { AnalyticsProvider } from "#/components/analytics-provider";
 import { AppThemeProvider } from "#/components/theme";
 import { Toaster } from "#/components/ui/sonner";
 import appCss from "../styles.css?url";
@@ -52,10 +53,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				<AppThemeProvider>
-					{children}
-					<Toaster richColors />
-				</AppThemeProvider>
+				<AnalyticsProvider>
+					<AppThemeProvider>
+						{children}
+						<Toaster richColors />
+					</AppThemeProvider>
+				</AnalyticsProvider>
 				<TanStackDevtools
 					config={{
 						position: "bottom-right",

@@ -91,6 +91,7 @@ import {
 import { Spinner } from "#/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { Textarea } from "#/components/ui/textarea";
+import { copyToClipboard } from "#/lib/clipboard";
 import { currencySymbol } from "#/lib/currencies";
 import { formatShortDate } from "#/lib/dates";
 import { formatMinor, fromMinor, parseMinor } from "#/lib/money";
@@ -855,6 +856,10 @@ function MembersTab({
 												setInviteUrl(
 													`${window.location.origin}${result.inviteUrl}`,
 												);
+											if (result && "emailDelivery" in result) {
+												if (result.emailDelivery === "scheduled")
+													toast.success("Invitation email queued");
+											}
 											setCopied(false);
 											await router.invalidate();
 										} catch (error) {
@@ -866,7 +871,7 @@ function MembersTab({
 										}
 									}}
 								>
-									Create link
+									Send invitation
 								</Button>
 
 								{inviteUrl ? (
@@ -885,7 +890,11 @@ function MembersTab({
 													<InputGroupButton
 														aria-label={copied ? "Copied" : "Copy invite link"}
 														onClick={async () => {
-															await navigator.clipboard.writeText(inviteUrl);
+															const ok = await copyToClipboard(
+																inviteUrl,
+																"invite link",
+															);
+															if (!ok) return;
 															setCopied(true);
 															toast.success("Invite link copied");
 														}}

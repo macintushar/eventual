@@ -10,6 +10,9 @@ export const env = createEnv({
 		RESEND_API_KEY: z.string().min(1).optional(),
 		EMAIL_FROM: z.string().min(1).optional(),
 		EMAIL_REPLY_TO: z.string().email().optional(),
+		SENTRY_DSN: z.string().url().optional(),
+		POSTHOG_PROJECT_TOKEN: z.string().min(1).optional(),
+		POSTHOG_HOST: z.string().url().default("https://us.i.posthog.com"),
 	},
 
 	/**
@@ -20,6 +23,9 @@ export const env = createEnv({
 
 	client: {
 		VITE_APP_TITLE: z.string().min(1).optional(),
+		VITE_SENTRY_DSN: z.string().url().optional(),
+		VITE_POSTHOG_PROJECT_TOKEN: z.string().min(1).optional(),
+		VITE_POSTHOG_HOST: z.string().url().default("https://us.i.posthog.com"),
 	},
 
 	/**

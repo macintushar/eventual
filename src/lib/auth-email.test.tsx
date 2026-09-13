@@ -7,7 +7,7 @@ import TransactionalEmail, {
 	type EmailKind,
 	type TransactionalEmailProps,
 } from "#/emails/transactional";
-import { authEmailOptions, emailKey } from "#/lib/auth-email";
+import { authEmailOptions, emailKey, LINK_TTL_SECONDS } from "#/lib/auth-email";
 
 async function fixture(failedKind?: EmailKind) {
 	const messages: {
@@ -179,6 +179,34 @@ test("confirmation failure does not prevent password reset or session revocation
 	assert.equal(f.database.session.length, 0);
 });
 
+test("link emails carry the deadline of the token they were sent with", async () => {
+	const f = await fixture();
+	await f.post("request-password-reset", {
+		email: "person@example.com",
+		redirectTo: "/reset-password",
+	});
+	const ttl = LINK_TTL_SECONDS * 1000;
+	for (const kind of ["verification", "reset-password"] as const) {
+		const message = f.messages.find((entry) => entry.props.kind === kind);
+		assert.ok(message);
+		const expiresAt = message.props.expiresAt;
+		assert.ok(expiresAt instanceof Date);
+		// Within the window the token itself was issued for, not a fresh hour.
+		const remaining = expiresAt.getTime() - Date.now();
+		assert.ok(remaining > ttl - 60_000 && remaining <= ttl);
+		const html = await render(<TransactionalEmail {...message.props} />);
+		assert.ok(toPlainText(html).includes("UTC"));
+	}
+	// A notice with no link has no deadline to state.
+	const notice = await render(
+		<TransactionalEmail
+			kind="password-changed"
+			url="https://example.com/forgot-password"
+		/>,
+	);
+	assert.ok(!toPlainText(notice).includes("expires"));
+});
+
 test("all auth templates render HTML and plain text with escaped names and correct links", async () => {
 	for (const kind of [
 		"verification",
@@ -191,8 +219,12 @@ test("all auth templates render HTML and plain text with escaped names and corre
 				kind={kind}
 				name={'<script>alert("x")</script>'}
 				url={url}
+				expiresAt={new Date("2026-09-13T10:34:00Z")}
 			/>,
 		);
+		if (kind !== "password-changed") {
+			assert.ok(html.includes("13 September 2026 at 10:34 UTC"));
+		}
 		assert.ok(html.includes("&lt;script&gt;"));
 		assert.ok(!html.includes("<script>"));
 		assert.ok(toPlainText(html).includes(url));
@@ -200,4 +232,26 @@ test("all auth templates render HTML and plain text with escaped names and corre
 	}
 	assert.equal(emailKey("reset", "secret"), emailKey("reset", "secret"));
 	assert.ok(!emailKey("reset", "secret").includes("secret"));
+});
+
+test("invitation email renders the group, inviter, role, deadline, and link", async () => {
+	const url = "https://example.com/invite/invitation-id";
+	const html = await render(
+		<TransactionalEmail
+			kind="invitation"
+			url={url}
+			groupName="Weekend away"
+			inviterName={'<script>alert("x")</script>'}
+			inviteeRole="member"
+			expiresAt={new Date("2026-09-20T10:34:00Z")}
+		/>,
+	);
+	const text = toPlainText(html);
+	assert.ok(text.includes("JOIN WEEKEND AWAY"));
+	assert.ok(text.includes("as member"));
+	assert.ok(text.includes("20 September 2026 at 10:34 UTC"));
+	assert.ok(text.includes(url));
+	assert.ok(html.includes("&lt;script&gt;"));
+	assert.ok(!html.includes("<script>"));
+	assert.ok(html.length < 102_000);
 });

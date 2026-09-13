@@ -23,7 +23,9 @@ import {
 	settlementAllocation,
 	user,
 } from "#/db/schema";
+import { emailKey } from "#/lib/auth-email";
 import { validateRepayment, validateSharePayment } from "#/lib/settlements";
+import { runInBackground } from "#/server/background";
 import type { Ctx } from "#/server/context";
 import { computeBalances, simplifyBalances } from "#/server/domain/balances";
 import { computeShares } from "#/server/domain/split";
@@ -83,18 +85,50 @@ export async function listGroups(ctx: Ctx) {
 		.innerJoin(organization, eq(member.organizationId, organization.id))
 		.where(eq(member.userId, ctx.user.id))
 		.orderBy(asc(organization.name));
-	return Promise.all(
-		rows.map(async ({ organization: group, role }) => {
-			const balances = await getBalances(ctx, { groupId: group.id });
-			return {
-				...group,
-				role,
-				balances: balances.members
-					.filter((row) => row.userId === ctx.user.id)
-					.map(({ currency, balanceMinor }) => ({ currency, balanceMinor })),
-			};
+	if (!rows.length) return [];
+	const groupIds = rows.map(({ organization: group }) => group.id);
+	// The join above already proves membership in every group, so these three
+	// batched reads stand in for a per-group `getBalances`, which cost four
+	// queries each and then had its simplified transfer list thrown away.
+	const [memberRows, expenses, settlements] = await Promise.all([
+		ctx.db
+			.select({
+				organizationId: member.organizationId,
+				userId: user.id,
+				name: user.name,
+			})
+			.from(member)
+			.innerJoin(user, eq(member.userId, user.id))
+			.where(inArray(member.organizationId, groupIds))
+			.orderBy(asc(user.name)),
+		ctx.db.query.expense.findMany({
+			where: inArray(expense.organizationId, groupIds),
+			with: { shares: true },
 		}),
-	);
+		ctx.db.query.settlement.findMany({
+			where: inArray(settlement.organizationId, groupIds),
+			with: { allocations: true },
+		}),
+	]);
+	const byGroup = <Row extends { organizationId: string }>(list: Row[]) => {
+		const map = new Map(groupIds.map((groupId) => [groupId, [] as Row[]]));
+		for (const row of list) map.get(row.organizationId)?.push(row);
+		return map;
+	};
+	const membersByGroup = byGroup(memberRows);
+	const expensesByGroup = byGroup(expenses);
+	const settlementsByGroup = byGroup(settlements);
+	return rows.map(({ organization: group, role }) => ({
+		...group,
+		role,
+		balances: computeBalances(
+			membersByGroup.get(group.id) ?? [],
+			expensesByGroup.get(group.id) ?? [],
+			settlementsByGroup.get(group.id) ?? [],
+		)
+			.filter((row) => row.userId === ctx.user.id)
+			.map(({ currency, balanceMinor }) => ({ currency, balanceMinor })),
+	}));
 }
 
 export async function createGroup(ctx: Ctx, input: CreateGroupInput) {
@@ -350,18 +384,42 @@ export async function createInvitation(
 	requireRole(mine.role, ["owner", "admin"]);
 	if (input.role === "owner" && mine.role !== "owner")
 		throw new AppError("FORBIDDEN", "Only owners can invite another owner");
-	const invitationId = id();
-	await ctx.db.transaction(async (tx) => {
-		await tx.insert(invitation).values({
-			id: invitationId,
+	const group = await ctx.db.query.organization.findFirst({
+		where: eq(organization.id, input.groupId),
+	});
+	if (!group) throw new AppError("NOT_FOUND", "Group not found");
+	const normalizedEmail = input.email.toLowerCase();
+	const created = await ctx.db.transaction(async (tx) => {
+		const existing = await tx.query.invitation.findFirst({
+			where: and(
+				eq(invitation.organizationId, input.groupId),
+				eq(invitation.email, normalizedEmail),
+				eq(invitation.status, "pending"),
+				gte(invitation.expiresAt, new Date()),
+			),
+			orderBy: desc(invitation.createdAt),
+		});
+		if (existing) {
+			if (existing.role !== input.role)
+				throw new AppError(
+					"CONFLICT",
+					`That email already has a pending ${existing.role ?? "member"} invitation`,
+				);
+			return existing;
+		}
+
+		const createdAt = new Date();
+		const createdInvitation = {
+			id: id(),
 			organizationId: input.groupId,
-			email: input.email.toLowerCase(),
+			email: normalizedEmail,
 			role: input.role,
 			status: "pending",
 			inviterId: ctx.user.id,
-			createdAt: new Date(),
-			expiresAt: new Date(Date.now() + 7 * 86400000),
-		});
+			createdAt,
+			expiresAt: new Date(createdAt.getTime() + 7 * 86400000),
+		};
+		await tx.insert(invitation).values(createdInvitation);
 		await tx
 			.insert(activity)
 			.values(
@@ -370,12 +428,40 @@ export async function createInvitation(
 					ctx.user.id,
 					"member.invited",
 					"invitation",
-					invitationId,
+					createdInvitation.id,
 					{ email: input.email, role: input.role },
 				),
 			);
+		return createdInvitation;
 	});
-	return { invitationId, inviteUrl: `/invite/${invitationId}` };
+	let emailDelivery: "scheduled" | "unconfigured" = "unconfigured";
+	if (process.env.RESEND_API_KEY && process.env.EMAIL_FROM) {
+		const [{ env }, { sendEmail }] = await Promise.all([
+			import("#/env"),
+			import("#/server/email"),
+		]);
+		runInBackground(
+			sendEmail(
+				normalizedEmail,
+				{
+					kind: "invitation",
+					url: new URL(`/invite/${created.id}`, env.BETTER_AUTH_URL).toString(),
+					groupName: group.name,
+					inviterName: ctx.user.name,
+					inviteeRole: created.role ?? "member",
+					expiresAt: created.expiresAt,
+				},
+				emailKey("invitation", created.id),
+			),
+			{ component: "email", kind: "invitation" },
+		);
+		emailDelivery = "scheduled";
+	}
+	return {
+		invitationId: created.id,
+		inviteUrl: `/invite/${created.id}`,
+		emailDelivery,
+	};
 }
 
 export async function getInvitation(

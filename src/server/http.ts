@@ -1,6 +1,7 @@
 import { ZodError } from "zod";
 
 import { buildContext } from "#/server/context";
+import { reportError } from "#/server/error-reporting";
 import { AppError, errorStatus } from "#/server/errors";
 import {
 	createExpenseSchema,
@@ -41,7 +42,7 @@ export async function handle(action: () => Promise<unknown>) {
 				},
 				{ status: errorStatus[error.code] },
 			);
-		console.error(error);
+		reportError(error, { surface: "rest", handled: true });
 		return Response.json(
 			{ error: { code: "INTERNAL", message: "An unexpected error occurred" } },
 			{ status: 500 },
