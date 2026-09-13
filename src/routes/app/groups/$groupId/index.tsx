@@ -856,6 +856,14 @@ function MembersTab({
 												setInviteUrl(
 													`${window.location.origin}${result.inviteUrl}`,
 												);
+											if (result && "emailDelivery" in result) {
+												if (result.emailDelivery === "sent")
+													toast.success("Invitation emailed");
+												if (result.emailDelivery === "failed")
+													toast.warning(
+														"Invitation created, but email delivery failed. Share the link instead.",
+													);
+											}
 											setCopied(false);
 											await router.invalidate();
 										} catch (error) {
@@ -867,7 +875,7 @@ function MembersTab({
 										}
 									}}
 								>
-									Create link
+									Send invitation
 								</Button>
 
 								{inviteUrl ? (

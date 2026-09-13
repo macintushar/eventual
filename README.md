@@ -81,7 +81,7 @@ EMAIL_FROM="Eventual <accounts@your-verified-domain.com>"
 EMAIL_REPLY_TO=support@your-verified-domain.com
 ```
 
-Verify the sending domain in Resend and set `BETTER_AUTH_URL` to your public HTTPS origin. Restart the app after changing these values. No database migration is needed. Without both Resend settings, automatic signup emails are disabled; delivery attempts cannot send email. Verification remains optional for signing in, matching the existing account behavior.
+Verify the sending domain in Resend and set `BETTER_AUTH_URL` to your public HTTPS origin. Restart the app after changing these values. No database migration is needed. Without both Resend settings, automatic signup and invitation emails are disabled; invitations still produce a shareable link. Verification remains optional for signing in, matching the existing account behavior.
 
 - Sign in → **Forgot your password?** opens `/forgot-password`. Reset links expire after one hour, can be used once, and lead to `/reset-password`. A successful reset revokes existing sessions.
 - **Account / API keys** shows email-verification status and a resend action. Verification links expire after one hour and return to `/verify-email`.

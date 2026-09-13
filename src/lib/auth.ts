@@ -7,8 +7,9 @@ import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { db } from "#/db";
 import * as schema from "#/db/schema";
 import { env } from "#/env";
-import { authEmailOptions } from "#/lib/auth-email";
+import { authEmailOptions, emailKey } from "#/lib/auth-email";
 import { sendEmail } from "#/server/email";
+import { reportError } from "#/server/error-reporting";
 
 const API_KEY_PREFIX = "ev_";
 const LEGACY_API_KEY_PREFIX = "ss_";
@@ -53,8 +54,30 @@ export const auth = betterAuth({
 	plugins: [
 		organization({
 			invitationExpiresIn: 60 * 60 * 24 * 7,
-			sendInvitationEmail: async ({ invitation }) => {
-				console.log(`${env.BETTER_AUTH_URL}/invite/${invitation.id}`);
+			sendInvitationEmail: async ({
+				email,
+				invitation,
+				inviter,
+				organization,
+			}) => {
+				if (!env.RESEND_API_KEY || !env.EMAIL_FROM) return;
+				await sendEmail(
+					email,
+					{
+						kind: "invitation",
+						url: new URL(
+							`/invite/${invitation.id}`,
+							env.BETTER_AUTH_URL,
+						).toString(),
+						groupName: organization.name,
+						inviterName: inviter.user.name,
+						inviteeRole: invitation.role,
+						expiresAt: invitation.expiresAt,
+					},
+					emailKey("invitation", invitation.id),
+				).catch((error) =>
+					reportError(error, { component: "email", kind: "invitation" }),
+				);
 			},
 		}),
 		apiKey({

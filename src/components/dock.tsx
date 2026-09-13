@@ -14,9 +14,10 @@ import {
 	UsersRound,
 	Wallet,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import { MemberAvatar } from "#/components/member-avatar";
+import { loadSession } from "#/lib/session";
 import { Button } from "#/components/ui/button";
 import {
 	DropdownMenu,
@@ -214,11 +215,32 @@ export function AppDock({ user }: { user: { name: string; email: string } }) {
 /**
  * Signed-out navigation for the landing page, docs, auth and invite screens.
  * There is nothing to add and no account yet, so the slots are the three moves
- * that always make sense: go back, go home, or sign in.
+ * that always make sense: go back, go home, or sign in. When a session is
+ * already live — someone reading docs while logged in, or accepting an invite
+ * — the third slot swaps to the same avatar the app dock uses.
  */
-export function PublicDock() {
+export function PublicDock({
+	user: initialUser,
+}: {
+	user?: { name: string; email: string } | null;
+} = {}) {
 	const router = useRouter();
 	const { pathname } = useLocation();
+	const [user, setUser] = useState(initialUser ?? null);
+
+	useEffect(() => {
+		if (initialUser !== undefined) {
+			setUser(initialUser);
+			return;
+		}
+		void loadSession().then((session) => {
+			setUser(session?.user ?? null);
+		});
+	}, [initialUser]);
+
+	const accountActive = user
+		? pathname.startsWith("/app/settings")
+		: pathname === "/login" || pathname === "/signup";
 
 	return (
 		<nav className="dock" aria-label="Primary">
@@ -236,13 +258,27 @@ export function PublicDock() {
 				<House className={ICON} aria-hidden="true" />
 			</DockItem>
 
-			<DockItem
-				to="/login"
-				active={pathname === "/login" || pathname === "/signup"}
-				label="Sign in"
-			>
-				<UserRound className={ICON} aria-hidden="true" />
-			</DockItem>
+			{user ? (
+				<DockItem
+					to="/app/settings"
+					active={accountActive}
+					label="Account"
+				>
+					<MemberAvatar
+						name={user.name}
+						seed={user.email}
+						className="size-[1.625rem] text-[9px]"
+					/>
+				</DockItem>
+			) : (
+				<DockItem
+					to="/login"
+					active={accountActive}
+					label="Sign in"
+				>
+					<UserRound className={ICON} aria-hidden="true" />
+				</DockItem>
+			)}
 		</nav>
 	);
 }

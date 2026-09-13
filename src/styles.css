@@ -218,6 +218,12 @@
   html {
     /* Landscape on iOS must not silently inflate type. */
     -webkit-text-size-adjust: 100%;
+    /*
+     * Reserve the vertical scrollbar gutter up front so content, the sticky
+     * masthead and the fixed dock don't jump when a page crosses the scroll
+     * threshold or when Radix locks body scroll for a sheet/dialog.
+     */
+    scrollbar-gutter: stable;
     /* Anchors and focus scrolls have to clear the sticky masthead. */
     scroll-padding-top: calc(var(--header-h) + var(--safe-top) + 1rem);
     scroll-padding-bottom: calc(var(--dock-h) + var(--safe-bottom) + 1rem);

@@ -23,10 +23,12 @@ import {
 	settlementAllocation,
 	user,
 } from "#/db/schema";
+import { emailKey } from "#/lib/auth-email";
 import { validateRepayment, validateSharePayment } from "#/lib/settlements";
 import type { Ctx } from "#/server/context";
 import { computeBalances, simplifyBalances } from "#/server/domain/balances";
 import { computeShares } from "#/server/domain/split";
+import { reportError } from "#/server/error-reporting";
 import { AppError } from "#/server/errors";
 import type {
 	CreateExpenseInput,
@@ -83,18 +85,50 @@ export async function listGroups(ctx: Ctx) {
 		.innerJoin(organization, eq(member.organizationId, organization.id))
 		.where(eq(member.userId, ctx.user.id))
 		.orderBy(asc(organization.name));
-	return Promise.all(
-		rows.map(async ({ organization: group, role }) => {
-			const balances = await getBalances(ctx, { groupId: group.id });
-			return {
-				...group,
-				role,
-				balances: balances.members
-					.filter((row) => row.userId === ctx.user.id)
-					.map(({ currency, balanceMinor }) => ({ currency, balanceMinor })),
-			};
+	if (!rows.length) return [];
+	const groupIds = rows.map(({ organization: group }) => group.id);
+	// The join above already proves membership in every group, so these three
+	// batched reads stand in for a per-group `getBalances`, which cost four
+	// queries each and then had its simplified transfer list thrown away.
+	const [memberRows, expenses, settlements] = await Promise.all([
+		ctx.db
+			.select({
+				organizationId: member.organizationId,
+				userId: user.id,
+				name: user.name,
+			})
+			.from(member)
+			.innerJoin(user, eq(member.userId, user.id))
+			.where(inArray(member.organizationId, groupIds))
+			.orderBy(asc(user.name)),
+		ctx.db.query.expense.findMany({
+			where: inArray(expense.organizationId, groupIds),
+			with: { shares: true },
 		}),
-	);
+		ctx.db.query.settlement.findMany({
+			where: inArray(settlement.organizationId, groupIds),
+			with: { allocations: true },
+		}),
+	]);
+	const byGroup = <Row extends { organizationId: string }>(list: Row[]) => {
+		const map = new Map(groupIds.map((groupId) => [groupId, [] as Row[]]));
+		for (const row of list) map.get(row.organizationId)?.push(row);
+		return map;
+	};
+	const membersByGroup = byGroup(memberRows);
+	const expensesByGroup = byGroup(expenses);
+	const settlementsByGroup = byGroup(settlements);
+	return rows.map(({ organization: group, role }) => ({
+		...group,
+		role,
+		balances: computeBalances(
+			membersByGroup.get(group.id) ?? [],
+			expensesByGroup.get(group.id) ?? [],
+			settlementsByGroup.get(group.id) ?? [],
+		)
+			.filter((row) => row.userId === ctx.user.id)
+			.map(({ currency, balanceMinor }) => ({ currency, balanceMinor })),
+	}));
 }
 
 export async function createGroup(ctx: Ctx, input: CreateGroupInput) {
@@ -350,7 +384,12 @@ export async function createInvitation(
 	requireRole(mine.role, ["owner", "admin"]);
 	if (input.role === "owner" && mine.role !== "owner")
 		throw new AppError("FORBIDDEN", "Only owners can invite another owner");
+	const group = await ctx.db.query.organization.findFirst({
+		where: eq(organization.id, input.groupId),
+	});
+	if (!group) throw new AppError("NOT_FOUND", "Group not found");
 	const invitationId = id();
+	const expiresAt = new Date(Date.now() + 7 * 86400000);
 	await ctx.db.transaction(async (tx) => {
 		await tx.insert(invitation).values({
 			id: invitationId,
@@ -360,7 +399,7 @@ export async function createInvitation(
 			status: "pending",
 			inviterId: ctx.user.id,
 			createdAt: new Date(),
-			expiresAt: new Date(Date.now() + 7 * 86400000),
+			expiresAt,
 		});
 		await tx
 			.insert(activity)
@@ -375,7 +414,39 @@ export async function createInvitation(
 				),
 			);
 	});
-	return { invitationId, inviteUrl: `/invite/${invitationId}` };
+	let emailDelivery: "sent" | "unconfigured" | "failed" = "unconfigured";
+	const [{ env }, { sendEmail }] = await Promise.all([
+		import("#/env"),
+		import("#/server/email"),
+	]);
+	if (env.RESEND_API_KEY && env.EMAIL_FROM) {
+		try {
+			await sendEmail(
+				input.email.toLowerCase(),
+				{
+					kind: "invitation",
+					url: new URL(
+						`/invite/${invitationId}`,
+						env.BETTER_AUTH_URL,
+					).toString(),
+					groupName: group.name,
+					inviterName: ctx.user.name,
+					inviteeRole: input.role,
+					expiresAt,
+				},
+				emailKey("invitation", invitationId),
+			);
+			emailDelivery = "sent";
+		} catch (error) {
+			emailDelivery = "failed";
+			reportError(error, { component: "email", kind: "invitation" });
+		}
+	}
+	return {
+		invitationId,
+		inviteUrl: `/invite/${invitationId}`,
+		emailDelivery,
+	};
 }
 
 export async function getInvitation(

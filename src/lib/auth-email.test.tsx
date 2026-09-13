@@ -233,3 +233,25 @@ test("all auth templates render HTML and plain text with escaped names and corre
 	assert.equal(emailKey("reset", "secret"), emailKey("reset", "secret"));
 	assert.ok(!emailKey("reset", "secret").includes("secret"));
 });
+
+test("invitation email renders the group, inviter, role, deadline, and link", async () => {
+	const url = "https://example.com/invite/invitation-id";
+	const html = await render(
+		<TransactionalEmail
+			kind="invitation"
+			url={url}
+			groupName="Weekend away"
+			inviterName={'<script>alert("x")</script>'}
+			inviteeRole="member"
+			expiresAt={new Date("2026-09-20T10:34:00Z")}
+		/>,
+	);
+	const text = toPlainText(html);
+	assert.ok(text.includes("JOIN WEEKEND AWAY"));
+	assert.ok(text.includes("as member"));
+	assert.ok(text.includes("20 September 2026 at 10:34 UTC"));
+	assert.ok(text.includes(url));
+	assert.ok(html.includes("&lt;script&gt;"));
+	assert.ok(!html.includes("<script>"));
+	assert.ok(html.length < 102_000);
+});

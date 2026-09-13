@@ -17,14 +17,29 @@ import {
 	Text,
 } from "react-email";
 
-export type EmailKind = "verification" | "reset-password" | "password-changed";
-export type TransactionalEmailProps = {
-	kind: EmailKind;
+export type EmailKind =
+	| "verification"
+	| "reset-password"
+	| "password-changed"
+	| "invitation";
+type BaseEmailProps = {
 	url: string;
 	name?: string;
 	/** When the link in this email stops working. Omitted for notices. */
 	expiresAt?: Date;
 };
+export type TransactionalEmailProps = BaseEmailProps &
+	(
+		| {
+				kind: "verification" | "reset-password" | "password-changed";
+		  }
+		| {
+				kind: "invitation";
+				groupName: string;
+				inviterName: string;
+				inviteeRole: string;
+		  }
+	);
 
 /*
  * Accounts carry no timezone, so the deadline is stamped in UTC rather than
@@ -55,7 +70,8 @@ function urlSegments(url: string) {
 	return url.split(/(?=[?&])/g);
 }
 
-export function emailCopy({ kind, expiresAt }: TransactionalEmailProps) {
+export function emailCopy(props: TransactionalEmailProps) {
+	const { kind, expiresAt } = props;
 	const deadline = expiresAt ? `on ${formatExpiry(expiresAt)}` : "in one hour";
 	switch (kind) {
 		case "verification":
@@ -93,6 +109,17 @@ export function emailCopy({ kind, expiresAt }: TransactionalEmailProps) {
 				action: "Secure your account",
 				note: "Wasn't you? Reset it now.",
 				footer: "This is a security notification for your Eventual account.",
+			};
+		case "invitation":
+			return {
+				subject: `${props.inviterName} invited you to ${props.groupName}`,
+				preview: `Join ${props.groupName} on Eventual.`,
+				kicker: "Group invitation",
+				heading: `Join ${props.groupName}`,
+				message: `${props.inviterName} invited you to join ${props.groupName} as ${props.inviteeRole}. Accept the invitation to start sharing expenses with the group.`,
+				action: "Accept invitation",
+				note: "One group, no awkward maths.",
+				footer: `This invitation expires ${deadline}. If you weren't expecting it, you can ignore this email.`,
 			};
 	}
 }

@@ -117,7 +117,7 @@ function InvitePage() {
 					</CardContent>
 				</Card>
 			</div>
-			<PublicDock />
+			<PublicDock user={session?.user ?? null} />
 		</main>
 	);
 }
