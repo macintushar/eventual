@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { auth } from "#/lib/auth";
 import { AppError } from "#/server/errors";
+import { loginRedirect } from "#/server/fn/route-context";
 
 export type ApiKeySummary = {
 	id: string;
@@ -57,7 +58,7 @@ async function cookieSessionHeaders() {
 			"API keys cannot be managed with an API key",
 		);
 	const session = await auth.api.getSession({ headers });
-	if (!session) throw new AppError("UNAUTHENTICATED", "Sign in to continue");
+	if (!session) loginRedirect();
 	return headers;
 }
 

@@ -1,8 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 
-import { buildContext } from "#/server/context";
+import { routeContext } from "#/server/fn/route-context";
 import {
 	createExpenseSchema,
 	createGroupSchema,
@@ -16,7 +15,7 @@ const expenseInput = z.object({ expenseId: z.string() });
 
 export const getDashboardFn = createServerFn({ method: "GET" }).handler(
 	async () => {
-		const ctx = await buildContext(getRequest());
+		const ctx = await routeContext();
 		return {
 			groups: await services.listGroups(ctx),
 			invitations: await services.listMyInvitations(ctx),
@@ -28,7 +27,7 @@ export const getDashboardFn = createServerFn({ method: "GET" }).handler(
 export const getGroupPageFn = createServerFn({ method: "GET" })
 	.validator(groupInput)
 	.handler(async ({ data }) => {
-		const ctx = await buildContext(getRequest());
+		const ctx = await routeContext();
 		const group = await services.getGroup(ctx, data);
 		const [expenses, balances, settlements, activities] = await Promise.all([
 			services.listExpenses(ctx, data),
@@ -54,14 +53,12 @@ export const getGroupPageFn = createServerFn({ method: "GET" })
 export const getActivityFn = createServerFn({ method: "GET" })
 	.validator(z.object({ groupId: z.string(), cursor: z.string().optional() }))
 	.handler(async ({ data }) =>
-		services.listActivity(await buildContext(getRequest()), data),
+		services.listActivity(await routeContext(), data),
 	);
 
 export const getExpenseFn = createServerFn({ method: "GET" })
 	.validator(expenseInput)
-	.handler(async ({ data }) =>
-		services.getExpense(await buildContext(getRequest()), data),
-	);
+	.handler(async ({ data }) => services.getExpense(await routeContext(), data));
 
 export const getInvitationFn = createServerFn({ method: "GET" })
 	.validator(z.object({ invitationId: z.string() }))
@@ -130,7 +127,7 @@ const mutationSchema = z.discriminatedUnion("action", [
 export const mutateFn = createServerFn({ method: "POST" })
 	.validator(mutationSchema)
 	.handler(async ({ data }) => {
-		const ctx = await buildContext(getRequest());
+		const ctx = await routeContext();
 		switch (data.action) {
 			case "group.create":
 				return services.createGroup(ctx, data.input);

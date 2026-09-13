@@ -24,6 +24,7 @@ import {
 	SheetTrigger,
 } from "#/components/ui/sheet";
 import { authClient } from "#/lib/auth-client";
+import { clearSession } from "#/lib/session";
 import { cn } from "#/lib/utils";
 
 export function Wordmark({ to = "/" }: { to?: "/" | "/app" }) {
@@ -213,6 +214,7 @@ export function AppShell({
 
 	const signOut = async () => {
 		await authClient.signOut();
+		clearSession();
 		await router.navigate({ to: "/" });
 	};
 
