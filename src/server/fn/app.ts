@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import type { Ctx } from "#/server/context";
 import { routeContext } from "#/server/fn/route-context";
 import {
 	createExpenseSchema,
@@ -9,6 +10,7 @@ import {
 	updateExpenseSchema,
 } from "#/server/schemas";
 import * as services from "#/server/services/app";
+import { captureEvent } from "#/server/telemetry";
 
 const groupInput = z.object({ groupId: z.string() });
 const expenseInput = z.object({ expenseId: z.string() });
@@ -124,40 +126,52 @@ const mutationSchema = z.discriminatedUnion("action", [
 	}),
 ]);
 
+type Mutation = z.infer<typeof mutationSchema>;
+
+async function dispatchMutation(ctx: Ctx, data: Mutation) {
+	switch (data.action) {
+		case "group.create":
+			return services.createGroup(ctx, data.input);
+		case "group.rename":
+			return services.renameGroup(ctx, data.input);
+		case "group.delete":
+			return services.deleteGroup(ctx, data.input);
+		case "group.leave":
+			return services.leaveGroup(ctx, data.input);
+		case "member.role":
+			return services.updateMemberRole(ctx, data.input);
+		case "member.remove":
+			return services.removeMember(ctx, data.input);
+		case "invitation.create":
+			return services.createInvitation(ctx, data.input);
+		case "invitation.revoke":
+			return services.revokeInvitation(ctx, data.input);
+		case "invitation.accept":
+			return services.acceptInvitation(ctx, data.input);
+		case "expense.create":
+			return services.createExpense(ctx, data.input);
+		case "expense.update":
+			return services.updateExpense(ctx, data.input);
+		case "expense.delete":
+			return services.deleteExpense(ctx, data.input);
+		case "share.paid":
+			return services.setSharePaid(ctx, data.input, data.input.paid);
+		case "settlement.create":
+			return services.createSettlement(ctx, data.input);
+		case "settlement.delete":
+			return services.deleteSettlement(ctx, data.input);
+	}
+}
+
 export const mutateFn = createServerFn({ method: "POST" })
 	.validator(mutationSchema)
 	.handler(async ({ data }) => {
 		const ctx = await routeContext();
-		switch (data.action) {
-			case "group.create":
-				return services.createGroup(ctx, data.input);
-			case "group.rename":
-				return services.renameGroup(ctx, data.input);
-			case "group.delete":
-				return services.deleteGroup(ctx, data.input);
-			case "group.leave":
-				return services.leaveGroup(ctx, data.input);
-			case "member.role":
-				return services.updateMemberRole(ctx, data.input);
-			case "member.remove":
-				return services.removeMember(ctx, data.input);
-			case "invitation.create":
-				return services.createInvitation(ctx, data.input);
-			case "invitation.revoke":
-				return services.revokeInvitation(ctx, data.input);
-			case "invitation.accept":
-				return services.acceptInvitation(ctx, data.input);
-			case "expense.create":
-				return services.createExpense(ctx, data.input);
-			case "expense.update":
-				return services.updateExpense(ctx, data.input);
-			case "expense.delete":
-				return services.deleteExpense(ctx, data.input);
-			case "share.paid":
-				return services.setSharePaid(ctx, data.input, data.input.paid);
-			case "settlement.create":
-				return services.createSettlement(ctx, data.input);
-			case "settlement.delete":
-				return services.deleteSettlement(ctx, data.input);
-		}
+		const result = await dispatchMutation(ctx, data);
+		await captureEvent({
+			event: "product_mutation_completed",
+			distinctId: ctx.user.id,
+			properties: { action: data.action, surface: "web" },
+		});
+		return result;
 	});

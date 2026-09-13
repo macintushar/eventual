@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/tanstackstart-react";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 
@@ -12,6 +13,11 @@ export function getRouter() {
 		// styles.css when the user prefers reduced motion.
 		defaultViewTransition: true,
 	});
+	if (!router.isServer) {
+		Sentry.addIntegration(
+			Sentry.tanstackRouterBrowserTracingIntegration(router),
+		);
+	}
 
 	return router;
 }

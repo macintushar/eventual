@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { BetterAuthOptions } from "better-auth";
 import type { TransactionalEmailProps } from "#/emails/transactional";
+import { reportError } from "#/server/error-reporting";
 
 export type SendAuthEmail = (
 	to: string,
@@ -47,7 +48,12 @@ export function authEmailOptions(
 						expiresAt: expiryFromNow(),
 					},
 					emailKey("reset", token),
-				).catch(() => console.error("Password-reset email could not be sent"));
+				).catch((error) =>
+					reportError(error, {
+						component: "email",
+						kind: "reset-password",
+					}),
+				);
 			},
 			onPasswordReset: async ({ user }) => {
 				// The password has already changed: a notification error must not
@@ -60,8 +66,11 @@ export function authEmailOptions(
 						url: new URL("/forgot-password", origin).toString(),
 					},
 					emailKey("password-changed", crypto.randomUUID()),
-				).catch(() =>
-					console.error("Password-change notification could not be sent"),
+				).catch((error) =>
+					reportError(error, {
+						component: "email",
+						kind: "password-changed",
+					}),
 				);
 			},
 		},
@@ -80,8 +89,11 @@ export function authEmailOptions(
 						},
 						emailKey("verification", token),
 					);
-				} catch {
-					console.error("Verification email could not be sent");
+				} catch (error) {
+					reportError(error, {
+						component: "email",
+						kind: "verification",
+					});
 					// Better Auth treats this hook as a background notification. Signup
 					// still succeeds and settings lets the user request a fresh link.
 				}

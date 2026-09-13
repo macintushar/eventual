@@ -151,6 +151,27 @@ Status mapping: `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `VALIDA
 
 `POST /mcp` exposes `listGroups`, `listExpenses`, `createExpense`, and `getBalances`. It uses the same Better Auth cookie or API key and service layer as REST and server functions. Each HTTP request gets an isolated stateless MCP transport. Setup instructions for each client (Claude Code, the Claude app, Cursor, OpenCode, Hermes, OpenClaw) are at `/docs`.
 
+## Observability
+
+Set the Sentry and PostHog variables shown in `.env.example`. The browser variables enable page views and client errors; the server variables enable MCP/product metrics and server errors. Sentry source-map upload additionally requires `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` at build time.
+
+PostHog receives only an authenticated user ID and these allow-listed, count-oriented properties:
+
+- `mcp_request_completed`: normalized MCP method, success, authentication state, and duration.
+- `mcp_tool_called`: tool name, success, and duration.
+- `product_mutation_completed`: web mutation action and surface.
+
+MCP parameters, tool results, transaction descriptions, amounts, group IDs, and other transaction data are never sent. Sentry MCP monitoring also has input and output recording disabled, and session replay masks all text and blocks media.
+
+Recommended PostHog insights:
+
+- **MCP requests:** total `mcp_request_completed`, broken down by `method` and `success`.
+- **MCP users:** unique users of `mcp_request_completed`, filtered to `authenticated = true`.
+- **MCP tool adoption:** total `mcp_tool_called`, broken down by `tool_name`.
+- **Transactions logged through MCP:** total `mcp_tool_called`, filtered to `tool_name = createExpense` and `success = true`.
+- **MCP reliability:** failure percentage and p95 `duration_ms` for `mcp_tool_called`, broken down by `tool_name`.
+- **Web feature adoption:** total `product_mutation_completed`, broken down by `action`.
+
 ## Apple Shortcut
 
 `public/eventual.shortcut` asks for a group, then who paid, then an amount, and logs an even split between all group members dated today. On import, Shortcuts asks for an API key and the app URL. It calls:
