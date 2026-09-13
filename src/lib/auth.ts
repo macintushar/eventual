@@ -36,7 +36,7 @@ export const auth = betterAuth({
 	baseURL: env.BETTER_AUTH_URL,
 	secret: env.BETTER_AUTH_SECRET,
 	trustedOrigins: import.meta.env.DEV
-		? ["*"]
+		? ["http://localhost:*", "http://127.0.0.1:*"]
 		: [env.BETTER_AUTH_URL],
 	database: drizzleAdapter(db, { provider: "sqlite", schema }),
 	...authEmailOptions(
