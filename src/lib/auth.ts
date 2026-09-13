@@ -35,10 +35,9 @@ export const auth = betterAuth({
 	appName: "Eventual",
 	baseURL: env.BETTER_AUTH_URL,
 	secret: env.BETTER_AUTH_SECRET,
-	// Vite falls back to 3001+ when 3000 is taken; trust any local origin in dev.
 	trustedOrigins: import.meta.env.DEV
-		? ["http://localhost:*", "http://127.0.0.1:*"]
-		: [],
+		? ["*"]
+		: [env.BETTER_AUTH_URL],
 	database: drizzleAdapter(db, { provider: "sqlite", schema }),
 	...authEmailOptions(
 		sendEmail,
