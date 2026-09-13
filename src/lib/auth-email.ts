@@ -8,6 +8,17 @@ export type SendAuthEmail = (
 	idempotencyKey: string,
 ) => Promise<string>;
 
+/*
+ * One hour, shared by both link types. Better Auth is configured from it and
+ * the emails stamp their deadline from it, so the copy can never drift from
+ * the token the recipient actually holds.
+ */
+export const LINK_TTL_SECONDS = 3600;
+
+function expiryFromNow() {
+	return new Date(Date.now() + LINK_TTL_SECONDS * 1000);
+}
+
 // Tokens must never appear in provider metadata or application logs.
 export function emailKey(kind: string, value: string) {
 	return `${kind}/${createHash("sha256").update(value).digest("hex")}`;
@@ -23,13 +34,18 @@ export function authEmailOptions(
 			enabled: true,
 			requireEmailVerification: false,
 			revokeSessionsOnPasswordReset: true,
-			resetPasswordTokenExpiresIn: 3600,
+			resetPasswordTokenExpiresIn: LINK_TTL_SECONDS,
 			sendResetPassword: async ({ user, url, token }) => {
 				// Keep the public response identical for existing and unknown users,
 				// including when delivery fails. Operators get a token-free failure log.
 				await send(
 					user.email,
-					{ kind: "reset-password", name: user.name, url },
+					{
+						kind: "reset-password",
+						name: user.name,
+						url,
+						expiresAt: expiryFromNow(),
+					},
 					emailKey("reset", token),
 				).catch(() => console.error("Password-reset email could not be sent"));
 			},
@@ -51,12 +67,17 @@ export function authEmailOptions(
 		},
 		emailVerification: {
 			sendOnSignUp: configured,
-			expiresIn: 3600,
+			expiresIn: LINK_TTL_SECONDS,
 			sendVerificationEmail: async ({ user, url, token }) => {
 				try {
 					await send(
 						user.email,
-						{ kind: "verification", name: user.name, url },
+						{
+							kind: "verification",
+							name: user.name,
+							url,
+							expiresAt: expiryFromNow(),
+						},
 						emailKey("verification", token),
 					);
 				} catch {
