@@ -2,6 +2,7 @@ import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "#/components/ui/button";
+import { copyToClipboard } from "#/lib/clipboard";
 
 export function CodeBlock({ code, label }: { code: string; label?: string }) {
 	const [copied, setCopied] = useState(false);
@@ -13,7 +14,7 @@ export function CodeBlock({ code, label }: { code: string; label?: string }) {
 			className="press shrink-0"
 			aria-label={copied ? "Copied" : "Copy to clipboard"}
 			onClick={async () => {
-				await navigator.clipboard.writeText(code);
+				if (!(await copyToClipboard(code, "code"))) return;
 				setCopied(true);
 				setTimeout(() => setCopied(false), 1500);
 			}}

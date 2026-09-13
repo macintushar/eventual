@@ -17,11 +17,16 @@ const Toaster = ({ ...props }: ToasterProps) => {
 		<Sonner
 			theme={theme as ToasterProps["theme"]}
 			className="toaster group"
-			position="bottom-center"
-			// On a phone the default bottom-right corner sits underneath the tab
-			// bar, so toasts are lifted clear of it and span the gutter instead.
+			position="top-right"
+			// Toasts land in the same corner as the masthead's theme toggle and
+			// avatar, so they hang below it rather than covering it. The insets
+			// clear the tallest header on the page — the public one on the landing
+			// and docs screens (`h-16 sm:h-20`), not the slimmer app masthead.
+			offset={{ top: "calc(5rem + 0.75rem)", right: "1rem" }}
+			// On a phone a corner toast is narrower than the text it carries, so it
+			// spans the gutter instead and clears the notch as well as the header.
 			mobileOffset={{
-				bottom: "calc(var(--dock-h) + var(--safe-bottom) + 0.75rem)",
+				top: "calc(var(--safe-top) + 4rem + 0.75rem)",
 				left: "1rem",
 				right: "1rem",
 			}}

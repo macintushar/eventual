@@ -57,6 +57,7 @@ import {
 } from "#/components/ui/item";
 import { Spinner } from "#/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
+import { copyToClipboard } from "#/lib/clipboard";
 import {
 	type ApiKeySummary,
 	createApiKeyFn,
@@ -82,10 +83,6 @@ function formatDate(value: string | null) {
 
 function isExpired(expiresAt: string | null) {
 	return expiresAt ? new Date(expiresAt).getTime() < Date.now() : false;
-}
-
-async function copyText(value: string) {
-	await navigator.clipboard.writeText(value);
 }
 
 export function ApiKeys({ initialKeys }: { initialKeys: ApiKeySummary[] }) {
@@ -343,7 +340,7 @@ export function ApiKeys({ initialKeys }: { initialKeys: ApiKeySummary[] }) {
 								aria-label={copied ? "Copied" : "Copy API key"}
 								onClick={async () => {
 									if (!secret) return;
-									await copyText(secret);
+									if (!(await copyToClipboard(secret, "API key"))) return;
 									setCopied(true);
 									toast.success("API key copied");
 								}}
