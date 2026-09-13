@@ -13,6 +13,16 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
+import { Separator } from "#/components/ui/separator";
+import {
+	Sheet,
+	SheetClose,
+	SheetContent,
+	SheetDescription,
+	SheetHeader,
+	SheetTitle,
+	SheetTrigger,
+} from "#/components/ui/sheet";
 import { authClient } from "#/lib/auth-client";
 import { cn } from "#/lib/utils";
 
@@ -40,6 +50,21 @@ function useHeaderMotion() {
 		let last = window.scrollY;
 		let frame = 0;
 
+		const updateState = (
+			next: (old: { hidden: boolean; scrolled: boolean }) => {
+				hidden: boolean;
+				scrolled: boolean;
+			},
+		) => {
+			setState((old) => {
+				const updated = next(old);
+				return old.hidden === updated.hidden &&
+					old.scrolled === updated.scrolled
+					? old
+					: updated;
+			});
+		};
+
 		const measure = () => {
 			frame = 0;
 			const y = window.scrollY;
@@ -48,13 +73,11 @@ function useHeaderMotion() {
 			// Ignore rubber-banding and sub-gesture jitter, otherwise the header
 			// flickers whenever a finger rests on the screen.
 			if (Math.abs(delta) < 8) {
-				setState((old) =>
-					old.scrolled === scrolled ? old : { ...old, scrolled },
-				);
+				updateState((old) => ({ ...old, scrolled }));
 				return;
 			}
 			last = y;
-			setState({ hidden: delta > 0 && y > 96, scrolled });
+			updateState(() => ({ hidden: delta > 0 && y > 96, scrolled }));
 		};
 
 		const onScroll = () => {
@@ -71,6 +94,24 @@ function useHeaderMotion() {
 	return state;
 }
 
+function AccountAvatar({ user }: { user: { name: string; email: string } }) {
+	return <MemberAvatar name={user.name} seed={user.email} className="size-9" />;
+}
+
+const ACCOUNT_LINKS = [
+	{ to: "/app/settings", icon: KeyRound, label: "API keys" },
+	{ to: "/docs", icon: Plug, label: "Integrations" },
+] as const;
+
+/**
+ * The account menu, in the shape each pointer wants. A cursor gets a dropdown
+ * pinned to the avatar; a thumb gets a sheet, because the avatar lives in the
+ * top-right corner — the hardest place on a phone to reach, and the worst
+ * place to then have to hit a 32px row.
+ *
+ * Both are rendered and one is hidden per breakpoint rather than measured in
+ * JS, so the server and the client always agree on the markup.
+ */
 function AccountMenu({
 	user,
 	onSignOut,
@@ -79,40 +120,83 @@ function AccountMenu({
 	onSignOut: () => void;
 }) {
 	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger
-				className="press rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-				aria-label="Account menu"
-			>
-				<MemberAvatar name={user.name} seed={user.email} className="size-9" />
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" sideOffset={8} className="w-56">
-				<DropdownMenuLabel className="flex flex-col gap-0.5">
-					<span className="font-medium">{user.name}</span>
-					<span className="truncate text-xs font-normal text-muted-foreground">
-						{user.email}
-					</span>
-				</DropdownMenuLabel>
-				<DropdownMenuSeparator />
-				<DropdownMenuItem asChild>
-					<Link to="/app/settings">
-						<KeyRound />
-						API keys
-					</Link>
-				</DropdownMenuItem>
-				<DropdownMenuItem asChild>
-					<Link to="/docs">
-						<Plug />
-						Integrations
-					</Link>
-				</DropdownMenuItem>
-				<DropdownMenuSeparator />
-				<DropdownMenuItem onSelect={onSignOut}>
-					<LogOut />
-					Sign out
-				</DropdownMenuItem>
-			</DropdownMenuContent>
-		</DropdownMenu>
+		<>
+			<Sheet>
+				<SheetTrigger
+					className="press rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:hidden"
+					aria-label="Account menu"
+				>
+					<AccountAvatar user={user} />
+				</SheetTrigger>
+				<SheetContent side="bottom" className="gap-5">
+					<SheetHeader className="flex-row items-center gap-3">
+						<AccountAvatar user={user} />
+						<span className="flex min-w-0 flex-col">
+							<SheetTitle>{user.name}</SheetTitle>
+							<SheetDescription className="truncate text-xs">
+								{user.email}
+							</SheetDescription>
+						</span>
+					</SheetHeader>
+
+					<div className="flex flex-col">
+						{ACCOUNT_LINKS.map(({ to, icon: Icon, label }) => (
+							<SheetClose key={to} asChild>
+								<Link to={to} className="sheet-row">
+									<Icon className="size-[1.125rem] text-muted-foreground" />
+									{label}
+								</Link>
+							</SheetClose>
+						))}
+
+						<Separator className="my-1.5" />
+
+						<SheetClose asChild>
+							<button
+								type="button"
+								className="sheet-row"
+								data-variant="destructive"
+								onClick={onSignOut}
+							>
+								<LogOut className="size-[1.125rem]" />
+								Sign out
+							</button>
+						</SheetClose>
+					</div>
+				</SheetContent>
+			</Sheet>
+
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					className="press hidden rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:block"
+					aria-label="Account menu"
+				>
+					<AccountAvatar user={user} />
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end" sideOffset={8} className="w-56">
+					<DropdownMenuLabel className="flex flex-col gap-0.5">
+						<span className="font-medium">{user.name}</span>
+						<span className="truncate text-xs font-normal text-muted-foreground">
+							{user.email}
+						</span>
+					</DropdownMenuLabel>
+					<DropdownMenuSeparator />
+					{ACCOUNT_LINKS.map(({ to, icon: Icon, label }) => (
+						<DropdownMenuItem key={to} asChild>
+							<Link to={to}>
+								<Icon />
+								{label}
+							</Link>
+						</DropdownMenuItem>
+					))}
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onSelect={onSignOut}>
+						<LogOut />
+						Sign out
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</>
 	);
 }
 

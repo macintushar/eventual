@@ -11,9 +11,11 @@ import {
 	Copy,
 	History,
 	Lock,
+	MoreHorizontal,
 	Plus,
 	Receipt,
 	Trash2,
+	UserMinus,
 	UserPlus,
 } from "lucide-react";
 import { useState } from "react";
@@ -77,6 +79,15 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import { Separator } from "#/components/ui/separator";
+import {
+	Sheet,
+	SheetClose,
+	SheetContent,
+	SheetDescription,
+	SheetHeader,
+	SheetTitle,
+	SheetTrigger,
+} from "#/components/ui/sheet";
 import { Spinner } from "#/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { Textarea } from "#/components/ui/textarea";
@@ -90,6 +101,9 @@ export const Route = createFileRoute("/app/groups/$groupId/")({
 	loader: ({ params }) => getGroupPageFn({ data: { groupId: params.groupId } }),
 	component: GroupPage,
 });
+
+const ROLES = ["owner", "admin", "member"] as const;
+type Role = (typeof ROLES)[number];
 
 type LoaderData = Awaited<ReturnType<typeof getGroupPageFn>>;
 type Run = (
@@ -624,6 +638,118 @@ function BalancesTab({
 
 /* ----------------------------------------------------------------- Members */
 
+/**
+ * Row actions for a member, as a sheet. The inline controls opposite need a
+ * select and a button side by side, which is more than a phone row can hold —
+ * here the same choices get a full-width tap target each.
+ */
+function MemberSheet({
+	member,
+	data,
+	groupId,
+	run,
+	canManage,
+}: {
+	member: LoaderData["group"]["members"][number];
+	data: LoaderData;
+	groupId: string;
+	run: Run;
+	canManage: boolean;
+}) {
+	const isSelf = member.userId === data.user.id;
+	const isOwner = data.group.myRole === "owner";
+	const canRemove = canManage && !isSelf;
+
+	// Nothing to do in here: leave the row as a plain badge instead.
+	if (!isOwner && !canRemove) return null;
+
+	return (
+		<Sheet>
+			<SheetTrigger asChild>
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					className="press sm:hidden"
+					aria-label={`Manage ${member.name}`}
+				>
+					<MoreHorizontal />
+				</Button>
+			</SheetTrigger>
+			<SheetContent side="bottom" className="gap-5">
+				<SheetHeader className="flex-row items-center gap-3">
+					<MemberAvatar
+						name={member.name}
+						seed={member.userId}
+						className="size-10"
+					/>
+					<span className="flex min-w-0 flex-col">
+						<SheetTitle>{member.name}</SheetTitle>
+						<SheetDescription className="truncate text-xs">
+							{member.email}
+						</SheetDescription>
+					</span>
+				</SheetHeader>
+
+				{isOwner ? (
+					<div className="flex flex-col">
+						<p className="px-3 pb-1 text-xs font-medium text-muted-foreground">
+							Role
+						</p>
+						{ROLES.map((role) => (
+							<SheetClose asChild key={role}>
+								<button
+									type="button"
+									className="sheet-row capitalize"
+									onClick={() => {
+										if (role === member.role) return;
+										run(
+											{
+												action: "member.role",
+												input: { groupId, userId: member.userId, role },
+											},
+											"Role updated",
+										);
+									}}
+								>
+									{role}
+									{role === member.role ? (
+										<Check className="ml-auto size-4" aria-label="Current" />
+									) : null}
+								</button>
+							</SheetClose>
+						))}
+					</div>
+				) : null}
+
+				{canRemove ? (
+					<div className="flex flex-col">
+						{isOwner ? <Separator className="mb-1.5" /> : null}
+						<SheetClose asChild>
+							<button
+								type="button"
+								className="sheet-row"
+								data-variant="destructive"
+								onClick={() =>
+									run(
+										{
+											action: "member.remove",
+											input: { groupId, userId: member.userId },
+										},
+										"Member removed",
+									)
+								}
+							>
+								<UserMinus className="size-[1.125rem]" />
+								Remove from group
+							</button>
+						</SheetClose>
+					</div>
+				) : null}
+			</SheetContent>
+		</Sheet>
+	);
+}
+
 function MembersTab({
 	data,
 	groupId,
@@ -780,20 +906,40 @@ function MembersTab({
 			<CardContent>
 				<ItemGroup>
 					{data.group.members.map((member) => (
-						<Item key={member.userId} size="sm">
+						<Item key={member.userId} size="sm" className="flex-nowrap">
 							<ItemMedia>
 								<MemberAvatar name={member.name} seed={member.userId} />
 							</ItemMedia>
-							<ItemContent>
-								<ItemTitle>
-									{member.name}
-									{member.userId === data.user.id ? (
-										<span className="text-muted-foreground"> (you)</span>
-									) : null}
+							<ItemContent className="min-w-0">
+								<ItemTitle className="w-full min-w-0">
+									<span className="truncate">
+										{member.name}
+										{member.userId === data.user.id ? (
+											<span className="text-muted-foreground"> (you)</span>
+										) : null}
+									</span>
 								</ItemTitle>
-								<ItemDescription>{member.email}</ItemDescription>
+								<ItemDescription className="line-clamp-1">
+									{member.email}
+								</ItemDescription>
 							</ItemContent>
-							<ItemActions>
+
+							{/* Phone: the role reads as a badge and everything you can do
+							    to this person is one tap away in a sheet. */}
+							<ItemActions className="shrink-0 sm:hidden">
+								<Badge variant="secondary" className="capitalize">
+									{member.role}
+								</Badge>
+								<MemberSheet
+									member={member}
+									data={data}
+									groupId={groupId}
+									run={run}
+									canManage={canManage}
+								/>
+							</ItemActions>
+
+							<ItemActions className="hidden shrink-0 sm:flex">
 								{data.group.myRole === "owner" ? (
 									<Select
 										value={member.role}
@@ -804,7 +950,7 @@ function MembersTab({
 													input: {
 														groupId,
 														userId: member.userId,
-														role: role as "owner" | "admin" | "member",
+														role: role as Role,
 													},
 												},
 												"Role updated",
@@ -819,7 +965,7 @@ function MembersTab({
 										</SelectTrigger>
 										<SelectContent>
 											<SelectGroup>
-												{["owner", "admin", "member"].map((role) => (
+												{ROLES.map((role) => (
 													<SelectItem
 														key={role}
 														value={role}

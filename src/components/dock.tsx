@@ -9,13 +9,22 @@ import {
 	Blocks,
 	House,
 	Plus,
+	Receipt,
 	UserRound,
+	UsersRound,
 	Wallet,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 import { MemberAvatar } from "#/components/member-avatar";
 import { Button } from "#/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "#/components/ui/dropdown-menu";
+import { cn } from "#/lib/utils";
 
 const ICON = "size-[1.375rem]";
 
@@ -44,15 +53,114 @@ function DockItem({
 	);
 }
 
+/** Shared innards of a compose row: a circled icon, a label, a line of context. */
+function ComposeBody({
+	icon,
+	title,
+	hint,
+}: {
+	icon: ReactNode;
+	title: string;
+	hint: string;
+}) {
+	return (
+		<>
+			<span className="grid size-10 shrink-0 place-items-center rounded-full bg-muted">
+				{icon}
+			</span>
+			<span className="flex min-w-0 flex-col gap-0.5">
+				<span className="font-medium">{title}</span>
+				<span className="text-xs text-muted-foreground">{hint}</span>
+			</span>
+		</>
+	);
+}
+
+const COMPOSE_ITEM = "gap-3 rounded-xl p-2.5 [&_svg]:text-foreground";
+
+/**
+ * The compose menu behind the dock's centre button. Both ways of starting
+ * something live here rather than the button guessing from the route — an
+ * action you can see is an action you can find again.
+ */
+function ComposeButton({
+	groupId,
+	open,
+	onOpenChange,
+}: {
+	groupId?: string;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+}) {
+	return (
+		<DropdownMenu open={open} onOpenChange={onOpenChange}>
+			<DropdownMenuTrigger asChild>
+				<Button
+					size="icon"
+					className="press mx-0.5 size-11 shrink-0 rounded-full"
+					aria-label="New expense or group"
+				>
+					{/* The plus turns into a close mark, so the button reads as the
+					    same object in both states rather than swapping icons. */}
+					<Plus
+						className={cn(
+							ICON,
+							"transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+							open && "rotate-45",
+						)}
+					/>
+				</Button>
+			</DropdownMenuTrigger>
+
+			<DropdownMenuContent
+				side="top"
+				align="center"
+				sideOffset={14}
+				className="dock-menu"
+			>
+				{groupId ? (
+					<DropdownMenuItem asChild className={COMPOSE_ITEM}>
+						<Link to="/app/groups/$groupId/expenses/new" params={{ groupId }}>
+							<ComposeBody
+								icon={<Receipt className="size-[1.125rem]" />}
+								title="New expense"
+								hint="Split a cost with this group"
+							/>
+						</Link>
+					</DropdownMenuItem>
+				) : (
+					<DropdownMenuItem disabled className={COMPOSE_ITEM}>
+						<ComposeBody
+							icon={<Receipt className="size-[1.125rem]" />}
+							title="New expense"
+							hint="Open a group first"
+						/>
+					</DropdownMenuItem>
+				)}
+
+				<DropdownMenuItem asChild className={COMPOSE_ITEM}>
+					<Link to="/app/groups/new">
+						<ComposeBody
+							icon={<UsersRound className="size-[1.125rem]" />}
+							title="New group"
+							hint="Start a shared tab with people"
+						/>
+					</Link>
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
 /**
  * Signed-in navigation. The masthead only carries identity and the theme, so
- * the destinations live down here where a thumb already is. The middle slot is
- * the one action a person opens the app to take, and it follows context:
- * inside a group it adds an expense, everywhere else it starts a group.
+ * the destinations live down here where a thumb already is, with the one thing
+ * you open the app to do in the middle.
  */
 export function AppDock({ user }: { user: { name: string; email: string } }) {
 	const { groupId } = useParams({ strict: false }) as { groupId?: string };
 	const { pathname } = useLocation();
+	const [composeOpen, setComposeOpen] = useState(false);
 
 	const active = pathname.startsWith("/app/settings")
 		? "account"
@@ -63,48 +171,43 @@ export function AppDock({ user }: { user: { name: string; email: string } }) {
 				: null;
 
 	return (
-		<nav className="dock" aria-label="Primary">
-			<DockItem to="/app" active={active === "groups"} label="Groups">
-				<Wallet className={ICON} aria-hidden="true" />
-			</DockItem>
+		<>
+			<nav className="dock" aria-label="Primary">
+				<DockItem to="/app" active={active === "groups"} label="Groups">
+					<Wallet className={ICON} aria-hidden="true" />
+				</DockItem>
 
-			<Button
-				size="icon"
-				className="press mx-0.5 size-11 shrink-0"
-				aria-label={groupId ? "Add expense" : "New group"}
-				asChild
-			>
-				{groupId ? (
-					<Link
-						to="/app/groups/$groupId/expenses/new"
-						params={{ groupId }}
-						aria-label="Add expense"
-					>
-						<Plus className={ICON} />
-					</Link>
-				) : (
-					<Link to="/app/groups/new" aria-label="New group">
-						<Plus className={ICON} />
-					</Link>
-				)}
-			</Button>
-
-			<DockItem to="/docs" active={active === "docs"} label="Integrations">
-				<Blocks className={ICON} aria-hidden="true" />
-			</DockItem>
-
-			<DockItem
-				to="/app/settings"
-				active={active === "account"}
-				label="Account"
-			>
-				<MemberAvatar
-					name={user.name}
-					seed={user.email}
-					className="size-[1.625rem] text-[9px]"
+				<ComposeButton
+					groupId={groupId}
+					open={composeOpen}
+					onOpenChange={setComposeOpen}
 				/>
-			</DockItem>
-		</nav>
+
+				<DockItem to="/docs" active={active === "docs"} label="Integrations">
+					<Blocks className={ICON} aria-hidden="true" />
+				</DockItem>
+
+				<DockItem
+					to="/app/settings"
+					active={active === "account"}
+					label="Account"
+				>
+					<MemberAvatar
+						name={user.name}
+						seed={user.email}
+						className="size-[1.625rem] text-[9px]"
+					/>
+				</DockItem>
+			</nav>
+
+			{/*
+			 * Dims the page but not the dock, so the menu reads as rising out of
+			 * it. It has to sit outside `.dock`, whose `translate` would otherwise
+			 * make this fixed element resolve against the dock instead of the
+			 * viewport. Radix treats a tap here as an outside click and closes.
+			 */}
+			{composeOpen ? <div className="dock-scrim" aria-hidden="true" /> : null}
+		</>
 	);
 }
 
