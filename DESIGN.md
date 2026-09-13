@@ -1,6 +1,6 @@
 # How Eventual is designed
 
-Last updated: 2026-09-11
+Last updated: 2026-09-13
 
 The tokens and shared classes described here live in `src/styles.css`. Change them there, not per component.
 
@@ -155,6 +155,13 @@ Every `[data-slot='button']` is a pill, and the default variant gets a light sha
 - **Shape:** Fully rounded ends with compact horizontal padding.
 - **States:** At rest the button is strong but not glossy, with a flat fill and light shadow. The focus ring is accent blue.
 
+### Dead end (error and not found)
+
+- **Anatomy:** A kicker, one short display-size line, two lines of supporting copy, a dark pill beside a quiet outline button, and a sticky note underneath.
+- **Typography:** Inter Tight for the line, Inter for the copy, Caveat on the note. Both the heading and the copy are balanced so centred text keeps a short measure.
+- **Surface:** `.island-shell` paper on the canvas. The panel stays neutral: an error is not a balance, so it never borrows the status colours, and the words carry the meaning.
+- **Composition:** Outside the signed-in shell it takes the viewport and puts the wordmark above the panel, like the invite and auth screens. Inside the shell the masthead is already there, so it is the panel alone.
+
 ### Handwritten note
 
 - **Anatomy:** A short Caveat line on a sticky note or paper scrap.
@@ -198,4 +205,4 @@ Story stages shrink by removing surrounding props before shrinking the main pape
 
 ## Scope note
 
-This guide covers the landing page, the auth screens, the signed-in app shell, the dashboard, group and expense screens, buttons, cards, and handwritten notes. It doesn't specify exact breakpoints, loading and error states, or the full footer. Measurements are practical targets, not pixel specs.
+This guide covers the landing page, the auth screens, the signed-in app shell, the dashboard, group and expense screens, error and not-found screens, buttons, cards, and handwritten notes. It doesn't specify exact breakpoints, loading states, or the full footer. Measurements are practical targets, not pixel specs.

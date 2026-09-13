@@ -1,6 +1,13 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { KeyRound, LogOut, Plug } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import {
+	createContext,
+	type ReactNode,
+	useContext,
+	useEffect,
+	useState,
+} from "react";
+import { toast } from "sonner";
 
 import { AppDock } from "#/components/dock";
 import { MemberAvatar } from "#/components/member-avatar";
@@ -201,6 +208,18 @@ function AccountMenu({
 	);
 }
 
+const InAppShell = createContext(false);
+
+/**
+ * Whether a masthead is already on the page. Error and not-found screens are
+ * rendered by a boundary on every route, inside this shell for signed-in pages
+ * and bare in the document everywhere else, so they read this to decide between
+ * taking over the viewport and sitting in the page as a panel.
+ */
+export function useInAppShell() {
+	return useContext(InAppShell);
+}
+
 /** Shared chrome for every signed-in page. */
 export function AppShell({
 	user,
@@ -213,45 +232,58 @@ export function AppShell({
 	const { hidden, scrolled } = useHeaderMotion();
 
 	const signOut = async () => {
-		await authClient.signOut();
+		// Better Auth reports failures on the result rather than by throwing, and
+		// a dropped connection rejects, so both have to be caught: bailing out
+		// silently would leave the menu closed and the session still live.
+		try {
+			const { error } = await authClient.signOut();
+			if (error) throw new Error(error.message);
+		} catch {
+			toast.error("Couldn't sign out", {
+				description: "Check your connection and try again.",
+			});
+			return;
+		}
 		clearSession();
 		await router.navigate({ to: "/" });
 	};
 
 	return (
-		<div className="pad-dock flex min-h-[100dvh] flex-col">
-			<header
-				className={cn(
-					"sticky top-0 z-40 bg-background transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-					"border-b pt-[var(--safe-top)]",
-					scrolled ? "border-border/80 shadow-sm" : "border-transparent",
-					// Only phones reclaim the space; on a desktop the header never moves.
-					hidden && "max-sm:-translate-y-[calc(100%+1px)]",
-				)}
-			>
-				<div className="page-wrap flex h-[var(--header-h)] items-center justify-between gap-4 sm:h-16">
-					<Wordmark to="/app" />
+		<InAppShell.Provider value={true}>
+			<div className="pad-dock flex min-h-[100dvh] flex-col">
+				<header
+					className={cn(
+						"sticky top-0 z-40 bg-background transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+						"border-b pt-[var(--safe-top)]",
+						scrolled ? "border-border/80 shadow-sm" : "border-transparent",
+						// Only phones reclaim the space; on a desktop the header never moves.
+						hidden && "max-sm:-translate-y-[calc(100%+1px)]",
+					)}
+				>
+					<div className="page-wrap flex h-[var(--header-h)] items-center justify-between gap-4 sm:h-16">
+						<Wordmark to="/app" />
 
-					{/*
-					 * The masthead carries identity and the theme, nothing else. Who
-					 * you are, API keys and Integrations all live behind the avatar at
-					 * every width, so the header reads the same on a phone and on a
-					 * desktop instead of growing a row of links at `sm`.
-					 */}
-					<div className="flex items-center gap-1">
-						<ThemeToggle />
-						<AccountMenu user={user} onSignOut={signOut} />
+						{/*
+						 * The masthead carries identity and the theme, nothing else. Who
+						 * you are, API keys and Integrations all live behind the avatar at
+						 * every width, so the header reads the same on a phone and on a
+						 * desktop instead of growing a row of links at `sm`.
+						 */}
+						<div className="flex items-center gap-1">
+							<ThemeToggle />
+							<AccountMenu user={user} onSignOut={signOut} />
+						</div>
 					</div>
-				</div>
-			</header>
+				</header>
 
-			<main className="page-wrap flex-1 py-6 sm:py-8">{children}</main>
+				<main className="page-wrap flex-1 py-6 sm:py-8">{children}</main>
 
-			<footer className="page-wrap hidden py-8 text-xs text-muted-foreground sm:block">
-				Eventual · exact integer splits, in rupees.
-			</footer>
+				<footer className="page-wrap hidden py-8 text-xs text-muted-foreground sm:block">
+					Eventual · exact integer splits, in rupees.
+				</footer>
 
-			<AppDock user={user} />
-		</div>
+				<AppDock user={user} />
+			</div>
+		</InAppShell.Provider>
 	);
 }
