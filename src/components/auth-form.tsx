@@ -56,6 +56,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 							name: value.name.trim(),
 							email,
 							password,
+							callbackURL: "/verify-email",
 						})
 					: await authClient.signIn.email({ email, password });
 			if (result.error) {
@@ -166,6 +167,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 						</form>
 					</CardContent>
 					<CardFooter className="flex flex-col gap-3">
+						{mode === "login" ? (
+							<Link to="/forgot-password" className="text-sm underline">
+								Forgot your password?
+							</Link>
+						) : null}
 						<form.Subscribe selector={(state) => state.isSubmitting}>
 							{(pending) => (
 								<Button

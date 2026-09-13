@@ -68,6 +68,27 @@ Vercel project variables are not automatically available in your local shell. Do
 
 Expense creation accepts `currency` (omitting it defaults to INR for existing clients). Expense updates and settlements require it explicitly. For example, `{"toUserId":"B","currency":"USD","amountMinor":20000}` records a US$200 repayment and can only reduce USD debt. If the current suggested payment is US$200, attempting US$200.01 or US$400 is rejected. INR debt is unaffected.
 
+## Auth emails
+
+Account emails use Resend and React Email: a combined welcome/email-verification message on signup, password-reset links, and password-reset security confirmations. Group invitations, balance reminders, and expense/settlement notifications do not send email.
+
+Set these server-only values in `.env.local` (or your deployment environment):
+
+```dotenv
+RESEND_API_KEY=re_your_key
+EMAIL_FROM="Eventual <accounts@your-verified-domain.com>"
+# Optional:
+EMAIL_REPLY_TO=support@your-verified-domain.com
+```
+
+Verify the sending domain in Resend and set `BETTER_AUTH_URL` to your public HTTPS origin. Restart the app after changing these values. No database migration is needed. Without both Resend settings, automatic signup emails are disabled; delivery attempts cannot send email. Verification remains optional for signing in, matching the existing account behavior.
+
+- Sign in → **Forgot your password?** opens `/forgot-password`. Reset links expire after one hour, can be used once, and lead to `/reset-password`. A successful reset revokes existing sessions.
+- **Account / API keys** shows email-verification status and a resend action. Verification links expire after one hour and return to `/verify-email`.
+- Password-reset requests return the same generic response for unknown accounts and delivery failures. Better Auth also treats verification delivery as a background notification, so a successful request is not proof of delivery. Failures are logged without email content or tokens; check Resend delivery logs and retry after fixing configuration. There is no automatic retry queue.
+- Reset and verification requests use Better Auth's per-IP rate limits (three per minute in production). Resend idempotency keys deduplicate retries of the same token within its 24-hour window; token values are hashed before being used as keys.
+- `bun run email:dev` previews templates on port 3002. HTML and plain-text versions are rendered at send time.
+
 ## REST API
 
 Authentication accepts a Better Auth session cookie or a user API key in the `x-api-key` header (or `Authorization: Bearer ev_…`). Legacy `ss_…` bearer keys remain accepted. Create and revoke keys at `/app/settings`.

@@ -7,6 +7,8 @@ import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { db } from "#/db";
 import * as schema from "#/db/schema";
 import { env } from "#/env";
+import { authEmailOptions } from "#/lib/auth-email";
+import { sendEmail } from "#/server/email";
 
 const API_KEY_PREFIX = "ev_";
 const LEGACY_API_KEY_PREFIX = "ss_";
@@ -37,7 +39,17 @@ export const auth = betterAuth({
 		? ["http://localhost:*", "http://127.0.0.1:*"]
 		: [],
 	database: drizzleAdapter(db, { provider: "sqlite", schema }),
-	emailAndPassword: { enabled: true, requireEmailVerification: false },
+	...authEmailOptions(
+		sendEmail,
+		env.BETTER_AUTH_URL,
+		Boolean(env.RESEND_API_KEY && env.EMAIL_FROM),
+	),
+	rateLimit: {
+		customRules: {
+			"/request-password-reset": { window: 60, max: 3 },
+			"/send-verification-email": { window: 60, max: 3 },
+		},
+	},
 	plugins: [
 		organization({
 			invitationExpiresIn: 60 * 60 * 24 * 7,

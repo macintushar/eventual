@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ApiKeys } from "#/components/api-keys";
 import { AppBreadcrumb } from "#/components/app-breadcrumb";
+import { EmailVerification } from "#/components/email-verification";
 import { listApiKeysFn } from "#/server/fn/api-keys";
 
 export const Route = createFileRoute("/app/settings")({
@@ -24,6 +25,7 @@ function SettingsPage() {
 				<p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
 			</div>
 			<ApiKeys initialKeys={keys} />
+			<EmailVerification email={user.email} verified={user.emailVerified} />
 		</div>
 	);
 }

@@ -7,6 +7,9 @@ export const env = createEnv({
 		TURSO_AUTH_TOKEN: z.string().min(1).optional(),
 		BETTER_AUTH_SECRET: z.string().min(32),
 		BETTER_AUTH_URL: z.string().url().default("http://localhost:3000"),
+		RESEND_API_KEY: z.string().min(1).optional(),
+		EMAIL_FROM: z.string().min(1).optional(),
+		EMAIL_REPLY_TO: z.string().email().optional(),
 	},
 
 	/**
