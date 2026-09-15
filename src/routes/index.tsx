@@ -26,6 +26,7 @@ import {
 	ItemTitle,
 } from "#/components/ui/item";
 import { loadSession } from "#/lib/session";
+import { SITE_URL } from "#/lib/site";
 import { cn } from "#/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -38,6 +39,58 @@ export const Route = createFileRoute("/")({
 				name: "description",
 				content:
 					"Log what everyone paid on trips, in flats and on nights out. Eventual splits it evenly or any way you like and tells each person exactly what they owe.",
+			},
+			{
+				property: "og:title",
+				content: "Eventual · Split group expenses in rupees, to the last paisa",
+			},
+			{
+				property: "og:description",
+				content:
+					"Log what everyone paid on trips, in flats and on nights out. Eventual splits it evenly or any way you like and tells each person exactly what they owe.",
+			},
+			{
+				property: "og:type",
+				content: "website",
+			},
+			{
+				property: "og:url",
+				content: SITE_URL,
+			},
+			{
+				property: "og:site_name",
+				content: "Eventual",
+			},
+			{
+				name: "twitter:card",
+				content: "summary",
+			},
+		],
+		links: [
+			{
+				rel: "canonical",
+				href: SITE_URL,
+			},
+		],
+		scripts: [
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@type": "WebApplication",
+					name: "Eventual",
+					description:
+						"Split group expenses in rupees. Log what everyone paid on trips, flats and nights out, split evenly or any way you like, and settle up exactly.",
+					url: SITE_URL,
+					applicationCategory: "FinanceApplication",
+					operatingSystem: "Web",
+					browserRequirements: "Requires JavaScript",
+					offers: {
+						"@type": "Offer",
+						price: "0",
+						priceCurrency: "INR",
+					},
+				}),
 			},
 		],
 	}),
@@ -182,7 +235,10 @@ function Home() {
 							<div className="mb-2 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
 								<Icon className="size-5" aria-hidden="true" />
 							</div>
-							<CardTitle>{title}</CardTitle>
+							{/* Real h2: search engines see a proper outline, the
+							    classes keep the CardTitle look */}
+							<h2 className="leading-none font-semibold">{title}</h2>
+
 							<CardDescription>{text}</CardDescription>
 						</CardHeader>
 					</Card>
@@ -214,10 +270,10 @@ function Home() {
 										</div>
 									))}
 								</div>
-								<CardTitle className="flex items-center gap-2">
+								<h2 className="flex items-center gap-2 font-semibold">
 									{title}
 									<ArrowRight className="size-4" aria-hidden="true" />
-								</CardTitle>
+								</h2>
 								<CardDescription>{text}</CardDescription>
 							</CardHeader>
 						</Card>

@@ -16,9 +16,52 @@ import {
 } from "#/components/ui/breadcrumb";
 import { Button } from "#/components/ui/button";
 import { type HelpArticle, helpArticle } from "#/lib/help";
+import { SITE_URL } from "#/lib/site";
 
 export const Route = createFileRoute("/help/")({
-	head: () => ({ meta: [{ title: "Help center · Eventual" }] }),
+	head: () => ({
+		meta: [
+			{ title: "Help center · Eventual" },
+			{
+				name: "description",
+				content:
+					"Answers on creating groups, adding expenses, split methods, locked expenses and repayments in Eventual.",
+			},
+			{
+				property: "og:title",
+				content: "Help center · Eventual",
+			},
+			{
+				name: "twitter:card",
+				content: "summary",
+			},
+		],
+		links: [
+			{
+				rel: "canonical",
+				href: `${SITE_URL}/help`,
+			},
+		],
+		scripts: [
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@type": "FAQPage",
+					mainEntity: categories.flatMap((category) =>
+						category.items.map((item) => ({
+							"@type": "Question",
+							name: item.question,
+							acceptedAnswer: {
+								"@type": "Answer",
+								text: item.answer,
+							},
+						})),
+					),
+				}),
+			},
+		],
+	}),
 	component: HelpIndex,
 });
 

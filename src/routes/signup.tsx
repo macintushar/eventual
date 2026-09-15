@@ -3,5 +3,6 @@ import { z } from "zod";
 import { AuthForm } from "#/components/auth-form";
 export const Route = createFileRoute("/signup")({
 	validateSearch: z.object({ redirect: z.string().optional() }),
+	head: () => ({ meta: [{ name: "robots", content: "noindex" }] }),
 	component: () => <AuthForm mode="signup" />,
 });

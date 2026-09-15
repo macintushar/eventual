@@ -4,6 +4,7 @@ import { AppShell } from "#/components/app-shell";
 import { loadSession } from "#/lib/session";
 
 export const Route = createFileRoute("/app")({
+	head: () => ({ meta: [{ name: "robots", content: "noindex" }] }),
 	beforeLoad: async ({ location }) => {
 		const auth = await loadSession();
 		if (!auth)

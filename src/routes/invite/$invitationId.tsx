@@ -22,6 +22,7 @@ import { getInvitationFn, mutateFn } from "#/server/fn/app";
 import { getSessionFn } from "#/server/fn/auth";
 
 export const Route = createFileRoute("/invite/$invitationId")({
+	head: () => ({ meta: [{ name: "robots", content: "noindex" }] }),
 	loader: async ({ params }) => ({
 		invitation: await getInvitationFn({ data: params }),
 		session: await getSessionFn(),

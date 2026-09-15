@@ -41,6 +41,17 @@ export const Route = createRootRoute({
 				rel: "stylesheet",
 				href: appCss,
 			},
+			{
+				rel: "icon",
+				type: "image/svg+xml",
+				href: "/logo.svg",
+			},
+			{
+				rel: "icon",
+				type: "image/svg+xml",
+				href: "/logo-dark.svg",
+				media: "(prefers-color-scheme: dark)",
+			},
 		],
 	}),
 	shellComponent: RootDocument,

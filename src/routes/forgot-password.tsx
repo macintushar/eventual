@@ -2,6 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PasswordRecovery } from "#/components/password-recovery";
 
 export const Route = createFileRoute("/forgot-password")({
-	head: () => ({ meta: [{ title: "Reset password · Eventual" }] }),
+	head: () => ({
+		meta: [
+			{ title: "Reset password · Eventual" },
+			{ name: "robots", content: "noindex" },
+		],
+	}),
 	component: () => <PasswordRecovery mode="request" />,
 });

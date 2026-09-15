@@ -26,6 +26,7 @@ import { Separator } from "#/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { env } from "#/env";
 import { useClientUser } from "#/lib/session";
+import { SITE_URL } from "#/lib/site";
 
 const getOriginFn = createServerFn({ method: "GET" }).handler(
 	() => new URL(env.BETTER_AUTH_URL).origin,
@@ -35,7 +36,47 @@ export const Route = createFileRoute("/docs")({
 	loader: async () => ({
 		origin: await getOriginFn(),
 	}),
-	head: () => ({ meta: [{ title: "Integrations · Eventual" }] }),
+	head: () => ({
+		meta: [
+			{ title: "Integrations · Eventual" },
+			{
+				name: "description",
+				content:
+					"Log expenses from your iPhone with the Apple Shortcut, or connect Eventual to Claude, Cursor and other AI assistants over MCP.",
+			},
+			{
+				property: "og:title",
+				content: "Integrations · Eventual",
+			},
+			{
+				property: "og:description",
+				content:
+					"Log expenses from your iPhone with the Apple Shortcut, or connect Eventual to Claude, Cursor and other AI assistants over MCP.",
+			},
+			{
+				property: "og:type",
+				content: "website",
+			},
+			{
+				property: "og:url",
+				content: `${SITE_URL}/docs`,
+			},
+			{
+				property: "og:site_name",
+				content: "Eventual",
+			},
+			{
+				name: "twitter:card",
+				content: "summary",
+			},
+		],
+		links: [
+			{
+				rel: "canonical",
+				href: `${SITE_URL}/docs`,
+			},
+		],
+	}),
 	component: DocsPage,
 });
 

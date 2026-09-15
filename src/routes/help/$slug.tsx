@@ -10,6 +10,7 @@ import {
 } from "#/components/ui/breadcrumb";
 import { Button } from "#/components/ui/button";
 import { helpArticle } from "#/lib/help";
+import { SITE_URL } from "#/lib/site";
 
 export const Route = createFileRoute("/help/$slug")({
 	loader: ({ params }) => {
@@ -18,7 +19,27 @@ export const Route = createFileRoute("/help/$slug")({
 		return article;
 	},
 	head: ({ loaderData }) => ({
-		meta: [{ title: `${loaderData?.title ?? "Help"} · Eventual` }],
+		meta: [
+			{ title: `${loaderData?.title ?? "Help"} · Eventual` },
+			{
+				name: "description",
+				content: loaderData?.lede ?? "How to use Eventual.",
+			},
+			{
+				property: "og:title",
+				content: loaderData?.title ?? "Help · Eventual",
+			},
+			{
+				name: "twitter:card",
+				content: "summary",
+			},
+		],
+		links: [
+			{
+				rel: "canonical",
+				href: `${SITE_URL}/help/${loaderData?.slug ?? ""}`,
+			},
+		],
 	}),
 	component: HelpArticlePage,
 });

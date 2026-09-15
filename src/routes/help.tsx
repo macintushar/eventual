@@ -5,9 +5,25 @@ import {
 	publicSignedOutActions,
 } from "#/components/public-header";
 import { useClientUser } from "#/lib/session";
+import { SITE_URL } from "#/lib/site";
 
 export const Route = createFileRoute("/help")({
-	head: () => ({ meta: [{ title: "Help center · Eventual" }] }),
+	head: () => ({
+		meta: [
+			{ title: "Help center · Eventual" },
+			{
+				name: "description",
+				content:
+					"How to start a group, split a bill, and settle up in Eventual — plus answers on invites, locked expenses and repayments.",
+			},
+		],
+		links: [
+			{
+				rel: "canonical",
+				href: `${SITE_URL}/help`,
+			},
+		],
+	}),
 	component: HelpLayout,
 });
 

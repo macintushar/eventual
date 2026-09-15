@@ -11,7 +11,12 @@ import { getSessionFn } from "#/server/fn/auth";
 export const Route = createFileRoute("/verify-email")({
 	validateSearch: z.object({ error: z.string().optional() }),
 	loader: async () => ({ session: await getSessionFn() }),
-	head: () => ({ meta: [{ title: "Email verification · Eventual" }] }),
+	head: () => ({
+		meta: [
+			{ title: "Email verification · Eventual" },
+			{ name: "robots", content: "noindex" },
+		],
+	}),
 	component: VerificationResult,
 });
 
