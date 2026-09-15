@@ -96,9 +96,13 @@ function Home() {
 	const navigate = Route.useNavigate();
 
 	useEffect(() => {
+		let active = true;
 		void loadSession().then((session) => {
-			if (session) void navigate({ to: "/app" });
+			if (active && session) void navigate({ to: "/app" });
 		});
+		return () => {
+			active = false;
+		};
 	}, [navigate]);
 
 	return (

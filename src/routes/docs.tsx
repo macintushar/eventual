@@ -11,7 +11,7 @@ import {
 
 import { type Brand, BrandLogo } from "#/components/brand-logo";
 import { CodeBlock } from "#/components/code-block";
-import { PublicPage } from "#/components/public-header";
+import { PublicPage, publicSignedOutActions } from "#/components/public-header";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -25,6 +25,7 @@ import {
 import { Separator } from "#/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { env } from "#/env";
+import { useClientUser } from "#/lib/session";
 
 const getOriginFn = createServerFn({ method: "GET" }).handler(
 	() => new URL(env.BETTER_AUTH_URL).origin,
@@ -179,21 +180,29 @@ function DocsPage() {
 	const { origin } = Route.useLoaderData();
 	const mcp = `${origin}/mcp`;
 	const list = clients(mcp);
+	const user = useClientUser();
 
 	return (
 		<PublicPage
-			user={null}
-			actions={[
-				{ to: "/help", label: "Help", desktopOnly: true },
-				{ to: "/app", label: "Open app", desktopOnly: true },
-				{
-					to: "/app/settings",
-					label: "Get an API key",
-					shortLabel: "API key",
-					variant: "default",
-					icon: <KeyRound data-icon="inline-start" />,
-				},
-			]}
+			user={user}
+			actions={
+				user
+					? [
+							{ to: "/help", label: "Help", desktopOnly: true },
+							{ to: "/app", label: "Open app", desktopOnly: true },
+							{
+								to: "/app/settings",
+								label: "Get an API key",
+								shortLabel: "API key",
+								variant: "default",
+								icon: <KeyRound data-icon="inline-start" />,
+							},
+						]
+					: [
+							{ to: "/help", label: "Help", desktopOnly: true },
+							...publicSignedOutActions,
+						]
+			}
 			footer="Eventual · expenses without the spreadsheet."
 			mainClassName="gap-8 py-8 sm:gap-10 sm:py-10"
 		>
