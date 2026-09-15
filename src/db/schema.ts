@@ -3,6 +3,7 @@ import {
 	check,
 	index,
 	integer,
+	primaryKey,
 	sqliteTable,
 	text,
 	unique,
@@ -17,6 +18,10 @@ export const user = sqliteTable("user", {
 		.default(false)
 		.notNull(),
 	image: text("image"),
+	/** UPI virtual payment address, like `name@okbank`. Stored lowercase. */
+	upiVpa: text("upi_vpa"),
+	/** Wise handle without the leading `@`. */
+	wiseTag: text("wise_tag"),
 	createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 	updatedAt: integer("updated_at", { mode: "timestamp_ms" })
 		.$onUpdate(() => new Date())
@@ -382,6 +387,43 @@ export const activity = sqliteTable(
 	],
 );
 
+/**
+ * The personal feed: one row for every person an activity involves. Group
+ * activity is scoped to the group; this is scoped to the person, so it outlives
+ * their membership — being removed from a group is itself something they see.
+ */
+export const activityRecipient = sqliteTable(
+	"activity_recipient",
+	{
+		activityId: text("activity_id")
+			.notNull()
+			.references(() => activity.id, { onDelete: "cascade" }),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		/**
+		 * What the event did to this person's balance, in the activity's
+		 * currency: positive gets money back, negative owes it. Null for events
+		 * that carry no money of their own, like joining a group.
+		 */
+		deltaMinor: integer("delta_minor"),
+		/**
+		 * Copied from the activity so the feed can page on this table's index
+		 * alone. Milliseconds, unlike the activity's seconds: an edit made right
+		 * after a create would otherwise tie, and random ids can't break the tie
+		 * in the order it happened.
+		 */
+		createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.activityId, table.userId] }),
+		index("activity_recipient_user_created_idx").on(
+			table.userId,
+			table.createdAt,
+		),
+	],
+);
+
 export const expenseRelations = relations(expense, ({ one, many }) => ({
 	organization: one(organization, {
 		fields: [expense.organizationId],
@@ -458,10 +500,25 @@ export const settlementAllocationRelations = relations(
 	}),
 );
 
-export const activityRelations = relations(activity, ({ one }) => ({
+export const activityRelations = relations(activity, ({ one, many }) => ({
 	organization: one(organization, {
 		fields: [activity.organizationId],
 		references: [organization.id],
 	}),
 	actor: one(user, { fields: [activity.actorUserId], references: [user.id] }),
+	recipients: many(activityRecipient),
 }));
+
+export const activityRecipientRelations = relations(
+	activityRecipient,
+	({ one }) => ({
+		activity: one(activity, {
+			fields: [activityRecipient.activityId],
+			references: [activity.id],
+		}),
+		user: one(user, {
+			fields: [activityRecipient.userId],
+			references: [user.id],
+		}),
+	}),
+);

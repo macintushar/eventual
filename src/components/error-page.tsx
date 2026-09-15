@@ -6,12 +6,12 @@ import {
 } from "@tanstack/react-router";
 import {
 	ArrowLeft,
+	Blocks,
 	Compass,
 	House,
 	type LucideIcon,
 	RotateCw,
 	TriangleAlert,
-	Wallet,
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -209,7 +209,7 @@ export function NotFoundScreen() {
 						{/* Same icons the dock uses for these two destinations. */}
 						<Link to={inShell ? "/app" : "/"}>
 							{inShell ? (
-								<Wallet data-icon="inline-start" />
+								<Blocks data-icon="inline-start" />
 							) : (
 								<House data-icon="inline-start" />
 							)}

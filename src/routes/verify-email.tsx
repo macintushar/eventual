@@ -43,7 +43,7 @@ function VerificationResult() {
 							? "The link may have expired. Sign in and request another verification email from your account page."
 							: "You can return to Eventual and check your email status on your account page."}
 					</p>
-					<Link to="/app/settings" className="underline">
+					<Link to="/app/settings/profile" className="underline">
 						Continue to your account
 					</Link>
 				</CardContent>

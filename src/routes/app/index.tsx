@@ -175,7 +175,7 @@ function Dashboard() {
 									<Link
 										to="/app/groups/$groupId"
 										params={{ groupId: group.id }}
-										className="feature-card press rise-in flex h-full items-center gap-4 rounded-2xl p-4 no-underline sm:flex-col sm:items-stretch sm:gap-4 sm:p-6"
+										className="feature-card rise-in flex h-full items-center gap-4 rounded-2xl p-4 no-underline sm:flex-col sm:items-stretch sm:gap-4 sm:p-6"
 										style={{ "--i": index } as React.CSSProperties}
 									>
 										<div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-none sm:gap-2">

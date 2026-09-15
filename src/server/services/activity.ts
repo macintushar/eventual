@@ -1,1 +1,1 @@
-export { listActivity } from "./app";
+export { listActivity, listMyActivity } from "./app";

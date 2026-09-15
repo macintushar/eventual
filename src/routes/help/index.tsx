@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { HelpShot } from "#/components/help-shot";
 import {
 	Accordion,
@@ -15,10 +16,18 @@ import {
 	BreadcrumbSeparator,
 } from "#/components/ui/breadcrumb";
 import { Button } from "#/components/ui/button";
+import { env } from "#/env";
 import { type HelpArticle, helpArticle } from "#/lib/help";
 import { SITE_URL } from "#/lib/site";
 
+const getSupportEmailFn = createServerFn({ method: "GET" }).handler(
+	() => env.SUPPORT_EMAIL,
+);
+
 export const Route = createFileRoute("/help/")({
+	loader: async () => ({
+		supportEmail: await getSupportEmailFn(),
+	}),
 	head: () => ({
 		meta: [
 			{ title: "Help center · Eventual" },
@@ -225,8 +234,10 @@ function faqGallery(
 }
 
 function HelpIndex() {
+	const { supportEmail } = Route.useLoaderData();
+
 	return (
-		<div className="mx-auto flex w-full max-w-3xl flex-col gap-10">
+		<div className="col-read flex flex-col gap-10">
 			<nav className="flex flex-col gap-6">
 				<Breadcrumb>
 					<BreadcrumbList>
@@ -296,14 +307,16 @@ function HelpIndex() {
 				))}
 			</div>
 
-			<section className="flex flex-col items-center gap-4 pb-8 text-center">
-				<p className="font-medium">Can't find what you're looking for?</p>
-				<Button size="lg" asChild>
-					<a href="mailto:hello@eventual.app?subject=Eventual%20help">
-						Email us
-					</a>
-				</Button>
-			</section>
+			{supportEmail ? (
+				<section className="flex flex-col items-center gap-4 pb-8 text-center">
+					<p className="font-medium">Can't find what you're looking for?</p>
+					<Button size="lg" asChild>
+						<a href={`mailto:${supportEmail}?subject=Eventual%20help`}>
+							Email us
+						</a>
+					</Button>
+				</section>
+			) : null}
 		</div>
 	);
 }

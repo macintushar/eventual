@@ -72,6 +72,13 @@ export const getActivityFn = createServerFn({ method: "GET" })
 		services.listActivity(await routeContext(), data),
 	);
 
+/** The signed-in person's own feed, across every group they have been in. */
+export const getMyActivityFn = createServerFn({ method: "GET" })
+	.validator(z.object({ cursor: z.string().optional() }).optional())
+	.handler(async ({ data }) =>
+		services.listMyActivity(await routeContext(), data ?? {}),
+	);
+
 export const getExpenseFn = createServerFn({ method: "GET" })
 	.validator(expenseInput)
 	.handler(async ({ data }) => services.getExpense(await routeContext(), data));

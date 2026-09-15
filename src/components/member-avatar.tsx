@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback } from "#/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { cn } from "#/lib/utils";
 
 /** Six brand-compatible tints so members stay visually distinguishable. */
@@ -29,14 +29,20 @@ function tintFor(seed: string) {
 export function MemberAvatar({
 	name,
 	seed,
+	image,
 	className,
 }: {
 	name: string;
 	seed?: string;
+	/** A photo URL. Initials show while it loads, or if it never does. */
+	image?: string | null;
 	className?: string;
 }) {
 	return (
 		<Avatar className={cn("size-9 shrink-0", className)}>
+			{image ? (
+				<AvatarImage src={image} alt="" className="object-cover" />
+			) : null}
 			<AvatarFallback
 				className={cn("text-xs font-bold", tintFor(seed ?? name))}
 				aria-hidden="true"

@@ -4,6 +4,27 @@ import { useEffect, useState } from "react";
 
 import { Button } from "#/components/ui/button";
 
+/** Status bar colours: the canvas every masthead sits on (`--background`). */
+export const THEME_COLORS = { light: "#f3f6f9", dark: "#111111" } as const;
+
+/**
+ * The `theme-color` tags only know the OS scheme, but the theme is a class the
+ * toggle can flip against it. Once the theme resolves, both tags take its
+ * colour, so a dark page never sits under a light status bar.
+ */
+function ThemeColorSync() {
+	const { resolvedTheme } = useTheme();
+	useEffect(() => {
+		if (resolvedTheme !== "light" && resolvedTheme !== "dark") return;
+		for (const meta of document.querySelectorAll<HTMLMetaElement>(
+			'meta[name="theme-color"]',
+		)) {
+			meta.content = THEME_COLORS[resolvedTheme];
+		}
+	}, [resolvedTheme]);
+	return null;
+}
+
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
 	return (
 		<ThemeProvider
@@ -12,6 +33,7 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
 			enableSystem
 			disableTransitionOnChange
 		>
+			<ThemeColorSync />
 			{children}
 		</ThemeProvider>
 	);

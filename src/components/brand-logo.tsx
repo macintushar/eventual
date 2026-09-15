@@ -3,9 +3,13 @@ import { cn } from "#/lib/utils";
 const lobe = (name: string) =>
 	`https://unpkg.com/@lobehub/icons-static-svg@1.95.0/icons/${name}.svg`;
 
+const iconify = (icon: string) => `https://api.iconify.design/${icon}.svg`;
+
 /**
  * Logos load straight from each source's CDN. Monochrome SVGs use
  * `currentColor`, which an <img> renders black, so they invert in dark mode.
+ * A brand whose own colours don't survive inversion names a `darkSrc`
+ * instead, and the theme picks between the two.
  */
 const brands = {
 	shortcuts: {
@@ -15,13 +19,31 @@ const brands = {
 		appIcon: true,
 	},
 	claude: { name: "Claude", src: lobe("claude-color"), mono: false },
+	openai: { name: "ChatGPT", src: lobe("openai"), mono: true },
+	codex: { name: "Codex", src: lobe("codex"), mono: true },
 	cursor: { name: "Cursor", src: lobe("cursor"), mono: true },
 	opencode: { name: "OpenCode", src: lobe("opencode"), mono: true },
 	hermes: { name: "Hermes", src: lobe("nousresearch"), mono: true },
 	openclaw: { name: "OpenClaw", src: lobe("openclaw-color"), mono: false },
+	upi: { name: "UPI", src: iconify("thesvg-color/upi"), mono: false },
+	wise: {
+		name: "Wise",
+		// Wise pairs forest green with its bright green, each on the other's
+		// ground, so the paper theme gets the dark one and the dark theme the
+		// bright one.
+		src: `${iconify("simple-icons/wise")}?color=%23163300`,
+		darkSrc: `${iconify("simple-icons/wise")}?color=%239fe870`,
+		mono: false,
+	},
 } satisfies Record<
 	string,
-	{ name: string; src: string; mono: boolean; appIcon?: boolean }
+	{
+		name: string;
+		src: string;
+		darkSrc?: string;
+		mono: boolean;
+		appIcon?: boolean;
+	}
 >;
 
 export type Brand = keyof typeof brands;
@@ -44,9 +66,9 @@ export function BrandLogo({
 	decorative?: boolean;
 }) {
 	const logo = brands[brand];
-	return (
+	const image = (src: string, theme?: string) => (
 		<img
-			src={logo.src}
+			src={src}
 			alt={decorative ? "" : logo.name}
 			loading="lazy"
 			decoding="async"
@@ -55,7 +77,16 @@ export function BrandLogo({
 				logo.mono && "dark:invert",
 				"appIcon" in logo && "rounded-[22%]",
 				className,
+				theme,
 			)}
 		/>
+	);
+	if (!("darkSrc" in logo)) return image(logo.src);
+	// A hidden lazy image is never fetched, so only the theme's one loads.
+	return (
+		<>
+			{image(logo.src, "dark:hidden")}
+			{image(logo.darkSrc, "hidden dark:block")}
+		</>
 	);
 }

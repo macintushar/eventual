@@ -1,7 +1,28 @@
 import { db } from "#/db";
 import * as schema from "#/db/schema";
 import { auth } from "#/lib/auth";
+import {
+	expenseRecipients,
+	people,
+	type Recipient,
+} from "#/server/domain/activity";
 import { computeShares } from "#/server/domain/split";
+
+/** Mirrors the service's fan-out, so the personal feed has something to show. */
+async function insertActivity(
+	row: typeof schema.activity.$inferInsert,
+	recipients: Recipient[],
+) {
+	await db.insert(schema.activity).values(row);
+	await db.insert(schema.activityRecipient).values(
+		recipients.map((recipient) => ({
+			activityId: row.id,
+			userId: recipient.userId,
+			deltaMinor: recipient.deltaMinor,
+			createdAt: row.createdAt,
+		})),
+	);
+}
 
 await db.delete(schema.organization);
 await db.delete(schema.user);
@@ -119,20 +140,24 @@ for (let index = 0; index < descriptions.length; index++) {
 			paidMarkedByUserId: index === 2 && shareIndex === 1 ? users[1].id : null,
 		})),
 	);
-	await db.insert(schema.activity).values({
-		id: crypto.randomUUID(),
-		organizationId: groups[index < 8 ? 0 : 1].id,
-		// The payer is the one who logged it, so the feed matches the expense row.
-		actorUserId: users[index % users.length].id,
-		type: "expense.created",
-		targetType: "expense",
-		targetId: expenseId,
-		metadata: JSON.stringify({
-			description: descriptions[index],
-			amountMinor,
-		}),
-		createdAt: date,
-	});
+	await insertActivity(
+		{
+			id: crypto.randomUUID(),
+			organizationId: groups[index < 8 ? 0 : 1].id,
+			// The payer is the one who logged it, so the feed matches the expense row.
+			actorUserId: users[index % users.length].id,
+			type: "expense.created",
+			targetType: "expense",
+			targetId: expenseId,
+			metadata: JSON.stringify({
+				description: descriptions[index],
+				amountMinor,
+				currency: "INR",
+			}),
+			createdAt: date,
+		},
+		expenseRecipients(users[index % users.length].id, amountMinor, shares),
+	);
 }
 
 const firstShares = computeShares(
@@ -169,22 +194,26 @@ await db.insert(schema.settlementAllocation).values({
 	expenseShareId: shareIds[0][debtorIndex],
 	amountMinor: firstShares[debtorIndex].amountMinor,
 });
-await db.insert(schema.activity).values({
-	id: crypto.randomUUID(),
-	organizationId: groups[0].id,
-	actorUserId: firstShares[debtorIndex].userId,
-	type: "settlement.created",
-	targetType: "settlement",
-	targetId: settlementId,
-	// Same metadata shape the service writes, so the activity feed can render a
-	// full sentence ("… recorded a payment to Tushar of ₹40.00").
-	metadata: JSON.stringify({
-		fromUserId: firstShares[debtorIndex].userId,
-		toUserId: payerId,
-		amountMinor: firstShares[debtorIndex].amountMinor,
-	}),
-	createdAt: now,
-});
+await insertActivity(
+	{
+		id: crypto.randomUUID(),
+		organizationId: groups[0].id,
+		actorUserId: firstShares[debtorIndex].userId,
+		type: "settlement.created",
+		targetType: "settlement",
+		targetId: settlementId,
+		// Same metadata shape the service writes, so the activity feed can render a
+		// full sentence ("… recorded a payment to Tushar of ₹40.00").
+		metadata: JSON.stringify({
+			fromUserId: firstShares[debtorIndex].userId,
+			toUserId: payerId,
+			amountMinor: firstShares[debtorIndex].amountMinor,
+			currency: "INR",
+		}),
+		createdAt: now,
+	},
+	people(firstShares[debtorIndex].userId, payerId),
+);
 
 console.log("Seed complete. Login credentials:");
 for (const credential of credentials)

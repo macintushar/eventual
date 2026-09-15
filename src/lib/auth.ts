@@ -39,6 +39,14 @@ export const auth = betterAuth({
 		? ["http://localhost:*", "http://127.0.0.1:*"]
 		: [env.BETTER_AUTH_URL],
 	database: drizzleAdapter(db, { provider: "sqlite", schema }),
+	user: {
+		// Written only through `updateProfileFn`, which validates them; `input:
+		// false` keeps better-auth's own update-user endpoint from bypassing that.
+		additionalFields: {
+			upiVpa: { type: "string", required: false, input: false },
+			wiseTag: { type: "string", required: false, input: false },
+		},
+	},
 	...authEmailOptions(
 		sendEmail,
 		env.BETTER_AUTH_URL,

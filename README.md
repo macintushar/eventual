@@ -91,7 +91,7 @@ Verify the sending domain in Resend and set `BETTER_AUTH_URL` to your public HTT
 
 ## REST API
 
-Authentication accepts a Better Auth session cookie or a user API key in the `x-api-key` header (or `Authorization: Bearer ev_…`). Legacy `ss_…` bearer keys remain accepted. Create and revoke keys at `/app/settings`.
+Authentication accepts a Better Auth session cookie or a user API key in the `x-api-key` header (or `Authorization: Bearer ev_…`). Legacy `ss_…` bearer keys remain accepted. Create and revoke keys at `/app/settings/api-keys`.
 
 The cookie examples assume `cookies.txt` was produced by signing in through `/api/auth/sign-in/email`.
 
@@ -137,6 +137,7 @@ $CURL "$BASE/api/groups/GROUP_ID/settlements"
 $CURL -X POST -d '{"toUserId":"USER_ID","currency":"INR","amountMinor":50000,"note":"UPI"}' "$BASE/api/groups/GROUP_ID/settlements"
 $CURL -X DELETE "$BASE/api/settlements/SETTLEMENT_ID"
 $CURL "$BASE/api/groups/GROUP_ID/activity?limit=30"
+$CURL "$BASE/api/me/activity?limit=30"                  # every event involving you, across groups; page with ?cursor=nextCursor
 ```
 
 Errors use one envelope:

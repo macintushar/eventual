@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 
 import { Button } from "#/components/ui/button";
 import {
@@ -66,6 +66,35 @@ export function StepDialog({
 	 */
 	const [content, setContent] = useState<HTMLElement | null>(null);
 
+	/*
+	 * The fields ease in from the side you are heading, so forward and back
+	 * feel like moving along the same rail the progress bars draw. WAAPI rather
+	 * than a `key`, which would remount the step and throw away its state; a
+	 * layout effect, so the new step never paints before it starts moving.
+	 */
+	const body = useRef<HTMLDivElement>(null);
+	const previousIndex = useRef(index);
+	useLayoutEffect(() => {
+		const from = previousIndex.current;
+		previousIndex.current = index;
+		if (from === index || !body.current) return;
+
+		const reduced = window.matchMedia(
+			"(prefers-reduced-motion: reduce)",
+		).matches;
+		const offset = index > from ? 12 : -12;
+		body.current.animate(
+			[
+				{
+					opacity: 0,
+					transform: reduced ? "none" : `translateX(${offset}px)`,
+				},
+				{ opacity: 1, transform: "none" },
+			],
+			{ duration: 200, easing: "cubic-bezier(0.16, 1, 0.3, 1)" },
+		);
+	}, [index]);
+
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
@@ -98,7 +127,9 @@ export function StepDialog({
 						onSelect={pending ? undefined : onSelectStep}
 					/>
 
-					<div className="step-dialog-body">{children}</div>
+					<div ref={body} className="step-dialog-body">
+						{children}
+					</div>
 
 					<div className="flex flex-col gap-2">
 						<div className="flex items-center gap-2">
@@ -106,6 +137,7 @@ export function StepDialog({
 								<Button
 									type="button"
 									variant="outline"
+									size="lg"
 									className="press"
 									disabled={pending}
 									onClick={onBack}
@@ -116,6 +148,7 @@ export function StepDialog({
 							) : null}
 							<Button
 								type="button"
+								size="lg"
 								className="press flex-1"
 								disabled={nextDisabled || pending}
 								onClick={onNext}

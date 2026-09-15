@@ -165,18 +165,18 @@ const webFonts = [
 		url: "https://fonts.gstatic.com/s/caveat/v23/WnznHAc5bAfYB2QRah7pcpNvOx-pjfJ9eIWpYT5Kmgq3sw.woff2",
 	},
 	{
-		fontFamily: "Inter",
+		fontFamily: "Instrument Sans",
 		fallback: "Helvetica" as const,
 		weight: 500,
-		url: "https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2",
+		url: "https://fonts.gstatic.com/s/instrumentsans/v4/pxiTypc9vsFDm051Uf6KVwgkfoSxQ0GsQv8ToedPibnr0SZe1Q.woff2",
 	},
 	// Body weight last: `Font` also emits a `* { font-family }` rule, and the
 	// final one wins for anything that somehow renders without its own family.
 	{
-		fontFamily: "Inter",
+		fontFamily: "Instrument Sans",
 		fallback: "Helvetica" as const,
 		weight: 400,
-		url: "https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2",
+		url: "https://fonts.gstatic.com/s/instrumentsans/v4/pxiTypc9vsFDm051Uf6KVwgkfoSxQ0GsQv8ToedPibnr0SZe1Q.woff2",
 	},
 ];
 
@@ -190,7 +190,13 @@ export default function TransactionalEmail(props: TransactionalEmailProps) {
 					theme: {
 						extend: {
 							fontFamily: {
-								sans: ["Inter", "Helvetica", "Arial", "sans-serif"],
+								sans: [
+									"Instrument Sans",
+									"Inter",
+									"Helvetica",
+									"Arial",
+									"sans-serif",
+								],
 								display: [
 									"Inter Tight",
 									"Inter",

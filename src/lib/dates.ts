@@ -44,3 +44,28 @@ export function atNoon(value: Date): Date {
 		0,
 	);
 }
+
+const sameYearTime = new Intl.DateTimeFormat("en-IN", {
+	day: "numeric",
+	month: "short",
+	hour: "numeric",
+	minute: "2-digit",
+});
+
+const otherYearTime = new Intl.DateTimeFormat("en-IN", {
+	day: "numeric",
+	month: "short",
+	year: "numeric",
+	hour: "numeric",
+	minute: "2-digit",
+});
+
+/** Date and time for feed rows, where "when exactly" is the point of the line. */
+export function formatDateTime(value: Date | string | number): string {
+	const date = value instanceof Date ? value : new Date(value);
+	const format =
+		date.getFullYear() === new Date().getFullYear()
+			? sameYearTime
+			: otherYearTime;
+	return format.format(date);
+}

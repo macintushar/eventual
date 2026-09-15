@@ -5,6 +5,9 @@ import { cn } from "cn";
 import { XIcon } from "lucide-react";
 import { Dialog as SheetPrimitive } from "radix-ui";
 import type * as React from "react";
+import { useCallback, useRef, useState } from "react";
+
+import { useDragDismiss } from "#/components/ui/use-drag-dismiss";
 
 /**
  * A panel that slides in from an edge. Built on Radix Dialog, so it is modal
@@ -49,7 +52,7 @@ function SheetOverlay({
 }
 
 const sheetVariants = cva(
-	"fixed z-50 flex flex-col gap-4 bg-popover text-popover-foreground shadow-lg outline-none transition-none data-[state=closed]:animate-out data-[state=open]:animate-in",
+	"fixed z-50 flex flex-col gap-4 overflow-y-auto overscroll-contain bg-popover text-popover-foreground shadow-lg outline-none transition-none data-[state=closed]:animate-out data-[state=open]:animate-in",
 	{
 		variants: {
 			side: {
@@ -70,18 +73,37 @@ function SheetContent({
 	children,
 	side = "bottom",
 	showCloseButton = false,
+	ref,
 	...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> &
 	VariantProps<typeof sheetVariants> & { showCloseButton?: boolean }) {
+	const [content, setContent] = useState<HTMLDivElement | null>(null);
+	const dismiss = useRef<HTMLButtonElement>(null);
+	const setRef = useCallback(
+		(node: HTMLDivElement | null) => {
+			setContent(node);
+			if (typeof ref === "function") ref(node);
+			else if (ref) ref.current = node;
+		},
+		[ref],
+	);
+
+	// The grab handle is a promise; this keeps it.
+	useDragDismiss(content, () => dismiss.current?.click(), {
+		enabled: side === "bottom",
+	});
+
 	return (
 		<SheetPrimitive.Portal>
 			<SheetOverlay />
 			<SheetPrimitive.Content
+				ref={setRef}
 				data-slot="sheet-content"
 				data-side={side}
 				className={cn(
 					sheetVariants({ side }),
-					"duration-320 ease-[cubic-bezier(0.16,1,0.3,1)]",
+					// Closing is a dismissal, so it leaves faster than it arrived.
+					"duration-320 ease-(--ease-out-soft) data-[state=closed]:duration-200",
 					className,
 				)}
 				{...props}
@@ -95,6 +117,10 @@ function SheetContent({
 				) : null}
 
 				{children}
+
+				{/* What a drag-to-dismiss presses, so it closes through the same
+				    path as Escape and the close button. */}
+				<SheetPrimitive.Close ref={dismiss} hidden tabIndex={-1} />
 
 				{showCloseButton ? (
 					<SheetPrimitive.Close

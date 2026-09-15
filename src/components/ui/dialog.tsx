@@ -2,8 +2,10 @@ import { cn } from "cn";
 import { XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import type * as React from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { Button } from "#/components/ui/button";
+import { useDragDismiss } from "#/components/ui/use-drag-dismiss";
 
 function Dialog({
 	...props
@@ -49,22 +51,45 @@ function DialogContent({
 	className,
 	children,
 	showCloseButton = true,
+	ref,
 	...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
 	showCloseButton?: boolean;
 }) {
+	const [content, setContent] = useState<HTMLDivElement | null>(null);
+	const dismiss = useRef<HTMLButtonElement>(null);
+	const setRef = useCallback(
+		(node: HTMLDivElement | null) => {
+			setContent(node);
+			if (typeof ref === "function") ref(node);
+			else if (ref) ref.current = node;
+		},
+		[ref],
+	);
+
+	// On a phone this dialog is a bottom sheet (see styles.css), so it can be
+	// pulled down. Callers that re-slot it — the lightbox — opt out.
+	useDragDismiss(content, () => dismiss.current?.click(), {
+		media: "(width < 40rem)",
+		slot: "dialog-content",
+	});
+
 	return (
 		<DialogPortal data-slot="dialog-portal">
 			<DialogOverlay />
 			<DialogPrimitive.Content
+				ref={setRef}
 				data-slot="dialog-content"
 				className={cn(
-					"fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
+					"fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 ease-(--ease-out-soft) outline-none data-[state=closed]:animate-out data-[state=closed]:duration-150 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
 					className,
 				)}
 				{...props}
 			>
 				{children}
+				{/* What a drag-to-dismiss presses, so it closes through the same
+				    path as Escape and the close button. */}
+				<DialogPrimitive.Close ref={dismiss} hidden tabIndex={-1} />
 				{showCloseButton && (
 					<DialogPrimitive.Close
 						data-slot="dialog-close"

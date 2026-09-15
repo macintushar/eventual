@@ -1,5 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { CircleHelp, KeyRound, LogOut, Plug } from "lucide-react";
+import { CircleHelp, KeyRound, LogOut, Plug, UserRound } from "lucide-react";
 import {
 	createContext,
 	type ReactNode,
@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 
 import { ComposerProvider } from "#/components/composer";
+import { ConfirmDialog } from "#/components/confirm-dialog";
 import { AppDock } from "#/components/dock";
 import { MemberAvatar } from "#/components/member-avatar";
 import { ThemeToggle } from "#/components/theme";
@@ -99,7 +100,8 @@ function AccountAvatar({ user }: { user: { name: string; email: string } }) {
 
 const ACCOUNT_LINKS = [
 	{ to: "/help", icon: CircleHelp, label: "Help center" },
-	{ to: "/app/settings", icon: KeyRound, label: "API keys" },
+	{ to: "/app/settings/profile", icon: UserRound, label: "Profile" },
+	{ to: "/app/settings/api-keys", icon: KeyRound, label: "API keys" },
 	{ to: "/docs", icon: Plug, label: "Integrations" },
 ] as const;
 
@@ -117,8 +119,11 @@ function AccountMenu({
 	onSignOut,
 }: {
 	user: { name: string; email: string };
-	onSignOut: () => void;
+	/** Resolve `false` when sign-out failed, so the confirmation stays up. */
+	onSignOut: () => Promise<boolean> | boolean;
 }) {
+	const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+
 	return (
 		<>
 			<Sheet>
@@ -151,17 +156,15 @@ function AccountMenu({
 
 						<Separator className="my-1.5" />
 
-						<SheetClose asChild>
-							<button
-								type="button"
-								className="sheet-row"
-								data-variant="destructive"
-								onClick={onSignOut}
-							>
-								<LogOut className="size-[1.125rem]" />
-								Sign out
-							</button>
-						</SheetClose>
+						<button
+							type="button"
+							className="sheet-row"
+							data-variant="destructive"
+							onClick={() => setConfirmingSignOut(true)}
+						>
+							<LogOut className="size-[1.125rem]" />
+							Sign out
+						</button>
 					</div>
 				</SheetContent>
 			</Sheet>
@@ -190,12 +193,22 @@ function AccountMenu({
 						</DropdownMenuItem>
 					))}
 					<DropdownMenuSeparator />
-					<DropdownMenuItem onSelect={onSignOut}>
+					<DropdownMenuItem onSelect={() => setConfirmingSignOut(true)}>
 						<LogOut />
 						Sign out
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
+
+			<ConfirmDialog
+				open={confirmingSignOut}
+				onOpenChange={setConfirmingSignOut}
+				media={<LogOut />}
+				title="Sign out?"
+				description="You'll need to sign in again to see your groups."
+				confirmLabel="Sign out"
+				onConfirm={onSignOut}
+			/>
 		</>
 	);
 }
@@ -234,10 +247,11 @@ export function AppShell({
 			toast.error("Couldn't sign out", {
 				description: "Check your connection and try again.",
 			});
-			return;
+			return false;
 		}
 		clearSession();
 		await router.navigate({ to: "/" });
+		return true;
 	};
 
 	return (
@@ -246,7 +260,7 @@ export function AppShell({
 				<div className="pad-dock flex min-h-[100dvh] flex-col">
 					<header
 						className={cn(
-							"sticky top-0 z-40 bg-background transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+							"sticky top-0 z-40 bg-background transition-[translate,box-shadow,border-color] duration-300 ease-(--ease-out-soft) motion-reduce:transition-none",
 							"border-b pt-[var(--safe-top)]",
 							scrolled ? "border-border/80 shadow-sm" : "border-transparent",
 							// Only phones reclaim the space; on a desktop the header never moves.

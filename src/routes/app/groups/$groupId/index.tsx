@@ -11,6 +11,7 @@ import {
 	Copy,
 	History,
 	Lock,
+	LogOut,
 	MoreHorizontal,
 	Plus,
 	Receipt,
@@ -20,11 +21,12 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-
 import { ActivityLine } from "#/components/activity-line";
 import { Amount } from "#/components/amount";
+import { AppBreadcrumb } from "#/components/app-breadcrumb";
 import { BalanceBar } from "#/components/balance-bar";
 import { useComposer } from "#/components/composer";
+import { ConfirmDialog } from "#/components/confirm-dialog";
 import { CurrencySelect } from "#/components/currency-select";
 import { EmptyState } from "#/components/empty-state";
 import { MemberAvatar } from "#/components/member-avatar";
@@ -142,6 +144,10 @@ function GroupPage() {
 
 	return (
 		<div className="flex flex-col gap-5 sm:gap-6">
+			<AppBreadcrumb
+				parent={{ label: "All groups", to: "/app" }}
+				page={data.group.name}
+			/>
 			<header className="rise-in flex flex-wrap items-end justify-between gap-4">
 				<div className="min-w-0">
 					<p className="island-kicker capitalize">{data.group.myRole}</p>
@@ -631,14 +637,12 @@ function BalancesTab({
 											<strong className="tabular">
 												{formatMinor(row.amountMinor, row.currency)}
 											</strong>
-											<Button
-												size="icon"
-												variant="ghost"
-												aria-label={`Delete settlement of ${formatMinor(
-													row.amountMinor,
-													row.currency,
-												)}`}
-												onClick={() =>
+											<ConfirmDialog
+												media={<Trash2 />}
+												title="Delete settlement?"
+												description={`${formatMinor(row.amountMinor, row.currency)} from ${row.from.name} to ${row.to.name} will be erased from everyone's balances.`}
+												confirmLabel="Delete settlement"
+												onConfirm={() =>
 													run(
 														{
 															action: "settlement.delete",
@@ -647,9 +651,20 @@ function BalancesTab({
 														"Settlement deleted",
 													)
 												}
-											>
-												<Trash2 />
-											</Button>
+												trigger={
+													<Button
+														size="icon-sm"
+														variant="ghost"
+														className="press text-destructive"
+														aria-label={`Delete settlement of ${formatMinor(
+															row.amountMinor,
+															row.currency,
+														)}`}
+													>
+														<Trash2 />
+													</Button>
+												}
+											/>
 										</ItemActions>
 									</Item>
 								))}
@@ -686,11 +701,13 @@ function MemberSheet({
 	const isOwner = data.group.myRole === "owner";
 	const canRemove = canManage && !isSelf;
 
+	const [sheetOpen, setSheetOpen] = useState(false);
+
 	// Nothing to do in here: leave the row as a plain badge instead.
 	if (!isOwner && !canRemove) return null;
 
 	return (
-		<Sheet>
+		<Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
 			<SheetTrigger asChild>
 				<Button
 					variant="ghost"
@@ -750,25 +767,34 @@ function MemberSheet({
 				{canRemove ? (
 					<div className="flex flex-col">
 						{isOwner ? <Separator className="mb-1.5" /> : null}
-						<SheetClose asChild>
-							<button
-								type="button"
-								className="sheet-row"
-								data-variant="destructive"
-								onClick={() =>
-									run(
-										{
-											action: "member.remove",
-											input: { groupId, userId: member.userId },
-										},
-										"Member removed",
-									)
-								}
-							>
-								<UserMinus className="size-[1.125rem]" />
-								Remove from group
-							</button>
-						</SheetClose>
+						<ConfirmDialog
+							media={<UserMinus />}
+							title={`Remove ${member.name}?`}
+							description={`${member.name} loses access immediately. Their shares in expenses already recorded stay put, and you can invite them back with a new invitation.`}
+							confirmLabel="Remove from group"
+							onConfirm={() =>
+								run(
+									{
+										action: "member.remove",
+										input: { groupId, userId: member.userId },
+									},
+									"Member removed",
+								).then((ok) => {
+									if (ok) setSheetOpen(false);
+									return ok;
+								})
+							}
+							trigger={
+								<button
+									type="button"
+									className="sheet-row"
+									data-variant="destructive"
+								>
+									<UserMinus className="size-[1.125rem]" />
+									Remove from group
+								</button>
+							}
+						/>
 					</div>
 				) : null}
 			</SheetContent>
@@ -1017,10 +1043,12 @@ function MembersTab({
 									</Badge>
 								)}
 								{member.userId !== data.user.id && canManage ? (
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={() =>
+									<ConfirmDialog
+										media={<UserMinus />}
+										title={`Remove ${member.name}?`}
+										description={`${member.name} loses access immediately. Their shares in expenses already recorded stay put, and you can invite them back with a new invitation.`}
+										confirmLabel="Remove from group"
+										onConfirm={() =>
 											run(
 												{
 													action: "member.remove",
@@ -1029,9 +1057,16 @@ function MembersTab({
 												"Member removed",
 											)
 										}
-									>
-										Remove
-									</Button>
+										trigger={
+											<Button
+												variant="ghost"
+												size="sm"
+												className="press text-destructive"
+											>
+												Remove
+											</Button>
+										}
+									/>
 								) : null}
 							</ItemActions>
 						</Item>
@@ -1054,10 +1089,12 @@ function MembersTab({
 										</ItemTitle>
 									</ItemContent>
 									<ItemActions>
-										<Button
-											size="sm"
-											variant="ghost"
-											onClick={() =>
+										<ConfirmDialog
+											media={<UserMinus />}
+											title="Revoke this invitation?"
+											description={`${invite.email} will not be able to join through this invitation. You can invite them again any time.`}
+											confirmLabel="Revoke invitation"
+											onConfirm={() =>
 												run(
 													{
 														action: "invitation.revoke",
@@ -1066,9 +1103,16 @@ function MembersTab({
 													"Invitation revoked",
 												)
 											}
-										>
-											Revoke
-										</Button>
+											trigger={
+												<Button
+													size="sm"
+													variant="ghost"
+													className="press text-destructive"
+												>
+													Revoke
+												</Button>
+											}
+										/>
 									</ItemActions>
 								</Item>
 							))}
@@ -1217,18 +1261,25 @@ function SettingsTab({
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
-					<Button
-						variant="outline"
-						onClick={async () => {
-							await run(
+					<ConfirmDialog
+						media={<LogOut />}
+						title={`Leave “${data.group.name}”?`}
+						description="You'll lose access immediately. You'll need to be invited back to rejoin, and your balances with the group stay put."
+						confirmLabel="Leave group"
+						onConfirm={async () => {
+							const ok = await run(
 								{ action: "group.leave", input: { groupId } },
 								"You left the group",
 							);
-							onLeave();
+							if (ok) onLeave();
+							return ok;
 						}}
-					>
-						Leave group
-					</Button>
+						trigger={
+							<Button variant="outline" className="press text-destructive">
+								Leave group
+							</Button>
+						}
+					/>
 				</CardContent>
 			</Card>
 

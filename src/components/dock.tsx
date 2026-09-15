@@ -10,13 +10,30 @@ import {
 	CircleHelp,
 	House,
 	LogIn,
+	Logs,
+	Plug,
 	Plus,
 	Receipt,
 	UserRound,
 	UsersRound,
-	Wallet,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import {
+	AnimatePresence,
+	type MotionValue,
+	motion,
+	useMotionValue,
+	useReducedMotion,
+	useSpring,
+	useTransform,
+} from "motion/react";
+import {
+	createContext,
+	type ReactNode,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 
 import { useComposer } from "#/components/composer";
 import { MemberAvatar } from "#/components/member-avatar";
@@ -32,6 +49,125 @@ import { cn } from "#/lib/utils";
 
 const ICON = "size-[1.375rem]";
 
+/* Slot size at rest (the 44px thumb target) and right under the cursor. */
+const SLOT = 44;
+const SLOT_PEAK = 64;
+/* How far either side of the cursor a slot still feels the pull. */
+const REACH = 120;
+const SPRING = { mass: 0.1, stiffness: 170, damping: 14 };
+
+/** Cursor x inside the dock, or Infinity when there is no cursor to follow. */
+const DockPointer = createContext<MotionValue<number> | null>(null);
+/** The slot's current growth, so its glyph can scale with it. */
+const SlotScale = createContext<MotionValue<number> | null>(null);
+
+/**
+ * The floating pill. On a mouse, slots swell toward the cursor like the macOS
+ * dock; touch never feeds the pointer, so on a phone it stays a still row of
+ * thumb targets.
+ */
+function Dock({
+	menuOpen,
+	children,
+}: {
+	/** An open menu freezes the dock, since Radix swallows the pointer. */
+	menuOpen: boolean;
+	children: ReactNode;
+}) {
+	const pointerX = useMotionValue(Number.POSITIVE_INFINITY);
+	const reduceMotion = useReducedMotion();
+
+	useEffect(() => {
+		if (menuOpen) pointerX.set(Number.POSITIVE_INFINITY);
+	}, [menuOpen, pointerX]);
+
+	return (
+		<DockPointer.Provider value={pointerX}>
+			<nav
+				className="dock"
+				aria-label="Primary"
+				data-menu-open={menuOpen}
+				onPointerMove={(event) => {
+					if (event.pointerType !== "mouse" || reduceMotion || menuOpen) return;
+					pointerX.set(event.clientX);
+				}}
+				onPointerLeave={() => pointerX.set(Number.POSITIVE_INFINITY)}
+			>
+				{children}
+			</nav>
+		</DockPointer.Provider>
+	);
+}
+
+/**
+ * One magnifying position in the dock. It owns the size and the hover label;
+ * whatever control sits inside fills it.
+ */
+function DockSlot({
+	label,
+	className,
+	children,
+}: {
+	label: string;
+	className?: string;
+	children: ReactNode;
+}) {
+	const pointerX = useContext(DockPointer);
+	const fallbackX = useMotionValue(Number.POSITIVE_INFINITY);
+	const ref = useRef<HTMLDivElement>(null);
+	const [hovered, setHovered] = useState(false);
+	const reduceMotion = useReducedMotion();
+
+	const distance = useTransform(pointerX ?? fallbackX, (x) => {
+		const bounds = ref.current?.getBoundingClientRect();
+		return bounds ? x - bounds.left - bounds.width / 2 : Number.POSITIVE_INFINITY;
+	});
+	const size = useSpring(
+		useTransform(distance, [-REACH, 0, REACH], [SLOT, SLOT_PEAK, SLOT]),
+		SPRING,
+	);
+	const scale = useTransform(size, (value) => value / SLOT);
+
+	return (
+		<SlotScale.Provider value={scale}>
+			<motion.div
+				ref={ref}
+				className={cn("dock-slot", className)}
+				style={{ width: size, height: size }}
+				onPointerEnter={(event) => setHovered(event.pointerType === "mouse")}
+				onPointerLeave={() => setHovered(false)}
+				onPointerDown={() => setHovered(false)}
+			>
+				<AnimatePresence>
+					{hovered && (
+						<motion.span
+							className="dock-label"
+							aria-hidden="true"
+							initial={{ opacity: 0, y: reduceMotion ? 0 : 6, x: "-50%" }}
+							animate={{ opacity: 1, y: 0, x: "-50%" }}
+							exit={{ opacity: 0, y: reduceMotion ? 0 : 2, x: "-50%" }}
+							transition={{ duration: 0.16 }}
+						>
+							{label}
+						</motion.span>
+					)}
+				</AnimatePresence>
+				{children}
+			</motion.div>
+		</SlotScale.Provider>
+	);
+}
+
+/** Scales an icon or avatar along with its slot, so it grows rather than floats. */
+function DockGlyph({ children }: { children: ReactNode }) {
+	const scale = useContext(SlotScale);
+	return (
+		<motion.span className="grid place-items-center" style={{ scale: scale ?? 1 }}>
+			{children}
+		</motion.span>
+	);
+}
+
 function DockItem({
 	active,
 	label,
@@ -44,16 +180,17 @@ function DockItem({
 	children: ReactNode;
 } & Omit<React.ComponentProps<typeof Link>, "children">) {
 	return (
-		<Link
-			{...link}
-			className="dock-item"
-			data-active={active}
-			aria-label={label}
-			title={label}
-			aria-current={active ? "page" : undefined}
-		>
-			{children}
-		</Link>
+		<DockSlot label={label}>
+			<Link
+				{...link}
+				className="dock-item"
+				data-active={active}
+				aria-label={label}
+				aria-current={active ? "page" : undefined}
+			>
+				<DockGlyph>{children}</DockGlyph>
+			</Link>
+		</DockSlot>
 	);
 }
 
@@ -109,23 +246,27 @@ function ComposeButton({
 
 	return (
 		<DropdownMenu open={open} onOpenChange={onOpenChange}>
-			<DropdownMenuTrigger asChild>
-				<Button
-					size="icon"
-					className="press mx-0.5 size-11 shrink-0 rounded-full"
-					aria-label="New expense or group"
-				>
-					{/* The plus turns into a close mark, so the button reads as the
-					    same object in both states rather than swapping icons. */}
-					<Plus
-						className={cn(
-							ICON,
-							"transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-							open && "rotate-45",
-						)}
-					/>
-				</Button>
-			</DropdownMenuTrigger>
+			<DockSlot label="New" className="mx-0.5">
+				<DropdownMenuTrigger asChild>
+					<Button
+						size="icon"
+						className="press size-full rounded-full"
+						aria-label="New expense or group"
+					>
+						<DockGlyph>
+							{/* The plus turns into a close mark, so the button reads as the
+							    same object in both states rather than swapping icons. */}
+							<Plus
+								className={cn(
+									ICON,
+									"transition-transform duration-200 ease-(--ease-out-soft) motion-reduce:transition-none",
+									open && "rotate-45",
+								)}
+							/>
+						</DockGlyph>
+					</Button>
+				</DropdownMenuTrigger>
+			</DockSlot>
 
 			<DropdownMenuContent
 				side="top"
@@ -183,26 +324,29 @@ function ProfileButton({
 }) {
 	return (
 		<DropdownMenu open={open} onOpenChange={onOpenChange}>
-			<DropdownMenuTrigger asChild>
-				<button
-					type="button"
-					className="dock-item"
-					data-active={active || open}
-					aria-label="Account menu"
-					title="Account menu"
-					aria-current={active ? "page" : undefined}
-				>
-					{user ? (
-						<MemberAvatar
-							name={user.name}
-							seed={user.email}
-							className="size-[1.625rem] text-[9px]"
-						/>
-					) : (
-						<UserRound className={ICON} aria-hidden="true" />
-					)}
-				</button>
-			</DropdownMenuTrigger>
+			<DockSlot label="Account">
+				<DropdownMenuTrigger asChild>
+					<button
+						type="button"
+						className="dock-item"
+						data-active={active || open}
+						aria-label="Account menu"
+						aria-current={active ? "page" : undefined}
+					>
+						<DockGlyph>
+							{user ? (
+								<MemberAvatar
+									name={user.name}
+									seed={user.email}
+									className="size-[1.625rem] text-[9px]"
+								/>
+							) : (
+								<UserRound className={ICON} aria-hidden="true" />
+							)}
+						</DockGlyph>
+					</button>
+				</DropdownMenuTrigger>
+			</DockSlot>
 
 			<DropdownMenuContent
 				side="top"
@@ -222,11 +366,11 @@ function ProfileButton({
 
 				{user ? (
 					<DropdownMenuItem asChild className={COMPOSE_ITEM}>
-						<Link to="/app/settings">
+						<Link to="/app/settings/profile">
 							<ComposeBody
 								icon={<UserRound className="size-[1.125rem]" />}
 								title="Account"
-								hint="API keys and your details"
+								hint="Your profile and API keys"
 							/>
 						</Link>
 					</DropdownMenuItem>
@@ -261,15 +405,25 @@ export function AppDock({ user }: { user: { name: string; email: string } }) {
 		? "account"
 		: pathname.startsWith("/docs")
 			? "docs"
-			: pathname.startsWith("/app")
-				? "groups"
-				: null;
+			: pathname.startsWith("/app/activity")
+				? "activity"
+				: pathname.startsWith("/app")
+					? "groups"
+					: null;
 
 	return (
 		<>
-			<nav className="dock" aria-label="Primary">
+			<Dock menuOpen={composeOpen || profileOpen}>
 				<DockItem to="/app" active={active === "groups"} label="Groups">
-					<Wallet className={ICON} aria-hidden="true" />
+					<Blocks className={ICON} aria-hidden="true" />
+				</DockItem>
+
+				<DockItem
+					to="/app/activity"
+					active={active === "activity"}
+					label="Activity"
+				>
+					<Logs className={ICON} aria-hidden="true" />
 				</DockItem>
 
 				<ComposeButton
@@ -282,7 +436,7 @@ export function AppDock({ user }: { user: { name: string; email: string } }) {
 				/>
 
 				<DockItem to="/docs" active={active === "docs"} label="Integrations">
-					<Blocks className={ICON} aria-hidden="true" />
+					<Plug className={ICON} aria-hidden="true" />
 				</DockItem>
 
 				<ProfileButton
@@ -294,17 +448,21 @@ export function AppDock({ user }: { user: { name: string; email: string } }) {
 					}}
 					active={active === "account"}
 				/>
-			</nav>
+			</Dock>
 
 			{/*
 			 * Dims the page but not the dock, so the menu reads as rising out of
 			 * it. It has to sit outside `.dock`, whose `translate` would otherwise
 			 * make this fixed element resolve against the dock instead of the
 			 * viewport. Radix treats a tap here as an outside click and closes.
+			 * Always mounted, so it can fade out alongside the menu instead of
+			 * vanishing the frame the menu starts to close.
 			 */}
-			{composeOpen || profileOpen ? (
-				<div className="dock-scrim" aria-hidden="true" />
-			) : null}
+			<div
+				className="dock-scrim"
+				data-open={composeOpen || profileOpen}
+				aria-hidden="true"
+			/>
 		</>
 	);
 }
@@ -349,16 +507,19 @@ export function PublicDock({
 
 	return (
 		<>
-			<nav className="dock" aria-label="Primary">
-				<button
-					type="button"
-					className="dock-item"
-					aria-label="Go back"
-					title="Go back"
-					onClick={() => router.history.back()}
-				>
-					<ArrowLeft className={ICON} aria-hidden="true" />
-				</button>
+			<Dock menuOpen={profileOpen}>
+				<DockSlot label="Back">
+					<button
+						type="button"
+						className="dock-item"
+						aria-label="Go back"
+						onClick={() => router.history.back()}
+					>
+						<DockGlyph>
+							<ArrowLeft className={ICON} aria-hidden="true" />
+						</DockGlyph>
+					</button>
+				</DockSlot>
 
 				<DockItem to="/" active={pathname === "/"} label="Home">
 					<House className={ICON} aria-hidden="true" />
@@ -370,9 +531,9 @@ export function PublicDock({
 					onOpenChange={setProfileOpen}
 					active={accountActive}
 				/>
-			</nav>
+			</Dock>
 
-			{profileOpen ? <div className="dock-scrim" aria-hidden="true" /> : null}
+			<div className="dock-scrim" data-open={profileOpen} aria-hidden="true" />
 		</>
 	);
 }

@@ -26,7 +26,7 @@ import {
 import type { activityTypes } from "#/db/schema";
 import { formatMinor } from "#/lib/money";
 
-type ActivityType = (typeof activityTypes)[number];
+export type ActivityType = (typeof activityTypes)[number];
 
 export type ActivityItem = {
 	id: string;
@@ -36,7 +36,7 @@ export type ActivityItem = {
 	metadata: Record<string, unknown>;
 };
 
-const icons: Record<ActivityType, LucideIcon> = {
+export const activityIcons: Record<ActivityType, LucideIcon> = {
 	"group.created": FolderPlus,
 	"group.renamed": PencilLine,
 	"group.deleted": Trash2,
@@ -213,7 +213,7 @@ export function ActivityLine({
 	item: ActivityItem;
 	nameOf: (userId: string) => string;
 }): ReactNode {
-	const Icon = icons[item.type] ?? Receipt;
+	const Icon = activityIcons[item.type] ?? Receipt;
 	return (
 		<Item size="sm" className="flex-nowrap">
 			<ItemMedia variant="icon" className="shrink-0">

@@ -97,3 +97,46 @@ export type CreateGroupInput = z.infer<typeof createGroupSchema>;
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 export type CreateSettlementInput = z.infer<typeof createSettlementSchema>;
+
+/**
+ * A UPI virtual payment address: a handle, `@`, then the bank or app's
+ * suffix, like `asha.k@okicici`. Letters, digits, dots, hyphens and
+ * underscores before the `@`; letters only after it. Case never matters to
+ * UPI, so it is stored lowercase.
+ */
+export const upiVpaSchema = z
+	.string()
+	.trim()
+	.toLowerCase()
+	.regex(/^[a-z0-9._-]{2,256}@[a-z]{2,64}$/, "Enter a UPI ID like name@bank");
+
+/** A Wisetag, typed with or without its `@`. Stored without it. */
+export const wiseTagSchema = z
+	.string()
+	.trim()
+	.transform((value) => value.replace(/^@/, ""))
+	.pipe(
+		z
+			.string()
+			.regex(
+				/^[a-zA-Z0-9]{3,40}$/,
+				"A Wisetag is 3 to 40 letters and numbers, like @asha123",
+			),
+	);
+
+/** A blank field clears the handle rather than failing to parse. */
+const clearable = <T extends z.ZodType>(schema: T) =>
+	z.preprocess(
+		(value) =>
+			typeof value === "string" && value.trim() === "" ? null : value,
+		schema.nullable(),
+	);
+
+/** A patch: only the fields sent are written. */
+export const updateProfileSchema = z.object({
+	name: z.string().trim().min(1, "Enter your name").max(100).optional(),
+	upiVpa: clearable(upiVpaSchema).optional(),
+	wiseTag: clearable(wiseTagSchema).optional(),
+	/** Photos can only be removed until uploads exist. */
+	image: z.null().optional(),
+});

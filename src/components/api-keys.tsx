@@ -31,7 +31,6 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from "#/components/ui/dialog";
 import {
 	Field,
@@ -98,11 +97,17 @@ export function ApiKeys({ initialKeys }: { initialKeys: ApiKeySummary[] }) {
 		null,
 	);
 	const [deleting, setDeleting] = useState(false);
+	const hasKeys = initialKeys.length > 0;
 
 	const resetCreate = () => {
 		setName("");
 		setExpiry("never");
 		setNameError("");
+	};
+
+	const openCreate = () => {
+		resetCreate();
+		setCreateOpen(true);
 	};
 
 	return (
@@ -114,7 +119,7 @@ export function ApiKeys({ initialKeys }: { initialKeys: ApiKeySummary[] }) {
 					 * phone squeezes the description into a four-line ribbon. A flex
 					 * row that wraps puts the button under the text instead.
 					 */}
-					<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div className="min-w-0 sm:flex-1">
 							<CardTitle>API keys</CardTitle>
 							<CardDescription className="mt-1.5">
@@ -125,138 +130,19 @@ export function ApiKeys({ initialKeys }: { initialKeys: ApiKeySummary[] }) {
 								header to call the REST API or MCP endpoint.
 							</CardDescription>
 						</div>
-						<Dialog
-							open={createOpen}
-							onOpenChange={(open) => {
-								setCreateOpen(open);
-								if (!open) resetCreate();
-							}}
-						>
-							<DialogTrigger asChild>
-								<Button className="press self-start">
-									<Plus data-icon="inline-start" />
-									New key
-								</Button>
-							</DialogTrigger>
-							<DialogContent>
-								<form
-									className="flex flex-col gap-4"
-									onSubmit={async (event) => {
-										event.preventDefault();
-										const trimmed = name.trim();
-										if (trimmed.length < 1) {
-											setNameError("Give this key a name");
-											return;
-										}
-										setCreating(true);
-										try {
-											const result = await createApiKeyFn({
-												data: {
-													name: trimmed,
-													expiresIn:
-														expiry === "never"
-															? null
-															: Number(expiry) * 60 * 60 * 24,
-												},
-											});
-											setCreateOpen(false);
-											resetCreate();
-											setSecret(result.key);
-											toast.success("API key created");
-											await router.invalidate();
-										} catch (error) {
-											toast.error(
-												error instanceof Error
-													? error.message
-													: "Could not create API key",
-											);
-										} finally {
-											setCreating(false);
-										}
-									}}
-								>
-									<DialogHeader>
-										<DialogTitle>Create API key</DialogTitle>
-										<DialogDescription>
-											The secret is shown once. Store it somewhere safe.
-										</DialogDescription>
-									</DialogHeader>
-									<FieldGroup>
-										<Field data-invalid={nameError ? true : undefined}>
-											<FieldLabel htmlFor="api-key-name">Name</FieldLabel>
-											<Input
-												id="api-key-name"
-												value={name}
-												maxLength={64}
-												placeholder="Claude, scripts, CI"
-												aria-invalid={nameError ? true : undefined}
-												onChange={(event) => {
-													setName(event.target.value);
-													if (nameError) setNameError("");
-												}}
-											/>
-											<FieldDescription>
-												A label so you can tell keys apart later.
-											</FieldDescription>
-											{nameError ? <FieldError>{nameError}</FieldError> : null}
-										</Field>
-										<Field>
-											<FieldLabel>Expires</FieldLabel>
-											<ToggleGroup
-												type="single"
-												variant="outline"
-												spacing={2}
-												rovingFocus={false}
-												value={expiry}
-												onValueChange={(value) => {
-													if (value) setExpiry(value);
-												}}
-												className="flex flex-wrap"
-												aria-label="Key expiration"
-											>
-												{expiryOptions.map((option) => (
-													<ToggleGroupItem
-														key={option.value}
-														value={option.value}
-													>
-														{option.label}
-													</ToggleGroupItem>
-												))}
-											</ToggleGroup>
-										</Field>
-									</FieldGroup>
-									<DialogFooter>
-										<Button
-											type="button"
-											variant="outline"
-											onClick={() => setCreateOpen(false)}
-										>
-											Cancel
-										</Button>
-										<Button type="submit" disabled={creating}>
-											{creating ? <Spinner data-icon="inline-start" /> : null}
-											{creating ? "Creating…" : "Create key"}
-										</Button>
-									</DialogFooter>
-								</form>
-							</DialogContent>
-						</Dialog>
+						{hasKeys ? (
+							<Button
+								className="press self-start sm:self-auto"
+								onClick={openCreate}
+							>
+								<Plus data-icon="inline-start" />
+								New key
+							</Button>
+						) : null}
 					</div>
 				</CardHeader>
 				<CardContent>
-					{initialKeys.length === 0 ? (
-						<EmptyState
-							icon={KeyRound}
-							title="No API keys yet"
-							description="Create a key to authenticate scripts, MCP clients, and anything you build on top of Eventual."
-							action={
-								<Button onClick={() => setCreateOpen(true)}>
-									<Plus data-icon="inline-start" />
-									New key
-								</Button>
-							}
-						/>
-					) : (
+					{hasKeys ? (
 						<ItemGroup>
 							{initialKeys.map((key) => {
 								const expired = isExpired(key.expiresAt);
@@ -302,9 +188,126 @@ export function ApiKeys({ initialKeys }: { initialKeys: ApiKeySummary[] }) {
 								);
 							})}
 						</ItemGroup>
+					) : (
+						<EmptyState
+							icon={KeyRound}
+							title="No API keys yet"
+							description="Create a key to authenticate scripts, MCP clients, and anything you build on top of Eventual."
+							action={
+								<Button onClick={openCreate}>
+									<Plus data-icon="inline-start" />
+									New key
+								</Button>
+							}
+						/>
 					)}
 				</CardContent>
 			</Card>
+
+			<Dialog
+				open={createOpen}
+				onOpenChange={(open) => {
+					setCreateOpen(open);
+					if (!open) resetCreate();
+				}}
+			>
+				<DialogContent>
+					<form
+						className="flex flex-col gap-4"
+						onSubmit={async (event) => {
+							event.preventDefault();
+							const trimmed = name.trim();
+							if (trimmed.length < 1) {
+								setNameError("Give this key a name");
+								return;
+							}
+							setCreating(true);
+							try {
+								const result = await createApiKeyFn({
+									data: {
+										name: trimmed,
+										expiresIn:
+											expiry === "never" ? null : Number(expiry) * 60 * 60 * 24,
+									},
+								});
+								setCreateOpen(false);
+								setSecret(result.key);
+								toast.success("API key created");
+								await router.invalidate();
+							} catch (error) {
+								toast.error(
+									error instanceof Error
+										? error.message
+										: "Could not create API key",
+								);
+							} finally {
+								setCreating(false);
+							}
+						}}
+					>
+						<DialogHeader>
+							<DialogTitle>Create API key</DialogTitle>
+							<DialogDescription>
+								The secret is shown once. Store it somewhere safe.
+							</DialogDescription>
+						</DialogHeader>
+						<FieldGroup>
+							<Field data-invalid={nameError ? true : undefined}>
+								<FieldLabel htmlFor="api-key-name">Name</FieldLabel>
+								<Input
+									id="api-key-name"
+									value={name}
+									maxLength={64}
+									placeholder="Claude, scripts, CI"
+									aria-invalid={nameError ? true : undefined}
+									onChange={(event) => {
+										setName(event.target.value);
+										if (nameError) setNameError("");
+									}}
+								/>
+								<FieldDescription>
+									A label so you can tell keys apart later.
+								</FieldDescription>
+								{nameError ? <FieldError>{nameError}</FieldError> : null}
+							</Field>
+							<Field>
+								<FieldLabel>Expires</FieldLabel>
+								<ToggleGroup
+									type="single"
+									variant="outline"
+									spacing={2}
+									rovingFocus={false}
+									value={expiry}
+									onValueChange={(value) => {
+										if (value) setExpiry(value);
+									}}
+									className="flex flex-wrap"
+									aria-label="Key expiration"
+								>
+									{expiryOptions.map((option) => (
+										<ToggleGroupItem key={option.value} value={option.value}>
+											{option.label}
+										</ToggleGroupItem>
+									))}
+								</ToggleGroup>
+							</Field>
+						</FieldGroup>
+						<DialogFooter>
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => setCreateOpen(false)}
+							>
+								Cancel
+							</Button>
+							<Button type="submit" disabled={creating}>
+								{creating ? <Spinner data-icon="inline-start" /> : null}
+								{creating ? "Creating…" : "Create key"}
+							</Button>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
 
 			<Dialog
 				open={secret !== null}

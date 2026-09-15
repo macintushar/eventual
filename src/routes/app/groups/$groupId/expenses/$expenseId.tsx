@@ -89,7 +89,7 @@ function ExpenseDetail() {
 	}
 
 	return (
-		<div className="mx-auto flex max-w-3xl flex-col gap-5">
+		<div className="col-form flex flex-col gap-5">
 			<AppBreadcrumb
 				parent={{
 					label: page.group.name,

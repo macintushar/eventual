@@ -21,11 +21,15 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as ApiSplatRouteImport } from './routes/api/$'
 import { Route as AppIndexRouteImport } from './routes/app/index'
-import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as AppActivityRouteImport } from './routes/app/activity'
+import { Route as AppSettingsRouteRouteImport } from './routes/app/settings/route'
 import { Route as HelpIndexRouteImport } from './routes/help/index'
 import { Route as HelpSlugRouteImport } from './routes/help/$slug'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite/$invitationId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AppSettingsIndexRouteImport } from './routes/app/settings/index'
+import { Route as AppSettingsApiKeysRouteImport } from './routes/app/settings/api-keys'
+import { Route as AppSettingsProfileRouteImport } from './routes/app/settings/profile'
 import { Route as AppGroupsGroupIdIndexRouteImport } from './routes/app/groups/$groupId/index'
 import { Route as AppGroupsGroupIdExpensesExpenseIdRouteImport } from './routes/app/groups/$groupId/expenses/$expenseId'
 
@@ -89,7 +93,12 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
+const AppActivityRoute = AppActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AppRoute,
@@ -114,6 +123,21 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsApiKeysRoute = AppSettingsApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsProfileRoute = AppSettingsProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 const AppGroupsGroupIdIndexRoute = AppGroupsGroupIdIndexRouteImport.update({
   id: '/groups/$groupId/',
   path: '/groups/$groupId/',
@@ -137,13 +161,17 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/app/settings': typeof AppSettingsRouteRouteWithChildren
   '/api/$': typeof ApiSplatRoute
-  '/app/settings': typeof AppSettingsRoute
+  '/app/activity': typeof AppActivityRoute
   '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/app/': typeof AppIndexRoute
   '/help/': typeof HelpIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/app/settings/api-keys': typeof AppSettingsApiKeysRoute
+  '/app/settings/profile': typeof AppSettingsProfileRoute
+  '/app/settings/': typeof AppSettingsIndexRoute
   '/app/groups/$groupId/': typeof AppGroupsGroupIdIndexRoute
   '/app/groups/$groupId/expenses/$expenseId': typeof AppGroupsGroupIdExpensesExpenseIdRoute
 }
@@ -157,12 +185,15 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/$': typeof ApiSplatRoute
-  '/app/settings': typeof AppSettingsRoute
+  '/app/activity': typeof AppActivityRoute
   '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/app': typeof AppIndexRoute
   '/help': typeof HelpIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/app/settings/api-keys': typeof AppSettingsApiKeysRoute
+  '/app/settings/profile': typeof AppSettingsProfileRoute
+  '/app/settings': typeof AppSettingsIndexRoute
   '/app/groups/$groupId': typeof AppGroupsGroupIdIndexRoute
   '/app/groups/$groupId/expenses/$expenseId': typeof AppGroupsGroupIdExpensesExpenseIdRoute
 }
@@ -178,13 +209,17 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/app/settings': typeof AppSettingsRouteRouteWithChildren
   '/api/$': typeof ApiSplatRoute
-  '/app/settings': typeof AppSettingsRoute
+  '/app/activity': typeof AppActivityRoute
   '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/app/': typeof AppIndexRoute
   '/help/': typeof HelpIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/app/settings/api-keys': typeof AppSettingsApiKeysRoute
+  '/app/settings/profile': typeof AppSettingsProfileRoute
+  '/app/settings/': typeof AppSettingsIndexRoute
   '/app/groups/$groupId/': typeof AppGroupsGroupIdIndexRoute
   '/app/groups/$groupId/expenses/$expenseId': typeof AppGroupsGroupIdExpensesExpenseIdRoute
 }
@@ -201,13 +236,17 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/verify-email'
-    | '/api/$'
     | '/app/settings'
+    | '/api/$'
+    | '/app/activity'
     | '/help/$slug'
     | '/invite/$invitationId'
     | '/app/'
     | '/help/'
     | '/api/auth/$'
+    | '/app/settings/api-keys'
+    | '/app/settings/profile'
+    | '/app/settings/'
     | '/app/groups/$groupId/'
     | '/app/groups/$groupId/expenses/$expenseId'
   fileRoutesByTo: FileRoutesByTo
@@ -221,12 +260,15 @@ export interface FileRouteTypes {
     | '/signup'
     | '/verify-email'
     | '/api/$'
-    | '/app/settings'
+    | '/app/activity'
     | '/help/$slug'
     | '/invite/$invitationId'
     | '/app'
     | '/help'
     | '/api/auth/$'
+    | '/app/settings/api-keys'
+    | '/app/settings/profile'
+    | '/app/settings'
     | '/app/groups/$groupId'
     | '/app/groups/$groupId/expenses/$expenseId'
   id:
@@ -241,13 +283,17 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/verify-email'
-    | '/api/$'
     | '/app/settings'
+    | '/api/$'
+    | '/app/activity'
     | '/help/$slug'
     | '/invite/$invitationId'
     | '/app/'
     | '/help/'
     | '/api/auth/$'
+    | '/app/settings/api-keys'
+    | '/app/settings/profile'
+    | '/app/settings/'
     | '/app/groups/$groupId/'
     | '/app/groups/$groupId/expenses/$expenseId'
   fileRoutesById: FileRoutesById
@@ -354,11 +400,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/activity': {
+      id: '/app/activity'
+      path: '/activity'
+      fullPath: '/app/activity'
+      preLoaderRoute: typeof AppActivityRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/settings': {
       id: '/app/settings'
       path: '/settings'
       fullPath: '/app/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
+      preLoaderRoute: typeof AppSettingsRouteRouteImport
       parentRoute: typeof AppRoute
     }
     '/help/': {
@@ -389,6 +442,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/settings/': {
+      id: '/app/settings/'
+      path: '/'
+      fullPath: '/app/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/app/settings/api-keys': {
+      id: '/app/settings/api-keys'
+      path: '/api-keys'
+      fullPath: '/app/settings/api-keys'
+      preLoaderRoute: typeof AppSettingsApiKeysRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/app/settings/profile': {
+      id: '/app/settings/profile'
+      path: '/profile'
+      fullPath: '/app/settings/profile'
+      preLoaderRoute: typeof AppSettingsProfileRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
     '/app/groups/$groupId/': {
       id: '/app/groups/$groupId/'
       path: '/groups/$groupId'
@@ -406,15 +480,32 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppSettingsRouteRouteChildren {
+  AppSettingsApiKeysRoute: typeof AppSettingsApiKeysRoute
+  AppSettingsProfileRoute: typeof AppSettingsProfileRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+}
+
+const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
+  AppSettingsApiKeysRoute: AppSettingsApiKeysRoute,
+  AppSettingsProfileRoute: AppSettingsProfileRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+}
+
+const AppSettingsRouteRouteWithChildren =
+  AppSettingsRouteRoute._addFileChildren(AppSettingsRouteRouteChildren)
+
 interface AppRouteChildren {
-  AppSettingsRoute: typeof AppSettingsRoute
+  AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
+  AppActivityRoute: typeof AppActivityRoute
   AppIndexRoute: typeof AppIndexRoute
   AppGroupsGroupIdIndexRoute: typeof AppGroupsGroupIdIndexRoute
   AppGroupsGroupIdExpensesExpenseIdRoute: typeof AppGroupsGroupIdExpensesExpenseIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppSettingsRoute: AppSettingsRoute,
+  AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,
+  AppActivityRoute: AppActivityRoute,
   AppIndexRoute: AppIndexRoute,
   AppGroupsGroupIdIndexRoute: AppGroupsGroupIdIndexRoute,
   AppGroupsGroupIdExpensesExpenseIdRoute:

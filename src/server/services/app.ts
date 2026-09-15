@@ -9,10 +9,13 @@ import {
 	lt,
 	lte,
 	ne,
+	or,
+	type SQL,
 } from "drizzle-orm";
 
 import {
 	activity,
+	activityRecipient,
 	expense,
 	expenseShare,
 	invitation,
@@ -27,6 +30,12 @@ import { emailKey } from "#/lib/auth-email";
 import { validateRepayment, validateSharePayment } from "#/lib/settlements";
 import { runInBackground } from "#/server/background";
 import type { Ctx } from "#/server/context";
+import {
+	expenseRecipients,
+	people,
+	type Recipient,
+	updatedExpenseRecipients,
+} from "#/server/domain/activity";
 import { computeBalances, simplifyBalances } from "#/server/domain/balances";
 import { computeShares } from "#/server/domain/split";
 import { AppError } from "#/server/errors";
@@ -77,6 +86,30 @@ const activityRow = (
 	metadata: JSON.stringify(metadata),
 	createdAt: new Date(),
 });
+
+/**
+ * Writes an activity and fans it out to the personal feed of everyone it
+ * involves, in the same transaction so neither can exist without the other.
+ */
+async function recordActivity(
+	tx: Pick<Ctx["db"], "insert">,
+	row: ReturnType<typeof activityRow>,
+	recipients: Recipient[] = [],
+) {
+	await tx.insert(activity).values(row);
+	if (recipients.length)
+		await tx
+			.insert(activityRecipient)
+			.values(
+				recipients.map((recipient) => ({
+					activityId: row.id,
+					userId: recipient.userId,
+					deltaMinor: recipient.deltaMinor,
+					createdAt: row.createdAt,
+				})),
+			)
+			.onConflictDoNothing();
+}
 
 export async function listGroups(ctx: Ctx) {
 	const rows = await ctx.db
@@ -192,7 +225,8 @@ export async function createGroup(ctx: Ctx, input: CreateGroupInput) {
 			role: "owner",
 			createdAt: now,
 		});
-		await tx.insert(activity).values(
+		await recordActivity(
+			tx,
 			activityRow(groupId, ctx.user.id, "group.created", "group", groupId, {
 				name: input.name,
 			}),
@@ -231,18 +265,17 @@ export async function renameGroup(
 			.update(organization)
 			.set({ name: input.name })
 			.where(eq(organization.id, input.groupId));
-		await tx
-			.insert(activity)
-			.values(
-				activityRow(
-					input.groupId,
-					ctx.user.id,
-					"group.renamed",
-					"group",
-					input.groupId,
-					{ from: previous.name, to: input.name },
-				),
-			);
+		await recordActivity(
+			tx,
+			activityRow(
+				input.groupId,
+				ctx.user.id,
+				"group.renamed",
+				"group",
+				input.groupId,
+				{ from: previous.name, to: input.name },
+			),
+		);
 	});
 	return getGroup(ctx, input);
 }
@@ -329,18 +362,18 @@ export async function updateMemberRole(
 			.update(member)
 			.set({ role: input.role })
 			.where(eq(member.id, target.id));
-		await tx
-			.insert(activity)
-			.values(
-				activityRow(
-					input.groupId,
-					ctx.user.id,
-					"member.role_changed",
-					"member",
-					target.id,
-					{ userId: input.userId, from: target.role, to: input.role },
-				),
-			);
+		await recordActivity(
+			tx,
+			activityRow(
+				input.groupId,
+				ctx.user.id,
+				"member.role_changed",
+				"member",
+				target.id,
+				{ userId: input.userId, from: target.role, to: input.role },
+			),
+			people(input.userId),
+		);
 	});
 	return { success: true };
 }
@@ -364,18 +397,18 @@ export async function removeMember(
 		throw new AppError("CONFLICT", "The last owner cannot be removed");
 	await assertCanExit(ctx, input.groupId, input.userId);
 	await ctx.db.transaction(async (tx) => {
-		await tx
-			.insert(activity)
-			.values(
-				activityRow(
-					input.groupId,
-					ctx.user.id,
-					"member.removed",
-					"member",
-					target.id,
-					{ userId: input.userId },
-				),
-			);
+		await recordActivity(
+			tx,
+			activityRow(
+				input.groupId,
+				ctx.user.id,
+				"member.removed",
+				"member",
+				target.id,
+				{ userId: input.userId },
+			),
+			people(input.userId),
+		);
 		await tx.delete(member).where(eq(member.id, target.id));
 	});
 	return { success: true };
@@ -387,17 +420,11 @@ export async function leaveGroup(ctx: Ctx, input: { groupId: string }) {
 		throw new AppError("CONFLICT", "The last owner cannot leave");
 	await assertCanExit(ctx, input.groupId, ctx.user.id);
 	await ctx.db.transaction(async (tx) => {
-		await tx
-			.insert(activity)
-			.values(
-				activityRow(
-					input.groupId,
-					ctx.user.id,
-					"member.left",
-					"member",
-					mine.id,
-				),
-			);
+		await recordActivity(
+			tx,
+			activityRow(input.groupId, ctx.user.id, "member.left", "member", mine.id),
+			people(ctx.user.id),
+		);
 		await tx.delete(member).where(eq(member.id, mine.id));
 	});
 	return { success: true };
@@ -459,18 +486,23 @@ export async function createInvitation(
 			expiresAt: new Date(createdAt.getTime() + 7 * 86400000),
 		};
 		await tx.insert(invitation).values(createdInvitation);
-		await tx
-			.insert(activity)
-			.values(
-				activityRow(
-					input.groupId,
-					ctx.user.id,
-					"member.invited",
-					"invitation",
-					createdInvitation.id,
-					{ email: input.email, role: input.role },
-				),
-			);
+		// Only someone who already has an account can have a feed to land in.
+		const invitee = await tx.query.user.findFirst({
+			where: eq(user.email, normalizedEmail),
+			columns: { id: true },
+		});
+		await recordActivity(
+			tx,
+			activityRow(
+				input.groupId,
+				ctx.user.id,
+				"member.invited",
+				"invitation",
+				createdInvitation.id,
+				{ email: input.email, role: input.role },
+			),
+			people(invitee?.id),
+		);
 		return createdInvitation;
 	});
 	let emailDelivery: "scheduled" | "unconfigured" = "unconfigured";
@@ -542,18 +574,17 @@ export async function revokeInvitation(
 			.update(invitation)
 			.set({ status: "canceled" })
 			.where(eq(invitation.id, invite.id));
-		await tx
-			.insert(activity)
-			.values(
-				activityRow(
-					invite.organizationId,
-					ctx.user.id,
-					"member.invite_revoked",
-					"invitation",
-					invite.id,
-					{ email: invite.email },
-				),
-			);
+		await recordActivity(
+			tx,
+			activityRow(
+				invite.organizationId,
+				ctx.user.id,
+				"member.invite_revoked",
+				"invitation",
+				invite.id,
+				{ email: invite.email },
+			),
+		);
 	});
 	return { success: true };
 }
@@ -584,17 +615,17 @@ export async function acceptInvitation(
 			.update(invitation)
 			.set({ status: "accepted" })
 			.where(eq(invitation.id, input.invitationId));
-		await tx
-			.insert(activity)
-			.values(
-				activityRow(
-					preview.invitation.organizationId,
-					ctx.user.id,
-					"member.joined",
-					"member",
-					ctx.user.id,
-				),
-			);
+		await recordActivity(
+			tx,
+			activityRow(
+				preview.invitation.organizationId,
+				ctx.user.id,
+				"member.joined",
+				"member",
+				ctx.user.id,
+			),
+			people(ctx.user.id),
+		);
 	});
 	return { groupId: preview.invitation.organizationId };
 }
@@ -759,7 +790,8 @@ export async function createExpense(ctx: Ctx, input: CreateExpenseInput) {
 				splitInput: share.splitInput,
 			})),
 		);
-		await tx.insert(activity).values(
+		await recordActivity(
+			tx,
 			activityRow(
 				input.groupId,
 				ctx.user.id,
@@ -772,6 +804,7 @@ export async function createExpense(ctx: Ctx, input: CreateExpenseInput) {
 					currency: input.currency,
 				},
 			),
+			expenseRecipients(input.paidByUserId, input.amountMinor, shares),
 		);
 	});
 	return getExpense(ctx, { expenseId });
@@ -836,7 +869,8 @@ export async function updateExpense(ctx: Ctx, input: UpdateExpenseInput) {
 				splitInput: share.splitInput,
 			})),
 		);
-		await tx.insert(activity).values(
+		await recordActivity(
+			tx,
 			activityRow(
 				current.organizationId,
 				ctx.user.id,
@@ -851,6 +885,14 @@ export async function updateExpense(ctx: Ctx, input: UpdateExpenseInput) {
 					currency: input.currency,
 				},
 			),
+			updatedExpenseRecipients(
+				expenseRecipients(
+					current.paidByUserId,
+					current.amountMinor,
+					current.shares,
+				),
+				expenseRecipients(input.paidByUserId, input.amountMinor, shares),
+			),
 		);
 	});
 	return getExpense(ctx, { expenseId: input.expenseId });
@@ -859,7 +901,8 @@ export async function updateExpense(ctx: Ctx, input: UpdateExpenseInput) {
 export async function deleteExpense(ctx: Ctx, input: { expenseId: string }) {
 	const current = await unlockedExpense(ctx, input.expenseId);
 	await ctx.db.transaction(async (tx) => {
-		await tx.insert(activity).values(
+		await recordActivity(
+			tx,
 			activityRow(
 				current.organizationId,
 				ctx.user.id,
@@ -871,6 +914,12 @@ export async function deleteExpense(ctx: Ctx, input: { expenseId: string }) {
 					amountMinor: current.amountMinor,
 					currency: current.currency,
 				},
+			),
+			// What it meant for each of them before it was deleted.
+			expenseRecipients(
+				current.paidByUserId,
+				current.amountMinor,
+				current.shares,
 			),
 		);
 		await tx.delete(expense).where(eq(expense.id, current.id));
@@ -925,18 +974,25 @@ export async function setSharePaid(
 				paidMarkedByUserId: paid ? ctx.user.id : null,
 			})
 			.where(eq(expenseShare.id, share.id));
-		await tx
-			.insert(activity)
-			.values(
-				activityRow(
-					current.organizationId,
-					ctx.user.id,
-					paid ? "share.marked_paid" : "share.marked_unpaid",
-					"expenseShare",
-					share.id,
-					{ expenseId: current.id, userId: input.userId },
-				),
-			);
+		await recordActivity(
+			tx,
+			activityRow(
+				current.organizationId,
+				ctx.user.id,
+				paid ? "share.marked_paid" : "share.marked_unpaid",
+				"expenseShare",
+				share.id,
+				{
+					expenseId: current.id,
+					userId: input.userId,
+					paidByUserId: latest.paidByUserId,
+					description: latest.description,
+					amountMinor: latestShare.amountMinor,
+					currency: latest.currency,
+				},
+			),
+			people(input.userId, latest.paidByUserId),
+		);
 	});
 	return getExpense(ctx, { expenseId: input.expenseId });
 }
@@ -1034,7 +1090,8 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 			});
 			remaining -= candidate.share.amountMinor;
 		}
-		await tx.insert(activity).values(
+		await recordActivity(
+			tx,
 			activityRow(
 				input.groupId,
 				ctx.user.id,
@@ -1048,6 +1105,7 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 					currency: input.currency,
 				},
 			),
+			people(ctx.user.id, input.toUserId),
 		);
 	});
 	return ctx.db.query.settlement.findFirst({
@@ -1077,18 +1135,23 @@ export async function deleteSettlement(
 						row.allocations.map((allocation) => allocation.expenseShareId),
 					),
 				);
-		await tx
-			.insert(activity)
-			.values(
-				activityRow(
-					row.organizationId,
-					ctx.user.id,
-					"settlement.deleted",
-					"settlement",
-					row.id,
-					{ amountMinor: row.amountMinor, currency: row.currency },
-				),
-			);
+		await recordActivity(
+			tx,
+			activityRow(
+				row.organizationId,
+				ctx.user.id,
+				"settlement.deleted",
+				"settlement",
+				row.id,
+				{
+					fromUserId: row.fromUserId,
+					toUserId: row.toUserId,
+					amountMinor: row.amountMinor,
+					currency: row.currency,
+				},
+			),
+			people(row.fromUserId, row.toUserId),
+		);
 		await tx.delete(settlement).where(eq(settlement.id, row.id));
 	});
 	return { success: true };
@@ -1116,5 +1179,102 @@ export async function listActivity(
 		})),
 		nextCursor:
 			rows.length === (input.limit ?? 30) ? rows.at(-1)?.activity.id : null,
+	};
+}
+
+/**
+ * The caller's personal feed: every activity, across every group, that
+ * involved them. Membership isn't checked — a recipient row is itself the
+ * grant, which is what lets someone see that they were removed from a group.
+ *
+ * Pages on `(createdAt, activityId)` rather than the id alone, because ids are
+ * random UUIDs and would skip or repeat rows that share a timestamp.
+ */
+export async function listMyActivity(
+	ctx: Ctx,
+	input: { cursor?: string; limit?: number } = {},
+) {
+	const limit = Math.min(Math.max(Math.trunc(input.limit || 30), 1), 100);
+	const clauses: (SQL | undefined)[] = [
+		eq(activityRecipient.userId, ctx.user.id),
+	];
+	if (input.cursor) {
+		const [ms, activityId] = input.cursor.split("_");
+		const at = new Date(Number(ms));
+		if (!activityId || Number.isNaN(at.getTime()))
+			throw new AppError("VALIDATION", "Invalid cursor");
+		clauses.push(
+			or(
+				lt(activityRecipient.createdAt, at),
+				and(
+					eq(activityRecipient.createdAt, at),
+					lt(activityRecipient.activityId, activityId),
+				),
+			),
+		);
+	}
+	const rows = await ctx.db
+		.select({
+			activity,
+			deltaMinor: activityRecipient.deltaMinor,
+			createdAt: activityRecipient.createdAt,
+			actorName: user.name,
+			groupName: organization.name,
+			memberId: member.id,
+			expenseId: expense.id,
+		})
+		.from(activityRecipient)
+		.innerJoin(activity, eq(activityRecipient.activityId, activity.id))
+		.innerJoin(user, eq(activity.actorUserId, user.id))
+		.innerJoin(organization, eq(activity.organizationId, organization.id))
+		.leftJoin(
+			member,
+			and(
+				eq(member.organizationId, activity.organizationId),
+				eq(member.userId, ctx.user.id),
+			),
+		)
+		.leftJoin(expense, eq(expense.id, activity.targetId))
+		.where(and(...clauses))
+		.orderBy(
+			desc(activityRecipient.createdAt),
+			desc(activityRecipient.activityId),
+		)
+		.limit(limit);
+
+	const items = rows.map((row) => ({
+		...row.activity,
+		metadata: JSON.parse(row.activity.metadata),
+		actorName: row.actorName,
+		groupName: row.groupName,
+		deltaMinor: row.deltaMinor,
+		/** Still in the group, so it's somewhere they can go. */
+		isMember: row.memberId !== null,
+		/** Set only while the expense this is about still exists. */
+		expenseId: row.expenseId,
+	}));
+
+	// Metadata stores user ids, not names, so a rename shows everywhere at once.
+	const userIds = new Set<string>();
+	for (const item of items)
+		for (const key of ["userId", "fromUserId", "toUserId", "paidByUserId"]) {
+			const value = item.metadata[key];
+			if (typeof value === "string") userIds.add(value);
+		}
+	const names = userIds.size
+		? await ctx.db
+				.select({ id: user.id, name: user.name })
+				.from(user)
+				.where(inArray(user.id, [...userIds]))
+		: [];
+
+	const last = rows.at(-1);
+	return {
+		items,
+		names: Object.fromEntries(names.map((row) => [row.id, row.name])),
+		nextCursor:
+			rows.length === limit && last
+				? `${last.createdAt.getTime()}_${last.activity.id}`
+				: null,
 	};
 }

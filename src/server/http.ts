@@ -107,6 +107,11 @@ export async function dispatchApi(request: Request, splat: string) {
 			);
 		if (method === "GET" && path === "me/invitations")
 			return services.listMyInvitations(await buildContext(request));
+		if (method === "GET" && path === "me/activity")
+			return services.listMyActivity(await buildContext(request), {
+				cursor: url.searchParams.get("cursor") ?? undefined,
+				limit: Number(url.searchParams.get("limit") ?? 30),
+			});
 
 		if (parts[0] === "invitations" && parts[1]) {
 			const invitationId = parts[1];

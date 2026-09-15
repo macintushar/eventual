@@ -10,6 +10,7 @@ export const env = createEnv({
 		RESEND_API_KEY: z.string().min(1).optional(),
 		EMAIL_FROM: z.string().min(1).optional(),
 		EMAIL_REPLY_TO: z.string().email().optional(),
+		SUPPORT_EMAIL: z.string().email().nullish().default(null),
 		SENTRY_DSN: z.string().url().optional(),
 		POSTHOG_PROJECT_TOKEN: z.string().min(1).optional(),
 		POSTHOG_HOST: z.string().url().default("https://us.i.posthog.com"),

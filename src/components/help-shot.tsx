@@ -176,10 +176,13 @@ export function HelpShot({
 								: "Double-click to zoom in"
 						}
 						className={cn(
-							"max-h-full max-w-full touch-none border-0 bg-transparent p-0",
+							"max-h-full max-w-full border-0 bg-transparent p-0",
+							// Only claim every touch while zoomed, when a drag pans. At fit
+							// size a pinch has to reach the browser — there is no pinch
+							// handler here — and `manipulation` keeps double-tap for us.
 							zoom > 1
-								? "cursor-grab active:cursor-grabbing"
-								: "cursor-zoom-in",
+								? "cursor-grab touch-none active:cursor-grabbing"
+								: "cursor-zoom-in touch-manipulation",
 						)}
 						onDoubleClick={() => {
 							if (zoom > 1) resetView();

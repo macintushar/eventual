@@ -3,14 +3,18 @@ import { createServerFn } from "@tanstack/react-start";
 import {
 	Bot,
 	Download,
+	ExternalLink,
 	IndianRupee,
 	KeyRound,
+	MousePointerClick,
 	UserRound,
 	Users,
 } from "lucide-react";
+import { useState } from "react";
 
 import { type Brand, BrandLogo } from "#/components/brand-logo";
 import { CodeBlock } from "#/components/code-block";
+import { OptionCombobox } from "#/components/option-combobox";
 import { PublicPage, publicSignedOutActions } from "#/components/public-header";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Badge } from "#/components/ui/badge";
@@ -23,7 +27,6 @@ import {
 	CardTitle,
 } from "#/components/ui/card";
 import { Separator } from "#/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { env } from "#/env";
 import { useClientUser } from "#/lib/session";
 import { SITE_URL } from "#/lib/site";
@@ -100,59 +103,76 @@ type Client = {
 	name: string;
 	logo: Brand;
 	steps: string[];
-	code?: { label: string; value: string };
+	docsUrl: string;
+	code?: { label: string; value: string; copyLabel: string };
+	action?: { label: string; href: string };
 	note?: string;
 };
+
+function cursorInstallUrl(mcp: string) {
+	const config = btoa(
+		JSON.stringify({ url: mcp, headers: { "x-api-key": KEY } }),
+	);
+	return `https://cursor.com/install-mcp?name=eventual&config=${encodeURIComponent(config)}`;
+}
 
 function clients(mcp: string): Client[] {
 	return [
 		{
-			id: "claude-code",
-			name: "Claude Code",
-			logo: "claude",
-			steps: [
-				"Run this once in your terminal. Use --scope user to share it across projects.",
-			],
-			code: {
-				label: "Terminal",
-				value: `claude mcp add --transport http eventual ${mcp} \\\n  --header "x-api-key: ${KEY}"`,
-			},
-		},
-		{
 			id: "claude",
-			name: "Claude app",
+			name: "Claude Desktop",
 			logo: "claude",
+			docsUrl: "https://claude.com/docs/connectors/custom/remote-mcp",
 			steps: [
 				"Open Settings → Connectors → Add custom connector on claude.ai or Claude Desktop.",
 				`Name it Eventual and set the URL to ${mcp}.`,
 				"Under Authentication, pick None, then add an x-api-key request header containing your key.",
 			],
+			code: {
+				label: "Connector details",
+				value: `Name: Eventual\nURL: ${mcp}\nAuthentication: None\nRequest header: x-api-key: ${KEY}`,
+				copyLabel: "Copy details",
+			},
 			note: "Connectors you add on claude.ai also appear in Claude Desktop and mobile.",
 		},
 		{
-			id: "cursor",
-			name: "Cursor",
-			logo: "cursor",
+			id: "chatgpt-desktop",
+			name: "ChatGPT Desktop",
+			logo: "openai",
+			docsUrl: "https://developers.openai.com/codex/extend/mcp",
 			steps: [
-				"Add this to ~/.cursor/mcp.json, or .cursor/mcp.json for one project.",
+				"Open Settings → MCP servers → Add server.",
+				"Choose Streamable HTTP and enter the values below.",
+				"Save the server, then restart ChatGPT.",
 			],
 			code: {
-				label: "~/.cursor/mcp.json",
-				value: JSON.stringify(
-					{
-						mcpServers: {
-							eventual: { url: mcp, headers: { "x-api-key": KEY } },
-						},
-					},
-					null,
-					2,
-				),
+				label: "Server details",
+				value: `Name: Eventual\nTransport: Streamable HTTP\nURL: ${mcp}\nBearer token: ${KEY}`,
+				copyLabel: "Copy details",
+			},
+			note: "ChatGPT Desktop, Codex CLI and the Codex IDE extension share this MCP configuration.",
+		},
+		{
+			id: "hermes",
+			name: "Hermes",
+			logo: "hermes",
+			docsUrl:
+				"https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp",
+			steps: [
+				"Add Eventual under mcp_servers in ~/.hermes/config.yaml.",
+				"Restart Hermes or run /reload-mcp.",
+			],
+			code: {
+				label: "~/.hermes/config.yaml",
+				value: `mcp_servers:\n  eventual:\n    url: "${mcp}"\n    headers:\n      Authorization: "Bearer \${EVENTUAL_API_KEY}"`,
+				copyLabel: "Copy config",
 			},
 		},
 		{
 			id: "opencode",
 			name: "OpenCode",
 			logo: "opencode",
+			docsUrl: "https://opencode.ai/docs/mcp-servers/",
 			steps: [
 				"Add a remote server to opencode.json in your project or ~/.config/opencode/.",
 			],
@@ -173,25 +193,14 @@ function clients(mcp: string): Client[] {
 					null,
 					2,
 				),
-			},
-		},
-		{
-			id: "hermes",
-			name: "Hermes",
-			logo: "hermes",
-			steps: [
-				"Add Eventual under mcp_servers in ~/.hermes/config.yaml.",
-				"Restart Hermes or run /reload-mcp.",
-			],
-			code: {
-				label: "~/.hermes/config.yaml",
-				value: `mcp_servers:\n  eventual:\n    url: "${mcp}"\n    headers:\n      Authorization: "Bearer \${EVENTUAL_API_KEY}"`,
+				copyLabel: "Copy config",
 			},
 		},
 		{
 			id: "openclaw",
 			name: "OpenClaw",
 			logo: "openclaw",
+			docsUrl: "https://docs.openclaw.ai/tools/mcp",
 			steps: [
 				"Add Eventual to the mcp.servers block of your OpenClaw config, or paste the same values into Settings → MCP.",
 			],
@@ -212,6 +221,63 @@ function clients(mcp: string): Client[] {
 					null,
 					2,
 				),
+				copyLabel: "Copy config",
+			},
+		},
+		{
+			id: "claude-code",
+			name: "Claude Code",
+			logo: "claude",
+			docsUrl: "https://code.claude.com/docs/en/mcp",
+			steps: [
+				"Run this once in your terminal to add Eventual for every project.",
+			],
+			code: {
+				label: "Terminal",
+				value: `claude mcp add --transport http --scope user eventual ${mcp} \\\n  --header "x-api-key: ${KEY}"`,
+				copyLabel: "Copy command",
+			},
+		},
+		{
+			id: "codex",
+			name: "Codex",
+			logo: "codex",
+			docsUrl: "https://developers.openai.com/codex/extend/mcp",
+			steps: [
+				"Replace the placeholder, save EVENTUAL_API_KEY in your shell profile, then run the command.",
+				"The server also appears in ChatGPT Desktop and the Codex IDE extension.",
+			],
+			code: {
+				label: "Terminal",
+				value: `export EVENTUAL_API_KEY="${KEY}"\ncodex mcp add eventual --url ${mcp} \\\n  --bearer-token-env-var EVENTUAL_API_KEY`,
+				copyLabel: "Copy command",
+			},
+		},
+		{
+			id: "cursor",
+			name: "Cursor",
+			logo: "cursor",
+			docsUrl: "https://cursor.com/docs/context/mcp",
+			steps: [
+				"Install the server, then replace ev_your_api_key in the generated config with your API key.",
+				"You can also copy the config into ~/.cursor/mcp.json, or .cursor/mcp.json for one project.",
+			],
+			action: {
+				label: "Install in Cursor",
+				href: cursorInstallUrl(mcp),
+			},
+			code: {
+				label: "~/.cursor/mcp.json",
+				value: JSON.stringify(
+					{
+						mcpServers: {
+							eventual: { url: mcp, headers: { "x-api-key": KEY } },
+						},
+					},
+					null,
+					2,
+				),
+				copyLabel: "Copy config",
 			},
 		},
 	];
@@ -221,6 +287,14 @@ function DocsPage() {
 	const { origin } = Route.useLoaderData();
 	const mcp = `${origin}/mcp`;
 	const list = clients(mcp);
+	const [clientId, setClientId] = useState(list[0].id);
+	const selectedClient =
+		list.find((client) => client.id === clientId) ?? list[0];
+	const clientOptions = list.map((client) => ({
+		value: client.id,
+		label: client.name,
+		media: <BrandLogo brand={client.logo} />,
+	}));
 	const user = useClientUser();
 
 	return (
@@ -232,7 +306,7 @@ function DocsPage() {
 							{ to: "/help", label: "Help", desktopOnly: true },
 							{ to: "/app", label: "Open app", desktopOnly: true },
 							{
-								to: "/app/settings",
+								to: "/app/settings/api-keys",
 								label: "Get an API key",
 								shortLabel: "API key",
 								variant: "default",
@@ -263,9 +337,9 @@ function DocsPage() {
 				<AlertTitle>Start with an API key</AlertTitle>
 				<AlertDescription>
 					<p>
-						Create one under <Link to="/app/settings">API keys</Link>. It's only
-						shown once. Give each device or assistant its own key so you can
-						revoke them separately.
+						Create one under <Link to="/app/settings/api-keys">API keys</Link>.
+						It's only shown once. Give each device or assistant its own key so
+						you can revoke them separately.
 					</p>
 				</AlertDescription>
 			</Alert>
@@ -387,38 +461,55 @@ function DocsPage() {
 						supports.
 					</p>
 
-					<Tabs defaultValue={list[0].id}>
-						<TabsList className="h-auto! flex-wrap">
-							{list.map((client) => (
-								<TabsTrigger key={client.id} value={client.id}>
-									<BrandLogo brand={client.logo} />
-									{client.name}
-								</TabsTrigger>
+					<OptionCombobox
+						options={clientOptions}
+						value={clientId}
+						onValueChange={(value) => {
+							if (value) setClientId(value);
+						}}
+						placeholder="Select an app"
+						className="w-full sm:w-72"
+					/>
+
+					<div className="flex flex-col gap-4 pt-2">
+						<ol className="list-decimal space-y-1 pl-5 text-sm">
+							{selectedClient.steps.map((step) => (
+								<li key={step}>{step}</li>
 							))}
-						</TabsList>
-						{list.map((client) => (
-							<TabsContent
-								key={client.id}
-								value={client.id}
-								className="flex flex-col gap-4 pt-2"
-							>
-								<ol className="list-decimal space-y-1 pl-5 text-sm">
-									{client.steps.map((step) => (
-										<li key={step}>{step}</li>
-									))}
-								</ol>
-								{client.code ? (
-									<CodeBlock
-										label={client.code.label}
-										code={client.code.value}
-									/>
-								) : null}
-								{client.note ? (
-									<p className="text-sm text-muted-foreground">{client.note}</p>
-								) : null}
-							</TabsContent>
-						))}
-					</Tabs>
+						</ol>
+						<div className="flex flex-wrap items-center gap-2">
+							{selectedClient.action ? (
+								<Button asChild>
+									<a href={selectedClient.action.href}>
+										<MousePointerClick data-icon="inline-start" />
+										{selectedClient.action.label}
+									</a>
+								</Button>
+							) : null}
+							<Button variant="link" size="sm" asChild>
+								<a
+									href={selectedClient.docsUrl}
+									target="_blank"
+									rel="noreferrer"
+								>
+									MCP setup docs
+									<ExternalLink data-icon="inline-end" />
+								</a>
+							</Button>
+						</div>
+						{selectedClient.code ? (
+							<CodeBlock
+								label={selectedClient.code.label}
+								code={selectedClient.code.value}
+								copyLabel={selectedClient.code.copyLabel}
+							/>
+						) : null}
+						{selectedClient.note ? (
+							<p className="text-sm text-muted-foreground">
+								{selectedClient.note}
+							</p>
+						) : null}
+					</div>
 
 					<Separator />
 

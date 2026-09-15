@@ -48,7 +48,7 @@ function HelpArticlePage() {
 	const article = Route.useLoaderData();
 
 	return (
-		<div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+		<div className="col-read flex flex-col gap-8">
 			<Breadcrumb>
 				<BreadcrumbList>
 					<BreadcrumbItem>

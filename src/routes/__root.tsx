@@ -2,7 +2,7 @@ import { TanStackDevtools } from "@tanstack/react-devtools";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AnalyticsProvider } from "#/components/analytics-provider";
-import { AppThemeProvider } from "#/components/theme";
+import { AppThemeProvider, THEME_COLORS } from "#/components/theme";
 import { Toaster } from "#/components/ui/sonner";
 import appCss from "../styles.css?url";
 
@@ -17,16 +17,6 @@ export const Route = createRootRoute({
 				// bar; the safe-area insets in styles.css keep content clear of both.
 				name: "viewport",
 				content: "width=device-width, initial-scale=1, viewport-fit=cover",
-			},
-			{
-				name: "theme-color",
-				media: "(prefers-color-scheme: light)",
-				content: "#f3f6f9",
-			},
-			{
-				name: "theme-color",
-				media: "(prefers-color-scheme: dark)",
-				content: "#111111",
 			},
 			{
 				name: "mobile-web-app-capable",
@@ -62,6 +52,21 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 		<html lang="en" suppressHydrationWarning>
 			<head>
 				<HeadContent />
+				{/*
+				 * Written here rather than in `head().meta`: HeadContent keeps one tag
+				 * per `name`, so the light variant was being dropped. `ThemeColorSync`
+				 * overrides both once the in-app theme is known.
+				 */}
+				<meta
+					name="theme-color"
+					media="(prefers-color-scheme: light)"
+					content={THEME_COLORS.light}
+				/>
+				<meta
+					name="theme-color"
+					media="(prefers-color-scheme: dark)"
+					content={THEME_COLORS.dark}
+				/>
 			</head>
 			<body>
 				<AnalyticsProvider>

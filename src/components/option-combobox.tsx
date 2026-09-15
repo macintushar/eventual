@@ -8,6 +8,7 @@ import {
 	ComboboxItem,
 	ComboboxList,
 } from "#/components/ui/combobox";
+import { InputGroupAddon } from "#/components/ui/input-group";
 
 export type Option = {
 	value: string;
@@ -65,7 +66,13 @@ export function OptionCombobox({
 				placeholder={placeholder}
 				disabled={disabled}
 				className={className}
-			/>
+			>
+				{selected?.media ? (
+					<InputGroupAddon align="inline-start">
+						{selected.media}
+					</InputGroupAddon>
+				) : null}
+			</ComboboxInput>
 			<ComboboxContent>
 				<ComboboxEmpty>{emptyLabel}</ComboboxEmpty>
 				<ComboboxList>

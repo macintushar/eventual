@@ -80,7 +80,7 @@ function ComboboxInput({
 						className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent"
 						disabled={disabled}
 					>
-						<ComboboxTrigger />
+						<ComboboxTrigger aria-label="Open options" />
 					</InputGroupButton>
 				)}
 				{showClear && <ComboboxClear disabled={disabled} />}
@@ -109,7 +109,9 @@ function ComboboxContent({
 	// clickable. See `popup-container.tsx`.
 	const popupContainer = usePopupContainer();
 	return (
-		<ComboboxPrimitive.Portal container={container ?? popupContainer}>
+		<ComboboxPrimitive.Portal
+			container={container ?? popupContainer ?? undefined}
+		>
 			<ComboboxPrimitive.Positioner
 				side={side}
 				sideOffset={sideOffset}

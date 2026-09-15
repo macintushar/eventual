@@ -4,15 +4,23 @@ import { useState } from "react";
 import { Button } from "#/components/ui/button";
 import { copyToClipboard } from "#/lib/clipboard";
 
-export function CodeBlock({ code, label }: { code: string; label?: string }) {
+export function CodeBlock({
+	code,
+	label,
+	copyLabel,
+}: {
+	code: string;
+	label?: string;
+	copyLabel?: string;
+}) {
 	const [copied, setCopied] = useState(false);
 
 	const copyButton = (
 		<Button
 			variant="ghost"
-			size="icon-xs"
+			size={copyLabel ? "xs" : "icon-xs"}
 			className="press shrink-0"
-			aria-label={copied ? "Copied" : "Copy to clipboard"}
+			aria-label={copied ? "Copied" : (copyLabel ?? "Copy to clipboard")}
 			onClick={async () => {
 				if (!(await copyToClipboard(code, "code"))) return;
 				setCopied(true);
@@ -20,6 +28,7 @@ export function CodeBlock({ code, label }: { code: string; label?: string }) {
 			}}
 		>
 			{copied ? <Check /> : <Copy />}
+			{copyLabel ? (copied ? "Copied" : copyLabel) : null}
 		</Button>
 	);
 

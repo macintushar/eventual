@@ -52,6 +52,10 @@ type Open =
  *
  * Each open remounts the composer — a draft you abandoned should not be waiting
  * for you the next time, half-filled, with someone else's numbers in it.
+ *
+ * Closing only flips `shown`; the last composer stays mounted with
+ * `open={false}` so Radix can play its exit instead of the dialog vanishing
+ * mid-frame. The next open bumps the key, which is what discards the draft.
  */
 export function ComposerProvider({
 	currentUserId,
@@ -67,11 +71,12 @@ export function ComposerProvider({
 	};
 
 	const [open, setOpen] = useState<Open>({ kind: "none" });
+	const [shown, setShown] = useState(false);
 	const [token, setToken] = useState(0);
 	const [groups, setGroups] = useState<ComposerGroup[] | null>(null);
 	const tokenRef = useRef(0);
 
-	const close = useCallback(() => setOpen({ kind: "none" }), []);
+	const close = useCallback(() => setShown(false), []);
 
 	const composer = useMemo<Composer>(
 		() => ({
@@ -79,6 +84,7 @@ export function ComposerProvider({
 				tokenRef.current += 1;
 				setToken(tokenRef.current);
 				setOpen({ kind: "group" });
+				setShown(true);
 			},
 			expense: (options) => {
 				tokenRef.current += 1;
@@ -86,6 +92,7 @@ export function ComposerProvider({
 				setToken(requestToken);
 				setGroups(null);
 				setOpen({ kind: "expense", groupId: options?.groupId ?? routeGroupId });
+				setShown(true);
 				// The dock reaches this from any page, so the composer cannot assume a
 				// group loader has run — it fetches the groups it offers itself. If the
 				// user opens a different composer before this resolves, the token has
@@ -102,7 +109,7 @@ export function ComposerProvider({
 								? error.message
 								: "Could not load your groups",
 						);
-						setOpen({ kind: "none" });
+						setShown(false);
 					},
 				);
 			},
@@ -117,7 +124,7 @@ export function ComposerProvider({
 			{open.kind === "group" ? (
 				<GroupComposer
 					key={`group-${token}`}
-					open
+					open={shown}
 					onOpenChange={(next) => {
 						if (!next) close();
 					}}
@@ -132,7 +139,7 @@ export function ComposerProvider({
 				groups ? (
 					<ExpenseComposer
 						key={`expense-${token}`}
-						open
+						open={shown}
 						onOpenChange={(next) => {
 							if (!next) close();
 						}}
@@ -150,7 +157,7 @@ export function ComposerProvider({
 						}}
 					/>
 				) : (
-					<Dialog open onOpenChange={close}>
+					<Dialog open={shown} onOpenChange={close}>
 						<DialogContent
 							showCloseButton={false}
 							className="items-center justify-items-center gap-3 py-10 sm:max-w-xl"
