@@ -1,5 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { KeyRound, LogOut, Plug } from "lucide-react";
+import { CircleHelp, KeyRound, LogOut, Plug } from "lucide-react";
 import {
 	createContext,
 	type ReactNode,
@@ -9,6 +9,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { ComposerProvider } from "#/components/composer";
 import { AppDock } from "#/components/dock";
 import { MemberAvatar } from "#/components/member-avatar";
 import { ThemeToggle } from "#/components/theme";
@@ -30,20 +31,10 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from "#/components/ui/sheet";
+import { Wordmark } from "#/components/wordmark";
 import { authClient } from "#/lib/auth-client";
 import { clearSession } from "#/lib/session";
 import { cn } from "#/lib/utils";
-
-export function Wordmark({ to = "/" }: { to?: "/" | "/app" }) {
-	return (
-		<Link
-			to={to}
-			className="display-title text-xl font-bold text-foreground no-underline"
-		>
-			Even<span className="text-primary">tual</span>
-		</Link>
-	);
-}
 
 /**
  * Tracks the page scroll so the masthead can get out of the way. On a phone the
@@ -107,6 +98,7 @@ function AccountAvatar({ user }: { user: { name: string; email: string } }) {
 }
 
 const ACCOUNT_LINKS = [
+	{ to: "/help", icon: CircleHelp, label: "Help center" },
 	{ to: "/app/settings", icon: KeyRound, label: "API keys" },
 	{ to: "/docs", icon: Plug, label: "Integrations" },
 ] as const;
@@ -225,7 +217,7 @@ export function AppShell({
 	user,
 	children,
 }: {
-	user: { name: string; email: string };
+	user: { id: string; name: string; email: string };
 	children: ReactNode;
 }) {
 	const router = useRouter();
@@ -250,40 +242,42 @@ export function AppShell({
 
 	return (
 		<InAppShell.Provider value={true}>
-			<div className="pad-dock flex min-h-[100dvh] flex-col">
-				<header
-					className={cn(
-						"sticky top-0 z-40 bg-background transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-						"border-b pt-[var(--safe-top)]",
-						scrolled ? "border-border/80 shadow-sm" : "border-transparent",
-						// Only phones reclaim the space; on a desktop the header never moves.
-						hidden && "max-sm:-translate-y-[calc(100%+1px)]",
-					)}
-				>
-					<div className="page-wrap flex h-[var(--header-h)] items-center justify-between gap-4 sm:h-16">
-						<Wordmark to="/app" />
+			<ComposerProvider currentUserId={user.id}>
+				<div className="pad-dock flex min-h-[100dvh] flex-col">
+					<header
+						className={cn(
+							"sticky top-0 z-40 bg-background transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+							"border-b pt-[var(--safe-top)]",
+							scrolled ? "border-border/80 shadow-sm" : "border-transparent",
+							// Only phones reclaim the space; on a desktop the header never moves.
+							hidden && "max-sm:-translate-y-[calc(100%+1px)]",
+						)}
+					>
+						<div className="page-wrap flex h-[var(--header-h)] items-center justify-between gap-4 sm:h-16">
+							<Wordmark to="/app" />
 
-						{/*
-						 * The masthead carries identity and the theme, nothing else. Who
-						 * you are, API keys and Integrations all live behind the avatar at
-						 * every width, so the header reads the same on a phone and on a
-						 * desktop instead of growing a row of links at `sm`.
-						 */}
-						<div className="flex items-center gap-1">
-							<ThemeToggle />
-							<AccountMenu user={user} onSignOut={signOut} />
+							{/*
+							 * The masthead carries identity and the theme, nothing else. Who
+							 * you are, API keys and Integrations all live behind the avatar at
+							 * every width, so the header reads the same on a phone and on a
+							 * desktop instead of growing a row of links at `sm`.
+							 */}
+							<div className="flex items-center gap-1">
+								<ThemeToggle />
+								<AccountMenu user={user} onSignOut={signOut} />
+							</div>
 						</div>
-					</div>
-				</header>
+					</header>
 
-				<main className="page-wrap flex-1 py-6 sm:py-8">{children}</main>
+					<main className="page-wrap flex-1 py-6 sm:py-8">{children}</main>
 
-				<footer className="page-wrap hidden py-8 text-xs text-muted-foreground sm:block">
-					Eventual · exact integer splits, in rupees.
-				</footer>
+					<footer className="page-wrap hidden py-8 text-xs text-muted-foreground sm:block">
+						Eventual · exact integer splits, in rupees.
+					</footer>
 
-				<AppDock user={user} />
-			</div>
+					<AppDock user={user} />
+				</div>
+			</ComposerProvider>
 		</InAppShell.Provider>
 	);
 }

@@ -26,6 +26,20 @@ export const getDashboardFn = createServerFn({ method: "GET" }).handler(
 	},
 );
 
+/**
+ * Everything the expense composer needs to open cold. It is reachable from the
+ * dock on any signed-in page, so it cannot assume a group route loader ran.
+ */
+export const getComposerFn = createServerFn({ method: "GET" }).handler(
+	async () => {
+		const ctx = await routeContext();
+		return {
+			groups: await services.listGroupsWithMembers(ctx),
+			user: ctx.user,
+		};
+	},
+);
+
 export const getGroupPageFn = createServerFn({ method: "GET" })
 	.validator(groupInput)
 	.handler(async ({ data }) => {

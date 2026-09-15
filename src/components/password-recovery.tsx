@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Wordmark } from "#/components/app-shell";
+import { PublicPage, publicSignedOutActions } from "#/components/public-header";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Button } from "#/components/ui/button";
 import {
@@ -31,11 +31,11 @@ export function PasswordRecovery({
 	const [error, setError] = useState("");
 	const unusable = mode === "reset" && (!token || invalid);
 	return (
-		<main className="page-wrap grid min-h-[100dvh] place-items-center py-12">
+		<PublicPage
+			actions={publicSignedOutActions}
+			mainClassName="items-center justify-center py-12"
+		>
 			<div className="w-full max-w-md">
-				<div className="mb-6 flex justify-center">
-					<Wordmark />
-				</div>
 				<Card className="island-shell">
 					<CardHeader>
 						<CardTitle>
@@ -192,6 +192,6 @@ export function PasswordRecovery({
 					</CardContent>
 				</Card>
 			</div>
-		</main>
+		</PublicPage>
 	);
 }

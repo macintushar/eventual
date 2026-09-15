@@ -1,6 +1,6 @@
 # How Eventual is designed
 
-Last updated: 2026-09-13
+Last updated: 2026-09-14
 
 The tokens and shared classes described here live in `src/styles.css`. Change them there, not per component.
 
@@ -92,6 +92,8 @@ Handwritten marks add personality in a controlled way. They belong on sticky not
 | `.feature-card`       | Clickable paper card that lifts and tilts slightly on hover                            |
 | `.island-kicker`      | Small muted label with a strip of blue tape in front of it                             |
 | `.segmented`          | Pill-shaped tab track for split methods and group tabs                                 |
+| `.step-dialog`        | Dialog shell for a stepped form: header, rail and footer hold, only the fields scroll  |
+| `.stepper-segment`    | One bar of a stepped form's progress rail                                              |
 | `.handwritten`        | Caveat annotation text                                                                 |
 | `.sticky-note`        | Yellow note prop with Caveat text and a slight rotation                                |
 | `.tape`               | Translucent blue tape strip; position it absolutely on a relative parent               |
@@ -161,6 +163,14 @@ Every `[data-slot='button']` is a pill, and the default variant gets a light sha
 - **Typography:** Inter Tight for the line, Inter for the copy, Caveat on the note. Both the heading and the copy are balanced so centred text keeps a short measure.
 - **Surface:** `.island-shell` paper on the canvas. The panel stays neutral: an error is not a balance, so it never borrows the status colours, and the words carry the meaning.
 - **Composition:** Outside the signed-in shell it takes the viewport and puts the wordmark above the panel, like the invite and auth screens. Inside the shell the masthead is already there, so it is the panel alone.
+
+### Stepped form
+
+- **Anatomy:** A display-size title, one line of supporting copy, a progress rail of flat bars with a "Step 2 of 4 · Details" caption underneath, the current step's fields, and a footer holding a quiet Back button beside the one forward action. When that action is blocked, a single line under it says what is missing.
+- **Surface:** A dialog on a desktop and a bottom sheet on a phone — the same component, reshaped by the dialog rules in `src/styles.css`. Nothing about the form changes between the two.
+- **Motion:** The header, rail and footer hold still; only the fields scroll. The primary button stays under a thumb for the whole form.
+- **Composition:** Creating anything is a dialog over the page you were on, never a page of its own — starting a group or an expense should not cost you your place. Steps already passed stay tappable on the rail, so a review step can send you back to fix one thing. Steps ahead are inert.
+- **Where it's used:** Starting a group, and adding or editing an expense.
 
 ### Handwritten note
 

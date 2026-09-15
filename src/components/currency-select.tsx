@@ -1,13 +1,16 @@
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "#/components/ui/select";
+import { OptionCombobox } from "#/components/option-combobox";
 import { currencies, currencySymbol } from "#/lib/currencies";
 
+const options = currencies.map(({ code, name }) => ({
+	value: code,
+	label: `${currencySymbol(code)} ${code}`,
+	hint: name,
+}));
+
+/**
+ * Currency picker. There are more than twenty, and people know the code they
+ * want, so this is a combobox: typing "yen" or "JPY" beats scrolling a menu.
+ */
 export function CurrencySelect({
 	id,
 	value,
@@ -18,19 +21,13 @@ export function CurrencySelect({
 	onValueChange: (value: string) => void;
 }) {
 	return (
-		<Select value={value} onValueChange={onValueChange}>
-			<SelectTrigger id={id} className="w-full">
-				<SelectValue placeholder="Choose currency" />
-			</SelectTrigger>
-			<SelectContent position="popper">
-				<SelectGroup>
-					{currencies.map(({ code, name }) => (
-						<SelectItem key={code} value={code}>
-							{currencySymbol(code)} · {code} — {name}
-						</SelectItem>
-					))}
-				</SelectGroup>
-			</SelectContent>
-		</Select>
+		<OptionCombobox
+			id={id}
+			options={options}
+			value={value}
+			onValueChange={onValueChange}
+			placeholder="Choose currency"
+			emptyLabel="No currency matches."
+		/>
 	);
 }

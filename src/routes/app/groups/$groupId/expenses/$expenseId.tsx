@@ -3,13 +3,13 @@ import {
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
-import { Lock, Trash2 } from "lucide-react";
+import { Lock, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Amount } from "#/components/amount";
 import { AppBreadcrumb } from "#/components/app-breadcrumb";
-import { ExpenseEditor } from "#/components/expense-editor";
+import { ExpenseComposer } from "#/components/expense-composer";
 import { MemberAvatar } from "#/components/member-avatar";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Button } from "#/components/ui/button";
@@ -68,6 +68,10 @@ function ExpenseDetail() {
 	const router = useRouter();
 	const navigate = useNavigate();
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [editOpen, setEditOpen] = useState(false);
+	// Every open starts from the expense as it stands, not from whatever the last
+	// abandoned edit left behind.
+	const [editToken, setEditToken] = useState(0);
 
 	async function toggle(userId: string, paid: boolean) {
 		try {
@@ -241,69 +245,84 @@ function ExpenseDetail() {
 
 			{!expense.locked && (
 				<>
-					<Card className="island-shell">
-						<CardHeader>
-							<CardTitle>Edit expense</CardTitle>
-							<CardDescription>
-								Changing the amount or split recalculates every share.
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<ExpenseEditor
-								groupId={groupId}
-								members={page.group.members}
-								currentUserId={page.user.id}
-								initial={expense}
-							/>
-						</CardContent>
-					</Card>
+					{editOpen ? (
+						<ExpenseComposer
+							key={editToken}
+							open
+							onOpenChange={setEditOpen}
+							groups={[
+								{
+									id: groupId,
+									name: page.group.name,
+									members: page.group.members,
+								},
+							]}
+							currentUserId={page.user.id}
+							defaultGroupId={groupId}
+							initial={expense}
+							onSaved={() => router.invalidate()}
+						/>
+					) : null}
 
-					<Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-						<DialogTrigger asChild>
-							<Button variant="outline" className="w-fit text-destructive">
-								<Trash2 data-icon="inline-start" />
-								Delete expense
-							</Button>
-						</DialogTrigger>
-						<DialogContent>
-							<DialogHeader>
-								<DialogTitle>Delete this expense?</DialogTitle>
-								<DialogDescription>
-									“{expense.description}” for{" "}
-									{formatMinor(expense.amountMinor, expense.currency)} will be
-									removed for everyone, along with its shares.
-								</DialogDescription>
-							</DialogHeader>
-							<DialogFooter>
-								<Button
-									variant="destructive"
-									onClick={async () => {
-										try {
-											await mutateFn({
-												data: {
-													action: "expense.delete",
-													input: { expenseId: expense.id },
-												},
-											});
-											toast.success("Expense deleted");
-											await navigate({
-												to: "/app/groups/$groupId",
-												params: { groupId },
-											});
-										} catch (error) {
-											toast.error(
-												error instanceof Error
-													? error.message
-													: "Could not delete",
-											);
-										}
-									}}
-								>
+					<div className="flex flex-wrap gap-2">
+						<Button
+							className="press"
+							onClick={() => {
+								setEditToken((old) => old + 1);
+								setEditOpen(true);
+							}}
+						>
+							<Pencil data-icon="inline-start" />
+							Edit expense
+						</Button>
+
+						<Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+							<DialogTrigger asChild>
+								<Button variant="outline" className="press text-destructive">
+									<Trash2 data-icon="inline-start" />
 									Delete expense
 								</Button>
-							</DialogFooter>
-						</DialogContent>
-					</Dialog>
+							</DialogTrigger>
+							<DialogContent>
+								<DialogHeader>
+									<DialogTitle>Delete this expense?</DialogTitle>
+									<DialogDescription>
+										“{expense.description}” for{" "}
+										{formatMinor(expense.amountMinor, expense.currency)} will be
+										removed for everyone, along with its shares.
+									</DialogDescription>
+								</DialogHeader>
+								<DialogFooter>
+									<Button
+										variant="destructive"
+										onClick={async () => {
+											try {
+												await mutateFn({
+													data: {
+														action: "expense.delete",
+														input: { expenseId: expense.id },
+													},
+												});
+												toast.success("Expense deleted");
+												await navigate({
+													to: "/app/groups/$groupId",
+													params: { groupId },
+												});
+											} catch (error) {
+												toast.error(
+													error instanceof Error
+														? error.message
+														: "Could not delete",
+												);
+											}
+										}}
+									>
+										Delete expense
+									</Button>
+								</DialogFooter>
+							</DialogContent>
+						</Dialog>
+					</div>
 				</>
 			)}
 		</div>

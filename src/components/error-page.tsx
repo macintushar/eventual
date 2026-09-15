@@ -13,13 +13,19 @@ import {
 	TriangleAlert,
 	Wallet,
 } from "lucide-react";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { useInAppShell, Wordmark } from "#/components/app-shell";
+import { useInAppShell } from "#/components/app-shell";
+import {
+	PublicPage,
+	publicSignedInActions,
+	publicSignedOutActions,
+} from "#/components/public-header";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
 import { EmptyMedia } from "#/components/ui/empty";
+import { loadSession } from "#/lib/session";
 
 /**
  * Shared shape for both dead ends: a kicker, one short display-size line, quiet
@@ -29,9 +35,7 @@ import { EmptyMedia } from "#/components/ui/empty";
  *
  * A boundary renders this on every route, so it appears in two places. Inside
  * the signed-in shell there is already a masthead, and it is just the panel.
- * Anywhere else — the landing page, auth, invites, docs — nothing surrounds it,
- * so it takes the viewport and reintroduces the wordmark the way the other
- * standalone screens do.
+ * Anywhere else it uses the same public header as landing, docs and auth.
  */
 function ErrorLayout({
 	icon: Icon,
@@ -51,15 +55,28 @@ function ErrorLayout({
 	detail?: string;
 }) {
 	const inShell = useInAppShell();
+	const [user, setUser] = useState<{ name: string; email: string } | null>(
+		null,
+	);
+
+	useEffect(() => {
+		if (inShell) return;
+		let active = true;
+		void loadSession().then(
+			(session) => {
+				if (active) setUser(session?.user ?? null);
+			},
+			() => {
+				if (active) setUser(null);
+			},
+		);
+		return () => {
+			active = false;
+		};
+	}, [inShell]);
 
 	const panel = (
 		<div className="mx-auto w-full max-w-xl">
-			{inShell ? null : (
-				<div className="mb-6 flex justify-center">
-					<Wordmark />
-				</div>
-			)}
-
 			<Card className="island-shell rise-in rounded-3xl">
 				<CardContent className="flex flex-col items-center gap-5 text-center sm:px-10">
 					<EmptyMedia variant="icon" className="mb-0">
@@ -109,9 +126,13 @@ function ErrorLayout({
 	if (inShell) return panel;
 
 	return (
-		<main className="page-wrap grid min-h-[100dvh] place-items-center py-12">
+		<PublicPage
+			user={user}
+			actions={user ? publicSignedInActions : publicSignedOutActions}
+			mainClassName="items-center justify-center py-12"
+		>
 			{panel}
-		</main>
+		</PublicPage>
 	);
 }
 

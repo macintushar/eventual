@@ -20,3 +20,27 @@ export function formatShortDate(value: Date | string | number): string {
 		date.getFullYear() === new Date().getFullYear() ? sameYear : otherYear;
 	return format.format(date);
 }
+
+const longDate = new Intl.DateTimeFormat("en-IN", {
+	day: "numeric",
+	month: "long",
+	year: "numeric",
+});
+
+/** Full date for detail screens and pickers, where there is room to be plain. */
+export function formatLongDate(value: Date | string | number): string {
+	return longDate.format(value instanceof Date ? value : new Date(value));
+}
+
+/** Noon local time on the given day, so a timezone shift can't roll the date. */
+export function atNoon(value: Date): Date {
+	return new Date(
+		value.getFullYear(),
+		value.getMonth(),
+		value.getDate(),
+		12,
+		0,
+		0,
+		0,
+	);
+}
