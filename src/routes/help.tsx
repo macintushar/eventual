@@ -4,21 +4,20 @@ import {
 	publicSignedInActions,
 	publicSignedOutActions,
 } from "#/components/public-header";
-import { getSessionFn } from "#/server/fn/auth";
+import { useClientUser } from "#/lib/session";
 
 export const Route = createFileRoute("/help")({
-	loader: async () => ({ session: await getSessionFn() }),
 	head: () => ({ meta: [{ title: "Help center · Eventual" }] }),
 	component: HelpLayout,
 });
 
 function HelpLayout() {
-	const { session } = Route.useLoaderData();
+	const user = useClientUser();
 
 	return (
 		<PublicPage
-			user={session?.user ?? null}
-			actions={session ? publicSignedInActions : publicSignedOutActions}
+			user={user}
+			actions={user ? publicSignedInActions : publicSignedOutActions}
 			footer={
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<span>Eventual · expenses without the spreadsheet.</span>

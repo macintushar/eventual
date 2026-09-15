@@ -100,6 +100,8 @@ export function HelpShot({
 						<img
 							src={steps[start].image}
 							alt={steps[start].alt}
+							loading="lazy"
+							decoding="async"
 							className="w-full bg-muted"
 						/>
 						<span className="sr-only">View larger</span>
@@ -211,6 +213,7 @@ export function HelpShot({
 							src={step.image}
 							alt=""
 							draggable={false}
+							decoding="async"
 							className="max-h-full max-w-full select-none object-contain"
 							style={{
 								transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,

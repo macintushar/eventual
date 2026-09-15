@@ -1,5 +1,6 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Lock, Scale, Users } from "lucide-react";
+import { useEffect } from "react";
 
 import {
 	assistantBrands,
@@ -24,8 +25,8 @@ import {
 	ItemGroup,
 	ItemTitle,
 } from "#/components/ui/item";
+import { loadSession } from "#/lib/session";
 import { cn } from "#/lib/utils";
-import { getSessionFn } from "#/server/fn/auth";
 
 export const Route = createFileRoute("/")({
 	head: () => ({
@@ -40,9 +41,6 @@ export const Route = createFileRoute("/")({
 			},
 		],
 	}),
-	beforeLoad: async () => {
-		if (await getSessionFn()) throw redirect({ to: "/app" });
-	},
 	component: Home,
 });
 
@@ -95,6 +93,14 @@ const sampleRows = [
 ];
 
 function Home() {
+	const navigate = Route.useNavigate();
+
+	useEffect(() => {
+		void loadSession().then((session) => {
+			if (session) void navigate({ to: "/app" });
+		});
+	}, [navigate]);
+
 	return (
 		<PublicPage
 			actions={[

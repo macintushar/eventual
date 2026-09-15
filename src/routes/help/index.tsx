@@ -47,7 +47,7 @@ const categories: FaqCategory[] = [
 				more: { slug: "create-a-group" },
 				shots: [
 					{
-						src: "/help/group-name.png",
+						src: "/help/group-name.webp",
 						alt: "The Start a group dialog with Sunday dinner as the name.",
 						caption: "Name the group, or pick a suggestion.",
 					},
@@ -61,7 +61,7 @@ const categories: FaqCategory[] = [
 				more: { slug: "add-an-expense" },
 				shots: [
 					{
-						src: "/help/expense-details.png",
+						src: "/help/expense-details.webp",
 						alt: "The Add an expense dialog with Groceries and ₹2,400 filled in.",
 						caption: "Description, amount, currency, date and who paid.",
 					},
@@ -74,7 +74,7 @@ const categories: FaqCategory[] = [
 					"The plus in the centre of the dock is the same action everywhere. New expense splits a cost; New group starts a shared tab. If you are already in a group, the expense form arrives with that group selected.",
 				shots: [
 					{
-						src: "/help/compose-menu.png",
+						src: "/help/compose-menu.webp",
 						alt: "The dock plus menu offering New expense and New group.",
 						caption:
 							"Both actions live behind the plus, on every signed-in page.",

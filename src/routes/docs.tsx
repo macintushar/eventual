@@ -25,7 +25,6 @@ import {
 import { Separator } from "#/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { env } from "#/env";
-import { getSessionFn } from "#/server/fn/auth";
 
 const getOriginFn = createServerFn({ method: "GET" }).handler(
 	() => new URL(env.BETTER_AUTH_URL).origin,
@@ -34,7 +33,6 @@ const getOriginFn = createServerFn({ method: "GET" }).handler(
 export const Route = createFileRoute("/docs")({
 	loader: async () => ({
 		origin: await getOriginFn(),
-		session: await getSessionFn(),
 	}),
 	head: () => ({ meta: [{ title: "Integrations · Eventual" }] }),
 	component: DocsPage,
@@ -178,13 +176,13 @@ function clients(mcp: string): Client[] {
 }
 
 function DocsPage() {
-	const { origin, session } = Route.useLoaderData();
+	const { origin } = Route.useLoaderData();
 	const mcp = `${origin}/mcp`;
 	const list = clients(mcp);
 
 	return (
 		<PublicPage
-			user={session?.user ?? null}
+			user={null}
 			actions={[
 				{ to: "/help", label: "Help", desktopOnly: true },
 				{ to: "/app", label: "Open app", desktopOnly: true },

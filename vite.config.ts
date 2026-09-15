@@ -36,7 +36,15 @@ const config = defineConfig(({ mode }) => {
 		},
 		plugins: [
 			devtools(),
-			nitro(),
+			nitro({
+				routeRules: {
+					"/": { prerender: true },
+					"/docs": { prerender: true },
+					"/help": { prerender: true },
+					"/help/create-a-group": { prerender: true },
+					"/help/add-an-expense": { prerender: true },
+				},
+			}),
 			tailwindcss(),
 			tanstackStart(),
 			viteReact(),

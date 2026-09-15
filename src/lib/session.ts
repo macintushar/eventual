@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { getSessionFn } from "#/server/fn/auth";
 
 type Session = Awaited<ReturnType<typeof getSessionFn>>;
@@ -37,4 +38,33 @@ export async function loadSession() {
 export function clearSession() {
 	cached = undefined;
 	inFlight = undefined;
+}
+
+/**
+ * The signed-in user, resolved on the client after a prerendered page
+ * hydrates. Starts `null` (signed-out chrome) and swaps in once
+ * `loadSession` resolves, so a prerendered page never bakes in one
+ * visitor's session for everyone.
+ */
+export function useClientUser() {
+	const [user, setUser] = useState<{ name: string; email: string } | null>(
+		null,
+	);
+
+	useEffect(() => {
+		let active = true;
+		void loadSession().then(
+			(session) => {
+				if (active) setUser(session?.user ?? null);
+			},
+			() => {
+				if (active) setUser(null);
+			},
+		);
+		return () => {
+			active = false;
+		};
+	}, []);
+
+	return user;
 }
