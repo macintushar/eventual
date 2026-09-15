@@ -19,7 +19,6 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "#/components/ui/dialog";
-import { Separator } from "#/components/ui/separator";
 import type { HelpArticle } from "#/lib/help";
 import { cn } from "#/lib/utils";
 
@@ -38,10 +37,12 @@ export function HelpShot({
 	steps = [],
 	index = 0,
 	caption,
+	moreLabel,
 }: {
 	steps?: HelpStep[];
 	index?: number;
 	caption?: string;
+	moreLabel?: string;
 }) {
 	const start = Math.min(Math.max(index, 0), Math.max(steps.length - 1, 0));
 	const [open, setOpen] = useState(false);
@@ -110,9 +111,19 @@ export function HelpShot({
 						</span>
 					</button>
 				</DialogTrigger>
-				{caption ? (
-					<figcaption className="border-t px-4 py-3 text-sm text-muted-foreground">
-						{caption}
+				{caption || moreLabel ? (
+					<figcaption className="flex flex-wrap items-center justify-between gap-2 border-t px-4 py-3 text-sm text-muted-foreground">
+						{caption ? <span>{caption}</span> : null}
+						{moreLabel ? (
+							<DialogTrigger asChild>
+								<button
+									type="button"
+									className="ml-auto font-medium text-tape hover:underline"
+								>
+									{moreLabel}
+								</button>
+							</DialogTrigger>
+						) : null}
 					</figcaption>
 				) : null}
 			</figure>
@@ -207,6 +218,18 @@ export function HelpShot({
 						/>
 					</button>
 
+					<DialogClose asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							aria-label="Close"
+							className="island-shell absolute top-4 right-4 z-10 rounded-full sm:top-6 sm:right-6"
+						>
+							<X data-icon="inline-start" />
+						</Button>
+					</DialogClose>
+
 					<div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4 sm:bottom-6">
 						<div className="island-shell pointer-events-auto flex items-center gap-1 rounded-full p-1.5">
 							<Button
@@ -240,17 +263,6 @@ export function HelpShot({
 							>
 								<Plus data-icon="inline-start" />
 							</Button>
-							<Separator orientation="vertical" className="mx-1 h-6" />
-							<DialogClose asChild>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon"
-									aria-label="Close"
-								>
-									<X data-icon="inline-start" />
-								</Button>
-							</DialogClose>
 						</div>
 					</div>
 				</div>

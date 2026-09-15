@@ -26,7 +26,7 @@ type FaqItem = {
 	id: string;
 	question: string;
 	answer: string;
-	more?: { to: "/help/$slug"; slug: "create-a-group" | "add-an-expense" };
+	more?: { slug: "create-a-group" | "add-an-expense" };
 	shots?: { src: string; alt: string; caption: string }[];
 };
 
@@ -44,7 +44,7 @@ const categories: FaqCategory[] = [
 				question: "How do I create a group?",
 				answer:
 					"Use New group on the dashboard, or the plus in the dock. Name the shared tab, invite people if you already know who belongs, then create it. You land on the group page, ready for the first expense.",
-				more: { to: "/help/$slug", slug: "create-a-group" },
+				more: { slug: "create-a-group" },
 				shots: [
 					{
 						src: "/help/group-name.png",
@@ -58,7 +58,7 @@ const categories: FaqCategory[] = [
 				question: "How do I add an expense?",
 				answer:
 					"Open a group and choose Add expense. Fill in what was paid, who paid, and how to split it. Review the shares, then add it — it appears on the group list straight away.",
-				more: { to: "/help/$slug", slug: "add-an-expense" },
+				more: { slug: "add-an-expense" },
 				shots: [
 					{
 						src: "/help/expense-details.png",
@@ -96,7 +96,7 @@ const categories: FaqCategory[] = [
 				id: "invite",
 				question: "How do I invite people?",
 				answer:
-					"You can invite by email while creating the group, or later from the Members tab. They get a link. Until they accept, they are pending — they do not yet share expenses.",
+					"You can invite by email while creating the group, or later from the Members tab. They get a link. Until they accept, they appear as pending and aren't included in new expenses.",
 			},
 			{
 				id: "roles",
@@ -203,7 +203,7 @@ function HelpIndex() {
 
 				<div className="flex flex-col items-center gap-3 text-center">
 					<h1 className="display-title text-[2.125rem] font-bold sm:text-4xl">
-						Frequently asked questions
+						How can we help?
 					</h1>
 					<p className="max-w-lg text-muted-foreground">
 						How to start a group, split a bill, and settle up without the
@@ -241,18 +241,10 @@ function HelpIndex() {
 													steps={gallery.steps}
 													index={gallery.index}
 													caption={shot.caption}
+													moreLabel={item.more ? "See all steps" : undefined}
 												/>
 											);
 										})}
-										{item.more ? (
-											<Link
-												to={item.more.to}
-												params={{ slug: item.more.slug }}
-												className="w-fit text-sm font-medium text-tape no-underline hover:underline"
-											>
-												Read more
-											</Link>
-										) : null}
 									</AccordionContent>
 								</AccordionItem>
 							))}
@@ -262,10 +254,10 @@ function HelpIndex() {
 			</div>
 
 			<section className="flex flex-col items-center gap-4 pb-8 text-center">
-				<p className="font-medium">Still unsure about something?</p>
+				<p className="font-medium">Can't find what you're looking for?</p>
 				<Button size="lg" asChild>
 					<a href="mailto:hello@eventual.app?subject=Eventual%20help">
-						Send feedback
+						Email us
 					</a>
 				</Button>
 			</section>

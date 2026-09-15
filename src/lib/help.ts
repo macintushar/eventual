@@ -15,7 +15,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
 		steps: [
 			{
 				title: "Open New group",
-				body: "From the dashboard, use the New group pill. On a phone, tap the plus in the dock and choose New group. Either one opens a short stepped dialog over the page you were on.",
+				body: "From the dashboard, tap New group. On mobile, tap the plus at the bottom of the screen and choose New group. Either way, a short dialog opens over the current page.",
 				image: "/help/dashboard.png",
 				alt: "The Eventual dashboard with a New group button next to the group list.",
 			},
@@ -43,7 +43,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
 		slug: "add-an-expense",
 		title: "How do I add an expense?",
 		kicker: "Expenses",
-		lede: "Open a group and add what was paid. Eventual splits it in that currency's smallest unit, so the shares always add up to the total.",
+		lede: "Open a group and log what was paid. Eventual handles the rounding, so shares always add up exactly — no leftover cents.",
 		steps: [
 			{
 				title: "Start from the group",
