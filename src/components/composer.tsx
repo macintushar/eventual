@@ -5,6 +5,7 @@ import {
 	useCallback,
 	useContext,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { toast } from "sonner";
@@ -68,24 +69,34 @@ export function ComposerProvider({
 	const [open, setOpen] = useState<Open>({ kind: "none" });
 	const [token, setToken] = useState(0);
 	const [groups, setGroups] = useState<ComposerGroup[] | null>(null);
+	const tokenRef = useRef(0);
 
 	const close = useCallback(() => setOpen({ kind: "none" }), []);
 
 	const composer = useMemo<Composer>(
 		() => ({
 			group: () => {
-				setToken((old) => old + 1);
+				tokenRef.current += 1;
+				setToken(tokenRef.current);
 				setOpen({ kind: "group" });
 			},
 			expense: (options) => {
-				setToken((old) => old + 1);
+				tokenRef.current += 1;
+				const requestToken = tokenRef.current;
+				setToken(requestToken);
 				setGroups(null);
 				setOpen({ kind: "expense", groupId: options?.groupId ?? routeGroupId });
 				// The dock reaches this from any page, so the composer cannot assume a
-				// group loader has run — it fetches the groups it offers itself.
+				// group loader has run — it fetches the groups it offers itself. If the
+				// user opens a different composer before this resolves, the token has
+				// since moved on, so ignore the stale result instead of clobbering
+				// whatever is open now.
 				getComposerFn().then(
-					(data) => setGroups(data.groups),
+					(data) => {
+						if (tokenRef.current === requestToken) setGroups(data.groups);
+					},
 					(error: unknown) => {
+						if (tokenRef.current !== requestToken) return;
 						toast.error(
 							error instanceof Error
 								? error.message

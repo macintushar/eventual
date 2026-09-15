@@ -1,19 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
-import { PublicPage, publicSignedInActions } from "#/components/public-header";
+import {
+	PublicPage,
+	publicSignedInActions,
+	publicSignedOutActions,
+} from "#/components/public-header";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import { getSessionFn } from "#/server/fn/auth";
 
 export const Route = createFileRoute("/verify-email")({
 	validateSearch: z.object({ error: z.string().optional() }),
+	loader: async () => ({ session: await getSessionFn() }),
 	head: () => ({ meta: [{ title: "Email verification · Eventual" }] }),
 	component: VerificationResult,
 });
 
 function VerificationResult() {
 	const { error } = Route.useSearch();
+	const { session } = Route.useLoaderData();
 	return (
 		<PublicPage
-			actions={publicSignedInActions}
+			user={session?.user ?? null}
+			actions={session ? publicSignedInActions : publicSignedOutActions}
 			mainClassName="items-center justify-center py-12"
 		>
 			<Card className="w-full max-w-md island-shell">

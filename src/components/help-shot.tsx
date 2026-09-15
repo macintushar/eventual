@@ -227,7 +227,7 @@ export function HelpShot({
 							variant="ghost"
 							size="icon"
 							aria-label="Close"
-							className="island-shell absolute top-4 right-4 z-10 rounded-full sm:top-6 sm:right-6"
+							className="island-shell absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+1rem)] z-10 rounded-full sm:top-[calc(var(--safe-top)+1.5rem)] sm:right-[calc(var(--safe-right)+1.5rem)]"
 						>
 							<X data-icon="inline-start" />
 						</Button>
