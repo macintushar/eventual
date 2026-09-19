@@ -5,10 +5,13 @@ import {
 	useRouter,
 } from "@tanstack/react-router";
 import {
+	Archive,
+	ArchiveRestore,
 	ArrowRight,
 	Check,
 	ChevronRight,
 	Copy,
+	Download,
 	History,
 	Lock,
 	LogOut,
@@ -103,7 +106,13 @@ import { currencySymbol } from "#/lib/currencies";
 import { formatShortDate } from "#/lib/dates";
 import { formatMinor, fromMinor, parseMinor } from "#/lib/money";
 import { repaymentLimit, validateRepayment } from "#/lib/settlements";
-import { getActivityFn, getGroupPageFn, mutateFn } from "#/server/fn/app";
+import {
+	getActivityFn,
+	getGroupPageFn,
+	mutateFn,
+	searchExpensesFn,
+} from "#/server/fn/app";
+import type { MutationInput } from "#/server/operations";
 
 export const Route = createFileRoute("/app/groups/$groupId/")({
 	loader: ({ params }) => getGroupPageFn({ data: { groupId: params.groupId } }),
@@ -114,10 +123,7 @@ const ROLES = ["owner", "admin", "member"] as const;
 type Role = (typeof ROLES)[number];
 
 type LoaderData = Awaited<ReturnType<typeof getGroupPageFn>>;
-type Run = (
-	action: Parameters<typeof mutateFn>[0]["data"],
-	message: string,
-) => Promise<boolean>;
+type Run = (action: MutationInput, message: string) => Promise<boolean>;
 
 function GroupPage() {
 	const data = Route.useLoaderData();
@@ -238,8 +244,12 @@ function GroupPage() {
 
 function ExpensesTab({ data, groupId }: { data: LoaderData; groupId: string }) {
 	const composer = useComposer();
+	const [search, setSearch] = useState("");
+	const [results, setResults] = useState(data.expenses);
+	const [searching, setSearching] = useState(false);
+	const items = results.items;
 
-	if (data.expenses.items.length === 0)
+	if (data.expenses.items.length === 0 && !search)
 		return (
 			<EmptyState
 				icon={Receipt}
@@ -255,54 +265,89 @@ function ExpensesTab({ data, groupId }: { data: LoaderData; groupId: string }) {
 		);
 
 	return (
-		<ItemGroup className="island-shell overflow-hidden rounded-2xl">
-			{data.expenses.items.map((item, index) => (
-				<Item
-					key={item.id}
-					asChild
-					size="sm"
-					/*
-					 * `flex-nowrap` matters on a phone: the default wrap drops the
-					 * amount onto its own line as soon as a description gets long,
-					 * which breaks the column of figures the list is read down.
-					 */
-					className="press rise-in flex-nowrap rounded-none border-b-border/60 last:border-b-transparent"
-					style={{ "--i": index } as React.CSSProperties}
-				>
-					<Link
-						to="/app/groups/$groupId/expenses/$expenseId"
-						params={{ groupId, expenseId: item.id }}
+		<div className="flex flex-col gap-3">
+			<form
+				className="flex gap-2"
+				onSubmit={async (event) => {
+					event.preventDefault();
+					setSearching(true);
+					try {
+						setResults(
+							await searchExpensesFn({
+								data: { groupId, search: search || undefined, limit: 30 },
+							}),
+						);
+					} finally {
+						setSearching(false);
+					}
+				}}
+			>
+				<Input
+					type="search"
+					value={search}
+					onChange={(event) => setSearch(event.target.value)}
+					placeholder="Search descriptions, notes, or categories"
+					aria-label="Search expenses"
+				/>
+				<Button type="submit" variant="outline" disabled={searching}>
+					{searching ? "Searching…" : "Search"}
+				</Button>
+			</form>
+			<ItemGroup className="island-shell overflow-hidden rounded-2xl">
+				{items.map((item, index) => (
+					<Item
+						key={item.id}
+						asChild
+						size="sm"
+						/*
+						 * `flex-nowrap` matters on a phone: the default wrap drops the
+						 * amount onto its own line as soon as a description gets long,
+						 * which breaks the column of figures the list is read down.
+						 */
+						className="press rise-in flex-nowrap rounded-none border-b-border/60 last:border-b-transparent"
+						style={{ "--i": index } as React.CSSProperties}
 					>
-						<ItemMedia>
-							<MemberAvatar name={item.payer.name} seed={item.payer.id} />
-						</ItemMedia>
-						<ItemContent className="min-w-0">
-							<ItemTitle className="w-full min-w-0">
-								<span className="truncate">{item.description}</span>
-								{item.locked ? (
-									<Badge variant="secondary" className="shrink-0">
-										<Lock data-icon="inline-start" />
-										Locked
-									</Badge>
-								) : null}
-							</ItemTitle>
-							<ItemDescription className="line-clamp-1">
-								Paid by {item.payer.name} · {formatShortDate(item.date)}
-							</ItemDescription>
-						</ItemContent>
-						<ItemActions className="shrink-0">
-							<span className="font-bold sm:text-lg">
-								<Amount minor={item.amountMinor} currency={item.currency} />
-							</span>
-							<ChevronRight
-								className="size-4 text-muted-foreground"
-								aria-hidden="true"
-							/>
-						</ItemActions>
-					</Link>
-				</Item>
-			))}
-		</ItemGroup>
+						<Link
+							to="/app/groups/$groupId/expenses/$expenseId"
+							params={{ groupId, expenseId: item.id }}
+						>
+							<ItemMedia>
+								<MemberAvatar name={item.payer.name} seed={item.payer.id} />
+							</ItemMedia>
+							<ItemContent className="min-w-0">
+								<ItemTitle className="w-full min-w-0">
+									<span className="truncate">{item.description}</span>
+									{item.locked ? (
+										<Badge variant="secondary" className="shrink-0">
+											<Lock data-icon="inline-start" />
+											Locked
+										</Badge>
+									) : null}
+								</ItemTitle>
+								<ItemDescription className="line-clamp-1">
+									Paid by {item.payer.name} · {formatShortDate(item.date)}
+									{item.category ? ` · ${item.category}` : ""}
+								</ItemDescription>
+							</ItemContent>
+							<ItemActions className="shrink-0">
+								<span className="font-bold sm:text-lg">
+									<Amount minor={item.amountMinor} currency={item.currency} />
+								</span>
+								<ChevronRight
+									className="size-4 text-muted-foreground"
+									aria-hidden="true"
+								/>
+							</ItemActions>
+						</Link>
+					</Item>
+				))}
+			</ItemGroup>
+			{items.length === 0 ? (
+				<p className="py-8 text-center text-sm text-muted-foreground">
+					No expenses match this search.
+				</p>
+			) : null}
+		</div>
 	);
 }
 
@@ -450,22 +495,49 @@ function BalancesTab({
 												{formatMinor(transfer.amountMinor, transfer.currency)}
 											</strong>
 											{transfer.from.userId === data.user.id ? (
-												<Button
-													size="sm"
-													onClick={() => {
-														setSettleTo(transfer.to.userId);
-														setSettleCurrency(transfer.currency);
-														setSettleAmount(
-															fromMinor(
-																transfer.amountMinor,
-																transfer.currency,
-															),
-														);
-														setSettleOpen(true);
-													}}
-												>
-													Settle up
-												</Button>
+												<>
+													{data.paymentIntents.intents.find(
+														(intent) =>
+															intent.fromUserId === transfer.from.userId &&
+															intent.toUserId === transfer.to.userId &&
+															intent.currency === transfer.currency &&
+															intent.amountMinor === transfer.amountMinor,
+													)?.upiUrl ? (
+														<Button size="sm" variant="outline" asChild>
+															<a
+																href={
+																	data.paymentIntents.intents.find(
+																		(intent) =>
+																			intent.fromUserId ===
+																				transfer.from.userId &&
+																			intent.toUserId === transfer.to.userId &&
+																			intent.currency === transfer.currency &&
+																			intent.amountMinor ===
+																				transfer.amountMinor,
+																	)?.upiUrl ?? undefined
+																}
+															>
+																Pay via UPI
+															</a>
+														</Button>
+													) : null}
+													<Button
+														size="sm"
+														onClick={() => {
+															setSettleTo(transfer.to.userId);
+															setSettleCurrency(transfer.currency);
+															setSettleAmount(
+																fromMinor(
+																	transfer.amountMinor,
+																	transfer.currency,
+																),
+															);
+															setSettleOpen(true);
+														}}
+													>
+														Confirm paid
+													</Button>
+												</>
 											) : null}
 										</ItemActions>
 									</Item>
@@ -802,6 +874,49 @@ function MemberSheet({
 	);
 }
 
+/**
+ * Compact weight editor for one member, shown to those who can manage.
+ * Commits on change: only when the value is a valid positive integer that
+ * differs from the member's current weight.
+ */
+function MemberWeight({
+	member,
+	groupId,
+	run,
+}: {
+	member: LoaderData["group"]["members"][number];
+	groupId: string;
+	run: Run;
+}) {
+	const [weight, setWeight] = useState(String(member.weight));
+	const value = Number(weight);
+	const valid = Number.isInteger(value) && value > 0;
+
+	return (
+		<Input
+			type="number"
+			min={1}
+			step={1}
+			aria-label={`Weight for ${member.name}`}
+			placeholder="1"
+			className="w-16 tabular"
+			value={weight}
+			onChange={(event) => setWeight(event.target.value)}
+			onBlur={() => {
+				if (value === member.weight) setWeight(String(member.weight));
+				if (!valid || value === member.weight) return;
+				run(
+					{
+						action: "member.weight",
+						input: { groupId, userId: member.userId, weight: value },
+					},
+					"Weight updated",
+				);
+			}}
+		/>
+	);
+}
+
 function MembersTab({
 	data,
 	groupId,
@@ -819,6 +934,16 @@ function MembersTab({
 	const [inviteUrl, setInviteUrl] = useState("");
 	const [copied, setCopied] = useState(false);
 	const canManage = data.group.myRole !== "member";
+	const [addOpen, setAddOpen] = useState(false);
+	const [addName, setAddName] = useState("");
+	const [addEmail, setAddEmail] = useState("");
+	const [addPhone, setAddPhone] = useState("");
+	const [addWeight, setAddWeight] = useState("1");
+	const addWeightValue = addWeight.trim() === "" ? 1 : Number(addWeight);
+	const addValid =
+		Boolean(addName.trim()) &&
+		Number.isInteger(addWeightValue) &&
+		addWeightValue > 0;
 
 	return (
 		<Card className="island-shell">
@@ -830,137 +955,243 @@ function MembersTab({
 					</CardDescription>
 				</div>
 				{canManage && (
-					<Dialog
-						onOpenChange={(open) => {
-							if (!open) {
-								setInviteUrl("");
-								setCopied(false);
-							}
-						}}
-					>
-						<DialogTrigger asChild>
-							<Button>
-								<UserPlus data-icon="inline-start" />
-								Invite
-							</Button>
-						</DialogTrigger>
-						<DialogContent>
-							<DialogHeader>
-								<DialogTitle>Invite a member</DialogTitle>
-								<DialogDescription>
-									Eventual doesn't send email — create a link and share it
-									yourself.
-								</DialogDescription>
-							</DialogHeader>
-							<FieldGroup>
-								<Field>
-									<FieldLabel htmlFor="invite-email">Email</FieldLabel>
-									<Input
-										id="invite-email"
-										type="email"
-										placeholder="friend@example.com"
-										value={inviteEmail}
-										onChange={(event) => setInviteEmail(event.target.value)}
-									/>
-								</Field>
-								<Field>
-									<FieldLabel htmlFor="invite-role">Role</FieldLabel>
-									<Select
-										value={inviteRole}
-										onValueChange={(value) =>
-											setInviteRole(value as typeof inviteRole)
-										}
-									>
-										<SelectTrigger id="invite-role" className="w-full">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectGroup>
-												{["member", "admin", "owner"].map((role) => (
-													<SelectItem
-														key={role}
-														value={role}
-														className="capitalize"
-													>
-														{role}
-													</SelectItem>
-												))}
-											</SelectGroup>
-										</SelectContent>
-									</Select>
-								</Field>
-								<Button
-									disabled={!inviteEmail.trim()}
-									onClick={async () => {
-										try {
-											const result = await mutateFn({
-												data: {
-													action: "invitation.create",
+					<>
+						<Dialog
+							open={addOpen}
+							onOpenChange={(open) => {
+								setAddOpen(open);
+								if (!open) {
+									setAddName("");
+									setAddEmail("");
+									setAddPhone("");
+									setAddWeight("1");
+								}
+							}}
+						>
+							<DialogTrigger asChild>
+								<Button variant="outline">
+									<UserPlus data-icon="inline-start" />
+									Add person
+								</Button>
+							</DialogTrigger>
+							<DialogContent>
+								<DialogHeader>
+									<DialogTitle>Add a person</DialogTitle>
+									<DialogDescription>
+										Add someone without an account yet — for example, a guest
+										who pays in cash.
+									</DialogDescription>
+								</DialogHeader>
+								<FieldGroup>
+									<Field>
+										<FieldLabel htmlFor="add-name">Name</FieldLabel>
+										<Input
+											id="add-name"
+											placeholder="Guest name"
+											value={addName}
+											onChange={(event) => setAddName(event.target.value)}
+										/>
+									</Field>
+									<Field>
+										<FieldLabel htmlFor="add-email">Email</FieldLabel>
+										<Input
+											id="add-email"
+											type="email"
+											placeholder="person@example.com"
+											value={addEmail}
+											onChange={(event) => setAddEmail(event.target.value)}
+										/>
+										<FieldDescription>Optional.</FieldDescription>
+									</Field>
+									<Field>
+										<FieldLabel htmlFor="add-phone">Phone</FieldLabel>
+										<Input
+											id="add-phone"
+											type="tel"
+											inputMode="tel"
+											placeholder="+919876543210"
+											value={addPhone}
+											onChange={(event) => setAddPhone(event.target.value)}
+										/>
+										<FieldDescription>
+											Optional, international format with country code.
+										</FieldDescription>
+									</Field>
+									<Field>
+										<FieldLabel htmlFor="add-weight">Weight</FieldLabel>
+										<Input
+											id="add-weight"
+											type="number"
+											min={1}
+											step={1}
+											className="w-20 tabular"
+											value={addWeight}
+											onChange={(event) => setAddWeight(event.target.value)}
+										/>
+										<FieldDescription>
+											How many shares they count as in an even split. Default 1.
+										</FieldDescription>
+									</Field>
+								</FieldGroup>
+								<DialogFooter>
+									<Button
+										disabled={!addValid}
+										onClick={async () => {
+											const ok = await run(
+												{
+													action: "member.add",
 													input: {
 														groupId,
-														email: inviteEmail,
-														role: inviteRole,
+														name: addName,
+														email: addEmail.trim() || undefined,
+														phone: addPhone.trim() || undefined,
+														weight: addWeightValue,
 													},
 												},
-											});
-											if (result && "inviteUrl" in result)
-												setInviteUrl(
-													`${window.location.origin}${result.inviteUrl}`,
-												);
-											if (result && "emailDelivery" in result) {
-												if (result.emailDelivery === "scheduled")
-													toast.success("Invitation email queued");
-											}
-											setCopied(false);
-											await router.invalidate();
-										} catch (error) {
-											toast.error(
-												error instanceof Error
-													? error.message
-													: "Invite failed",
+												"Person added",
 											);
-										}
-									}}
-								>
-									Send invitation
+											if (ok) setAddOpen(false);
+										}}
+									>
+										Add person
+									</Button>
+								</DialogFooter>
+							</DialogContent>
+						</Dialog>
+						<Dialog
+							onOpenChange={(open) => {
+								if (!open) {
+									setInviteUrl("");
+									setCopied(false);
+								}
+							}}
+						>
+							<DialogTrigger asChild>
+								<Button>
+									<UserPlus data-icon="inline-start" />
+									Invite
 								</Button>
+							</DialogTrigger>
+							<DialogContent>
+								<DialogHeader>
+									<DialogTitle>Invite a member</DialogTitle>
+									<DialogDescription>
+										We email the invitation when email is configured — otherwise
+										share the link yourself.
+									</DialogDescription>
+								</DialogHeader>
+								<FieldGroup>
+									<Field>
+										<FieldLabel htmlFor="invite-email">Email</FieldLabel>
+										<Input
+											id="invite-email"
+											type="email"
+											placeholder="friend@example.com"
+											value={inviteEmail}
+											onChange={(event) => setInviteEmail(event.target.value)}
+										/>
+									</Field>
+									<Field>
+										<FieldLabel htmlFor="invite-role">Role</FieldLabel>
+										<Select
+											value={inviteRole}
+											onValueChange={(value) =>
+												setInviteRole(value as typeof inviteRole)
+											}
+										>
+											<SelectTrigger id="invite-role" className="w-full">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectGroup>
+													{["member", "admin", "owner"].map((role) => (
+														<SelectItem
+															key={role}
+															value={role}
+															className="capitalize"
+														>
+															{role}
+														</SelectItem>
+													))}
+												</SelectGroup>
+											</SelectContent>
+										</Select>
+									</Field>
+									<Button
+										disabled={!inviteEmail.trim()}
+										onClick={async () => {
+											try {
+												const result = await mutateFn({
+													data: {
+														action: "invitation.create",
+														input: {
+															groupId,
+															email: inviteEmail,
+															role: inviteRole,
+														},
+													},
+												});
+												if (result && "inviteUrl" in result)
+													setInviteUrl(
+														`${window.location.origin}${result.inviteUrl}`,
+													);
+												if (result && "emailDelivery" in result) {
+													if (result.emailDelivery === "scheduled")
+														toast.success("Invitation email queued");
+												}
+												setCopied(false);
+												await router.invalidate();
+											} catch (error) {
+												toast.error(
+													error instanceof Error
+														? error.message
+														: "Invite failed",
+												);
+											}
+										}}
+									>
+										Send invitation
+									</Button>
 
-								{inviteUrl ? (
-									<Alert className="border-primary/30 bg-primary/5">
-										<AlertTitle>Share this link</AlertTitle>
-										<AlertDescription>
-											<InputGroup className="mt-2">
-												<InputGroupInput
-													id="invite-url"
-													readOnly
-													value={inviteUrl}
-													className="text-xs"
-													onFocus={(event) => event.currentTarget.select()}
-												/>
-												<InputGroupAddon align="inline-end">
-													<InputGroupButton
-														aria-label={copied ? "Copied" : "Copy invite link"}
-														onClick={async () => {
-															const ok = await copyToClipboard(
-																inviteUrl,
-																"invite link",
-															);
-															if (!ok) return;
-															setCopied(true);
-															toast.success("Invite link copied");
-														}}
-													>
-														{copied ? <Check /> : <Copy />}
-														{copied ? "Copied" : "Copy"}
-													</InputGroupButton>
-												</InputGroupAddon>
-											</InputGroup>
-										</AlertDescription>
-									</Alert>
-								) : null}
-							</FieldGroup>
-						</DialogContent>
-					</Dialog>
+									{inviteUrl ? (
+										<Alert className="border-primary/30 bg-primary/5">
+											<AlertTitle>Share this link</AlertTitle>
+											<AlertDescription>
+												<InputGroup className="mt-2">
+													<InputGroupInput
+														id="invite-url"
+														readOnly
+														value={inviteUrl}
+														className="text-xs"
+														onFocus={(event) => event.currentTarget.select()}
+													/>
+													<InputGroupAddon align="inline-end">
+														<InputGroupButton
+															aria-label={
+																copied ? "Copied" : "Copy invite link"
+															}
+															onClick={async () => {
+																const ok = await copyToClipboard(
+																	inviteUrl,
+																	"invite link",
+																);
+																if (!ok) return;
+																setCopied(true);
+																toast.success("Invite link copied");
+															}}
+														>
+															{copied ? <Check /> : <Copy />}
+															{copied ? "Copied" : "Copy"}
+														</InputGroupButton>
+													</InputGroupAddon>
+												</InputGroup>
+											</AlertDescription>
+										</Alert>
+									) : null}
+								</FieldGroup>
+							</DialogContent>
+						</Dialog>
+					</>
 				)}
 			</CardHeader>
 			<CardContent>
@@ -1000,6 +1231,9 @@ function MembersTab({
 							</ItemActions>
 
 							<ItemActions className="hidden shrink-0 sm:flex">
+								{canManage ? (
+									<MemberWeight member={member} groupId={groupId} run={run} />
+								) : null}
 								{data.group.myRole === "owner" ? (
 									<Select
 										value={member.role}
@@ -1205,10 +1439,341 @@ function SettingsTab({
 	const [groupName, setGroupName] = useState(data.group.name);
 	const [confirmName, setConfirmName] = useState("");
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [rulePattern, setRulePattern] = useState("");
+	const [ruleCategory, setRuleCategory] = useState("");
+	const [reminderUser, setReminderUser] = useState(
+		data.group.members.find((member) => member.userId !== data.user.id)
+			?.userId ?? data.user.id,
+	);
+	const [reminderAt, setReminderAt] = useState("");
+	const [recurringDescription, setRecurringDescription] = useState("");
+	const [recurringAmount, setRecurringAmount] = useState("");
+	const [recurringCurrency, setRecurringCurrency] = useState("INR");
+	const [recurrence, setRecurrence] = useState<
+		"daily" | "weekly" | "monthly" | "yearly"
+	>("monthly");
+	const [nextRunAt, setNextRunAt] = useState("");
 	const isMember = data.group.myRole === "member";
+	const navigate = useNavigate();
+	const router = useRouter();
+	const archived = Boolean(data.group.archivedAt);
+	const reportHref = (format: "csv" | "pdf") =>
+		`/api/v1/groups/${groupId}/reports/expenses?format=${format}`;
 
 	return (
 		<div className="grid gap-4 lg:grid-cols-2">
+			<Card className="island-shell">
+				<CardHeader>
+					<CardTitle>Archive group</CardTitle>
+					<CardDescription>
+						{archived
+							? "This group is archived. Unarchive it to resume activity."
+							: "Archiving keeps the group read-only — balances and history stay visible."}
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<Button
+						variant="outline"
+						disabled={isMember}
+						onClick={() =>
+							run(
+								{
+									action: archived ? "group.unarchive" : "group.archive",
+									input: { groupId },
+								},
+								archived ? "Group unarchived" : "Group archived",
+							)
+						}
+					>
+						{archived ? (
+							<ArchiveRestore data-icon="inline-start" />
+						) : (
+							<Archive data-icon="inline-start" />
+						)}
+						{archived ? "Unarchive group" : "Archive group"}
+					</Button>
+				</CardContent>
+			</Card>
+
+			<Card className="island-shell">
+				<CardHeader>
+					<CardTitle>Duplicate group</CardTitle>
+					<CardDescription>
+						Creates an empty copy with the same members, roles and weights.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{isMember ? (
+						<p className="text-sm text-muted-foreground">
+							Only owners and admins can duplicate this group.
+						</p>
+					) : (
+						<Button
+							variant="outline"
+							onClick={async () => {
+								try {
+									const copy = await mutateFn({
+										data: { action: "group.duplicate", input: { groupId } },
+									});
+									if (!copy || !("id" in copy)) return;
+									toast.success("Group duplicated");
+									await router.invalidate();
+									navigate({
+										to: "/app/groups/$groupId",
+										params: { groupId: copy.id },
+									});
+								} catch (error) {
+									toast.error(
+										error instanceof Error ? error.message : "Action failed",
+									);
+								}
+							}}
+						>
+							<Copy data-icon="inline-start" />
+							Duplicate
+						</Button>
+					)}
+				</CardContent>
+			</Card>
+
+			<Card className="island-shell">
+				<CardHeader>
+					<CardTitle>Reports</CardTitle>
+					<CardDescription>
+						Download the group's expense report.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="flex flex-wrap gap-2">
+					<a href={reportHref("csv")}>
+						<Button variant="outline">
+							<Download data-icon="inline-start" />
+							CSV
+						</Button>
+					</a>
+					<a href={reportHref("pdf")}>
+						<Button variant="outline">
+							<Download data-icon="inline-start" />
+							PDF
+						</Button>
+					</a>
+				</CardContent>
+			</Card>
+
+			<Card className="island-shell">
+				<CardHeader>
+					<CardTitle>Category rules</CardTitle>
+					<CardDescription>
+						Match a phrase in new expense descriptions.{" "}
+						{data.categoryRules.length} configured.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="flex flex-col gap-3">
+					<FieldGroup className="sm:flex-row">
+						<Field>
+							<FieldLabel htmlFor="category-pattern">
+								Description contains
+							</FieldLabel>
+							<Input
+								id="category-pattern"
+								value={rulePattern}
+								onChange={(event) => setRulePattern(event.target.value)}
+								placeholder="coffee"
+							/>
+						</Field>
+						<Field>
+							<FieldLabel htmlFor="category-name">Category</FieldLabel>
+							<Input
+								id="category-name"
+								value={ruleCategory}
+								onChange={(event) => setRuleCategory(event.target.value)}
+								placeholder="Food & drink"
+							/>
+						</Field>
+					</FieldGroup>
+					<Button
+						variant="outline"
+						className="self-start"
+						disabled={isMember || !rulePattern.trim() || !ruleCategory.trim()}
+						onClick={async () => {
+							const ok = await run(
+								{
+									action: "category.create",
+									input: {
+										groupId,
+										pattern: rulePattern,
+										category: ruleCategory,
+										priority: 0,
+									},
+								},
+								"Category rule added",
+							);
+							if (ok) {
+								setRulePattern("");
+								setRuleCategory("");
+							}
+						}}
+					>
+						Add rule
+					</Button>
+				</CardContent>
+			</Card>
+
+			<Card className="island-shell">
+				<CardHeader>
+					<CardTitle>Email reminder</CardTitle>
+					<CardDescription>
+						Schedule a retryable reminder.{" "}
+						{data.reminders.filter((job) => !job.completedAt).length} pending.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="flex flex-col gap-3">
+					<Select value={reminderUser} onValueChange={setReminderUser}>
+						<SelectTrigger aria-label="Reminder recipient">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectGroup>
+								{data.group.members.map((member) => (
+									<SelectItem key={member.userId} value={member.userId}>
+										{member.name}
+									</SelectItem>
+								))}
+							</SelectGroup>
+						</SelectContent>
+					</Select>
+					<Input
+						type="datetime-local"
+						value={reminderAt}
+						onChange={(event) => setReminderAt(event.target.value)}
+						aria-label="Reminder time"
+					/>
+					<Button
+						variant="outline"
+						className="self-start"
+						disabled={!reminderAt || !reminderUser}
+						onClick={async () => {
+							const dueAt = new Date(reminderAt);
+							if (Number.isNaN(dueAt.getTime())) return;
+							if (
+								await run(
+									{
+										action: "reminder.schedule",
+										input: { groupId, userId: reminderUser, dueAt },
+									},
+									"Reminder scheduled",
+								)
+							)
+								setReminderAt("");
+						}}
+					>
+						Schedule reminder
+					</Button>
+				</CardContent>
+			</Card>
+
+			<Card className="island-shell lg:col-span-2">
+				<CardHeader>
+					<CardTitle>Recurring expense</CardTitle>
+					<CardDescription>
+						Create an equal weighted split on schedule.{" "}
+						{
+							data.recurringExpenses.filter((template) => template.active)
+								.length
+						}{" "}
+						active.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+					<Input
+						value={recurringDescription}
+						onChange={(event) => setRecurringDescription(event.target.value)}
+						placeholder="Monthly rent"
+						aria-label="Recurring description"
+					/>
+					<Input
+						inputMode="decimal"
+						value={recurringAmount}
+						onChange={(event) => setRecurringAmount(event.target.value)}
+						placeholder="Amount"
+						aria-label="Recurring amount"
+					/>
+					<CurrencySelect
+						id="recurring-currency"
+						value={recurringCurrency}
+						onValueChange={setRecurringCurrency}
+					/>
+					<Select
+						value={recurrence}
+						onValueChange={(value) => setRecurrence(value as typeof recurrence)}
+					>
+						<SelectTrigger aria-label="Recurrence">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectGroup>
+								{["daily", "weekly", "monthly", "yearly"].map((value) => (
+									<SelectItem key={value} value={value} className="capitalize">
+										{value}
+									</SelectItem>
+								))}
+							</SelectGroup>
+						</SelectContent>
+					</Select>
+					<Input
+						type="datetime-local"
+						value={nextRunAt}
+						onChange={(event) => setNextRunAt(event.target.value)}
+						aria-label="First occurrence"
+					/>
+					<Button
+						className="sm:col-span-2 lg:col-span-5 lg:justify-self-start"
+						disabled={
+							!recurringDescription.trim() ||
+							parseMinor(recurringAmount, recurringCurrency) === null ||
+							!nextRunAt
+						}
+						onClick={async () => {
+							const amountMinor = parseMinor(
+								recurringAmount,
+								recurringCurrency,
+							);
+							const first = new Date(nextRunAt);
+							if (amountMinor === null || Number.isNaN(first.getTime())) return;
+							const ok = await run(
+								{
+									action: "recurring.create",
+									input: {
+										groupId,
+										recurrence,
+										nextRunAt: first,
+										active: true,
+										payload: {
+											description: recurringDescription,
+											amountMinor,
+											currency: recurringCurrency,
+											paidByUserId: data.user.id,
+											splitMethod: "even",
+											participants: data.group.members.map((member) => ({
+												userId: member.userId,
+												input: null,
+											})),
+										},
+									},
+								},
+								"Recurring expense created",
+							);
+							if (ok) {
+								setRecurringDescription("");
+								setRecurringAmount("");
+								setNextRunAt("");
+							}
+						}}
+					>
+						Create recurring expense
+					</Button>
+				</CardContent>
+			</Card>
+
 			<Card className="island-shell">
 				<CardHeader>
 					<CardTitle>Rename group</CardTitle>

@@ -29,6 +29,13 @@
       "when": 1789500878058,
       "tag": "0003_daffy_stingray",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789759180416,
+      "tag": "0004_rich_christian_walker",
+      "breakpoints": true
     }
   ]
 }

@@ -30,6 +30,7 @@ import {
 	InputGroupText,
 } from "#/components/ui/input-group";
 import { Spinner } from "#/components/ui/spinner";
+import { Switch } from "#/components/ui/switch";
 import { clearSession } from "#/lib/session";
 import { updateProfileFn } from "#/server/fn/profile";
 import { upiVpaSchema, wiseTagSchema } from "#/server/schemas";
@@ -41,6 +42,7 @@ type ProfileUser = {
 	image?: string | null;
 	upiVpa?: string | null;
 	wiseTag?: string | null;
+	emailReminders?: boolean | null;
 };
 
 type ProfilePatch = Parameters<typeof updateProfileFn>[0]["data"];
@@ -98,6 +100,9 @@ export function ProfileSettings({ user }: { user: ProfileUser }) {
 	const [name, setName] = useState(user.name);
 	const [upi, setUpi] = useState(savedUpi);
 	const [wise, setWise] = useState(savedWise);
+	const [emailReminders, setEmailReminders] = useState(
+		user.emailReminders ?? true,
+	);
 	// Errors show once a field is left or submitted, not while it's typed.
 	const [touched, setTouched] = useState({
 		name: false,
@@ -114,14 +119,15 @@ export function ProfileSettings({ user }: { user: ProfileUser }) {
 	const dirty =
 		name.trim() !== user.name ||
 		normalUpi(upi) !== savedUpi ||
-		normalWise(wise) !== savedWise;
+		normalWise(wise) !== savedWise ||
+		emailReminders !== (user.emailReminders ?? true);
 
 	const onSubmit = async (event: FormEvent) => {
 		event.preventDefault();
 		setTouched({ name: true, upi: true, wise: true });
 		if (nameError || upiError || wiseError || !dirty) return;
 		const ok = await save(
-			{ name: name.trim(), upiVpa: upi, wiseTag: wise },
+			{ name: name.trim(), upiVpa: upi, wiseTag: wise, emailReminders },
 			"Profile saved",
 		);
 		if (ok) {
@@ -171,6 +177,24 @@ export function ProfileSettings({ user }: { user: ProfileUser }) {
 							email={user.email}
 							verified={user.emailVerified}
 						/>
+
+						<FieldSeparator />
+
+						<Field orientation="horizontal">
+							<div className="flex-1">
+								<FieldLabel htmlFor="profile-email-reminders">
+									Email reminders
+								</FieldLabel>
+								<FieldDescription>
+									Allow group members to send you scheduled balance reminders.
+								</FieldDescription>
+							</div>
+							<Switch
+								id="profile-email-reminders"
+								checked={emailReminders}
+								onCheckedChange={setEmailReminders}
+							/>
+						</Field>
 
 						<FieldSeparator />
 
