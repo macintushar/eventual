@@ -30,6 +30,12 @@ type MutationAction =
 	| "settlement.delete";
 
 type AnalyticsEvent = {
+	operation_completed: {
+		operation: string;
+		surface: "web" | "rest" | "mcp" | "shortcut";
+		success: boolean;
+		duration_ms: number;
+	};
 	mcp_request_completed: {
 		method: string;
 		success: boolean;
