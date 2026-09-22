@@ -36,12 +36,10 @@ const signupSchema = credentialsSchema.extend({
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 	const search = useSearch({ strict: false }) as { redirect?: string };
 	const [error, setError] = useState("");
-	const [claimEmail, setClaimEmail] = useState("");
 	const form = useForm({
 		defaultValues: { name: "", email: "", password: "" },
 		onSubmit: async ({ value }) => {
 			setError("");
-			setClaimEmail("");
 			const parsed =
 				mode === "signup"
 					? signupSchema.safeParse(value)
@@ -62,12 +60,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 					: await authClient.signIn.email({ email, password });
 			if (result.error) {
 				setError(result.error.message ?? "Authentication failed");
-				if (
-					mode === "signup" &&
-					(result.error.code === "GUEST_CLAIM_REQUIRED" ||
-						result.error.message?.toLowerCase().includes("guest claim"))
-				)
-					setClaimEmail(email);
 				return;
 			}
 			const target =
@@ -172,15 +164,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 									<Alert variant="destructive">
 										<AlertTitle>Authentication failed</AlertTitle>
 										<AlertDescription>{error}</AlertDescription>
-										{claimEmail ? (
-											<Link
-												to="/claim-guest"
-												search={{ email: claimEmail }}
-												className="mt-2 inline-block font-medium underline"
-											>
-												Claim this account
-											</Link>
-										) : null}
 									</Alert>
 								) : null}
 							</FieldGroup>

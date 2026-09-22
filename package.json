@@ -20,8 +20,7 @@
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
-    "shortcut:build": "tsx scripts/build-shortcut.ts",
-    "api:generate": "tsx scripts/generate-api-client.ts && biome check --write src/lib/api-client.gen.ts"
+    "shortcut:build": "tsx scripts/build-shortcut.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

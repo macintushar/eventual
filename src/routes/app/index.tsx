@@ -28,19 +28,19 @@ export const Route = createFileRoute("/app/")({
 });
 
 function Dashboard() {
-	const { groups, invitations, crossGroupBalances, user } =
-		Route.useLoaderData();
+	const { groups, invitations, user } = Route.useLoaderData();
 	const composer = useComposer();
-	const totals = [...new Set(crossGroupBalances.map((row) => row.currency))]
+	const balances = groups.flatMap((group) => group.balances);
+	const totals = [...new Set(balances.map((row) => row.currency))]
 		.sort()
 		.map((currency) => ({
 			currency,
-			owed: crossGroupBalances
+			owed: balances
 				.filter((row) => row.currency === currency)
-				.reduce((sum, row) => sum + Math.max(row.amountMinor, 0), 0),
-			owing: crossGroupBalances
+				.reduce((sum, row) => sum + Math.max(row.balanceMinor, 0), 0),
+			owing: balances
 				.filter((row) => row.currency === currency)
-				.reduce((sum, row) => sum + Math.max(-row.amountMinor, 0), 0),
+				.reduce((sum, row) => sum + Math.max(-row.balanceMinor, 0), 0),
 		}));
 
 	return (
@@ -50,7 +50,7 @@ function Dashboard() {
 					<div>
 						<p className="island-kicker">Your running total</p>
 						<h1 className="display-title mt-2 text-[2.125rem] font-bold sm:text-5xl">
-							{crossGroupBalances.length === 0
+							{balances.every((row) => row.balanceMinor === 0)
 								? "You're all square"
 								: "Your balances"}
 						</h1>

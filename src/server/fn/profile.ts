@@ -21,7 +21,6 @@ export const updateProfileFn = createServerFn({ method: "POST" })
 				name: user.name,
 				upiVpa: user.upiVpa,
 				wiseTag: user.wiseTag,
-				emailReminders: user.emailReminders,
 			});
 		return row;
 	});

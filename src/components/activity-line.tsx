@@ -1,10 +1,7 @@
 import {
-	Archive,
-	ArchiveRestore,
 	ArrowLeftRight,
 	CircleCheck,
 	CircleSlash,
-	Copy,
 	FolderPlus,
 	LogOut,
 	type LucideIcon,
@@ -42,9 +39,6 @@ export type ActivityItem = {
 export const activityIcons: Record<ActivityType, LucideIcon> = {
 	"group.created": FolderPlus,
 	"group.renamed": PencilLine,
-	"group.archived": Archive,
-	"group.unarchived": ArchiveRestore,
-	"group.duplicated": Copy,
 	"group.deleted": Trash2,
 	"member.invited": Mail,
 	"member.invite_revoked": MailX,

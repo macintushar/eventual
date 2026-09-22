@@ -120,9 +120,7 @@ function DockSlot({
 
 	const distance = useTransform(pointerX ?? fallbackX, (x) => {
 		const bounds = ref.current?.getBoundingClientRect();
-		return bounds
-			? x - bounds.left - bounds.width / 2
-			: Number.POSITIVE_INFINITY;
+		return bounds ? x - bounds.left - bounds.width / 2 : Number.POSITIVE_INFINITY;
 	});
 	const size = useSpring(
 		useTransform(distance, [-REACH, 0, REACH], [SLOT, SLOT_PEAK, SLOT]),
@@ -164,10 +162,7 @@ function DockSlot({
 function DockGlyph({ children }: { children: ReactNode }) {
 	const scale = useContext(SlotScale);
 	return (
-		<motion.span
-			className="grid place-items-center"
-			style={{ scale: scale ?? 1 }}
-		>
+		<motion.span className="grid place-items-center" style={{ scale: scale ?? 1 }}>
 			{children}
 		</motion.span>
 	);

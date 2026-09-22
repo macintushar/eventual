@@ -21,8 +21,7 @@ export type EmailKind =
 	| "verification"
 	| "reset-password"
 	| "password-changed"
-	| "invitation"
-	| "reminder";
+	| "invitation";
 type BaseEmailProps = {
 	url: string;
 	name?: string;
@@ -31,7 +30,6 @@ type BaseEmailProps = {
 };
 export type TransactionalEmailProps = BaseEmailProps &
 	(
-		| { kind: "reminder"; groupName: string }
 		| {
 				kind: "verification" | "reset-password" | "password-changed";
 		  }
@@ -76,18 +74,6 @@ export function emailCopy(props: TransactionalEmailProps) {
 	const { kind, expiresAt } = props;
 	const deadline = expiresAt ? `on ${formatExpiry(expiresAt)}` : "in one hour";
 	switch (kind) {
-		case "reminder":
-			return {
-				subject: `A reminder to review ${props.groupName}`,
-				preview: `Review your shared expenses in ${props.groupName}.`,
-				kicker: "Group reminder",
-				heading: "Time to check in",
-				message: `Your group sent a reminder to review shared expenses in ${props.groupName}. Open the group to see the latest balances and settle up if needed.`,
-				action: "Review group",
-				note: "Balances shown in the app are always up to date.",
-				footer:
-					"You can turn off email reminders in your notification preferences.",
-			};
 		case "verification":
 			return {
 				subject: "Welcome to Eventual — verify your email",

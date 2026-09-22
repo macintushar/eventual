@@ -1,11 +1,7 @@
 import { formatMinor } from "#/lib/money";
 
 export type SplitMethod = "even" | "exact" | "shares" | "percent";
-export type Participant = {
-	userId: string;
-	input: number | null;
-	weight?: number;
-};
+export type Participant = { userId: string; input: number | null };
 export type ComputedShare = Participant & {
 	amountMinor: number;
 	splitInput: number | null;
@@ -65,17 +61,11 @@ export function computeShares(
 		throw new Error("Participants must be unique");
 	let result: ComputedShare[];
 	if (method === "even") {
-		const values = sorted.map((row) => {
-			const weight = row.weight ?? 1;
-			assertInteger(weight, "Member weight");
-			if (weight <= 0) throw new Error("Member weight must be positive");
-			return { userId: row.userId, input: weight };
-		});
-		const totalWeight = values.reduce((sum, row) => sum + row.input, 0);
-		assertInteger(totalWeight, "Total weight");
-		result = distribute(totalMinor, values, totalWeight).map((row) => ({
+		const base = Math.floor(totalMinor / sorted.length);
+		const remainder = totalMinor - base * sorted.length;
+		result = sorted.map((row, index) => ({
 			userId: row.userId,
-			amountMinor: row.amountMinor,
+			amountMinor: base + (index < remainder ? 1 : 0),
 			splitInput: null,
 			input: null,
 		}));

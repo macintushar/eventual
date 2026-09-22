@@ -22,11 +22,6 @@ export const user = sqliteTable("user", {
 	upiVpa: text("upi_vpa"),
 	/** Wise handle without the leading `@`. */
 	wiseTag: text("wise_tag"),
-	isGuest: integer("is_guest", { mode: "boolean" }).default(false).notNull(),
-	claimedAt: integer("claimed_at", { mode: "timestamp_ms" }),
-	emailReminders: integer("email_reminders", { mode: "boolean" })
-		.default(true)
-		.notNull(),
 	createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 	updatedAt: integer("updated_at", { mode: "timestamp_ms" })
 		.$onUpdate(() => new Date())
@@ -105,7 +100,6 @@ export const organization = sqliteTable(
 		logo: text("logo"),
 		createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 		metadata: text("metadata"),
-		archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
 	},
 	(table) => [uniqueIndex("organization_slug_uidx").on(table.slug)],
 );
@@ -121,17 +115,11 @@ export const member = sqliteTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		role: text("role").default("member").notNull(),
-		weight: integer("weight").default(1).notNull(),
 		createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 	},
 	(table) => [
 		index("member_organizationId_idx").on(table.organizationId),
 		index("member_userId_idx").on(table.userId),
-		uniqueIndex("member_organization_user_unique").on(
-			table.organizationId,
-			table.userId,
-		),
-		check("member_weight_positive", sql`${table.weight} > 0`),
 	],
 );
 
@@ -263,8 +251,6 @@ export const expense = sqliteTable(
 			.notNull()
 			.references(() => organization.id, { onDelete: "cascade" }),
 		description: text("description").notNull(),
-		category: text("category"),
-		searchText: text("search_text").default("").notNull(),
 		notes: text("notes"),
 		amountMinor: integer("amount_minor").notNull(),
 		currency: text("currency").default("INR").notNull(),
@@ -363,9 +349,6 @@ export const settlementAllocation = sqliteTable(
 export const activityTypes = [
 	"group.created",
 	"group.renamed",
-	"group.archived",
-	"group.unarchived",
-	"group.duplicated",
 	"group.deleted",
 	"member.invited",
 	"member.invite_revoked",
@@ -538,93 +521,4 @@ export const activityRecipientRelations = relations(
 			references: [user.id],
 		}),
 	}),
-);
-
-export const channelIdentity = sqliteTable(
-	"channel_identity",
-	{
-		id: text("id").primaryKey(),
-		userId: text("user_id")
-			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
-		channel: text("channel", {
-			enum: ["phone", "whatsapp", "upi", "push"],
-		}).notNull(),
-		address: text("address").notNull(),
-		verifiedAt: integer("verified_at", { mode: "timestamp_ms" }),
-	},
-	(table) => [
-		uniqueIndex("channel_address_unique").on(table.channel, table.address),
-		index("channel_user_idx").on(table.userId),
-	],
-);
-
-export const idempotencyKey = sqliteTable(
-	"idempotency_key",
-	{
-		key: text("key").notNull(),
-		userId: text("user_id")
-			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
-		operation: text("operation").notNull(),
-		requestHash: text("request_hash").notNull(),
-		responseJson: text("response_json"),
-		createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-	},
-	(table) => [
-		primaryKey({ columns: [table.key, table.userId, table.operation] }),
-	],
-);
-
-export const job = sqliteTable(
-	"job",
-	{
-		id: text("id").primaryKey(),
-		dueAt: integer("due_at", { mode: "timestamp_ms" }).notNull(),
-		kind: text("kind").notNull(),
-		payload: text("payload").notNull(),
-		attempts: integer("attempts").default(0).notNull(),
-		lockedAt: integer("locked_at", { mode: "timestamp_ms" }),
-		lockToken: text("lock_token"),
-		completedAt: integer("completed_at", { mode: "timestamp_ms" }),
-		lastError: text("last_error"),
-		dedupeKey: text("dedupe_key").unique(),
-	},
-	(table) => [index("job_due_idx").on(table.completedAt, table.dueAt)],
-);
-
-export const categoryRule = sqliteTable(
-	"category_rule",
-	{
-		id: text("id").primaryKey(),
-		organizationId: text("organization_id")
-			.notNull()
-			.references(() => organization.id, { onDelete: "cascade" }),
-		pattern: text("pattern").notNull(),
-		category: text("category").notNull(),
-		priority: integer("priority").default(0).notNull(),
-	},
-	(table) => [index("category_rule_group_idx").on(table.organizationId)],
-);
-
-export const expenseTemplate = sqliteTable(
-	"expense_template",
-	{
-		id: text("id").primaryKey(),
-		organizationId: text("organization_id")
-			.notNull()
-			.references(() => organization.id, { onDelete: "cascade" }),
-		createdByUserId: text("created_by_user_id")
-			.notNull()
-			.references(() => user.id),
-		recurrence: text("recurrence", {
-			enum: ["daily", "weekly", "monthly", "yearly"],
-		}).notNull(),
-		nextRunAt: integer("next_run_at", { mode: "timestamp_ms" }).notNull(),
-		payload: text("payload").notNull(),
-		active: integer("active", { mode: "boolean" }).default(true).notNull(),
-	},
-	(table) => [
-		index("expense_template_due_idx").on(table.active, table.nextRunAt),
-	],
 );
