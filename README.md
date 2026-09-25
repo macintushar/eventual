@@ -47,6 +47,8 @@ Configure these server-side variables in the Vercel project for each deployment 
 
 Vercel runs `bun run db:migrate && bun run build` on every deployment, as configured in `vercel.json`. A failed migration stops the deployment. Migrations use the database credentials configured for that deployment environment, including Preview deployments.
 
+The scheduled job runner runs once per day at 00:00 UTC to stay within Vercel Hobby's cron limit. Scheduled reminders and recurring expenses may therefore run up to a day after their due time.
+
 Vercel project variables are not automatically available in your local shell. Do not run the seed command against production.
 
 ## Behaviour
@@ -81,7 +83,7 @@ EMAIL_FROM="Eventual <accounts@your-verified-domain.com>"
 EMAIL_REPLY_TO=support@your-verified-domain.com
 ```
 
-Verify the sending domain in Resend and set `BETTER_AUTH_URL` to your public HTTPS origin. Restart the app after changing these values. No database migration is needed. Without both Resend settings, automatic signup and invitation emails are disabled; invitations still produce a shareable link. Verification remains optional for signing in, matching the existing account behavior.
+Verify the sending domain in Resend and set `BETTER_AUTH_URL` to your public HTTPS origin. Restart the app after changing these values. No database migration is needed. Without both Resend settings, automatic signup and invitation emails are disabled; invitations still produce a shareable link, and sign-in does not require verification. When email sending is configured, users must verify their address before signing in.
 
 - Sign in → **Forgot your password?** opens `/forgot-password`. Reset links expire after one hour, can be used once, and lead to `/reset-password`. A successful reset revokes existing sessions.
 - **Account / API keys** shows email-verification status and a resend action. Verification links expire after one hour and return to `/verify-email`.

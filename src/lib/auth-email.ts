@@ -33,7 +33,7 @@ export function authEmailOptions(
 	return {
 		emailAndPassword: {
 			enabled: true,
-			requireEmailVerification: false,
+			requireEmailVerification: configured,
 			revokeSessionsOnPasswordReset: true,
 			resetPasswordTokenExpiresIn: LINK_TTL_SECONDS,
 			sendResetPassword: async ({ user, url, token }) => {

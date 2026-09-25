@@ -2,5 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "bun run db:migrate && bun run build",
   "trailingSlash": false,
-  "crons": [{ "path": "/api/jobs/run", "schedule": "0 * * * *" }]
+  "crons": [{ "path": "/api/jobs/run", "schedule": "0 0 * * *" }]
 }
