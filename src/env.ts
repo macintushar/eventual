@@ -14,6 +14,8 @@ export const env = createEnv({
 		SENTRY_DSN: z.string().url().optional(),
 		POSTHOG_PROJECT_TOKEN: z.string().min(1).optional(),
 		POSTHOG_HOST: z.string().url().default("https://us.i.posthog.com"),
+		GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+		GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
 	},
 
 	/**

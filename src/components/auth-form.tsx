@@ -2,7 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { Link, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
-
+import { GoogleIcon } from "#/components/google-icon";
 import { PublicPage } from "#/components/public-header";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Button } from "#/components/ui/button";
@@ -36,7 +36,33 @@ const signupSchema = credentialsSchema.extend({
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 	const search = useSearch({ strict: false }) as { redirect?: string };
 	const [error, setError] = useState("");
+	const [googlePending, setGooglePending] = useState(false);
 	const [claimEmail, setClaimEmail] = useState("");
+	const target =
+		search.redirect?.startsWith("/") && !search.redirect.startsWith("//")
+			? search.redirect
+			: "/app";
+	const signInWithGoogle = async () => {
+		setError("");
+		setGooglePending(true);
+		try {
+			const result = await authClient.signIn.social({
+				provider: "google",
+				callbackURL: target,
+			});
+			if (result.error) {
+				setError(result.error.message ?? "Could not continue with Google");
+				setGooglePending(false);
+			}
+		} catch (error) {
+			setError(
+				error instanceof Error
+					? error.message
+					: "Could not continue with Google",
+			);
+			setGooglePending(false);
+		}
+	};
 	const form = useForm({
 		defaultValues: { name: "", email: "", password: "" },
 		onSubmit: async ({ value }) => {
@@ -70,10 +96,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 					setClaimEmail(email);
 				return;
 			}
-			const target =
-				search.redirect?.startsWith("/") && !search.redirect.startsWith("//")
-					? search.redirect
-					: "/app";
 			window.location.assign(target);
 		},
 	});
@@ -209,6 +231,26 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 								</Button>
 							)}
 						</form.Subscribe>
+						<div className="flex w-full items-center gap-3 text-sm text-muted-foreground">
+							<span className="h-px flex-1 bg-border" />
+							<span className="shrink-0">Or continue with</span>
+							<span className="h-px flex-1 bg-border" />
+						</div>
+						<Button
+							type="button"
+							variant="outline"
+							size="lg"
+							className="w-full"
+							disabled={googlePending}
+							onClick={signInWithGoogle}
+						>
+							{googlePending ? (
+								<Spinner data-icon="inline-start" />
+							) : (
+								<GoogleIcon className="size-5" />
+							)}
+							{googlePending ? "Connecting…" : "Continue with Google"}
+						</Button>
 						<p className="text-sm text-muted-foreground">
 							{mode === "signup" ? "Already registered?" : "New here?"}{" "}
 							<Link

@@ -57,6 +57,21 @@ export const auth = betterAuth({
 		env.BETTER_AUTH_URL,
 		Boolean(env.RESEND_API_KEY && env.EMAIL_FROM),
 	),
+	socialProviders:
+		env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+			? {
+					google: {
+						clientId: env.GOOGLE_CLIENT_ID,
+						clientSecret: env.GOOGLE_CLIENT_SECRET,
+					},
+				}
+			: undefined,
+	account: {
+		accountLinking: {
+			enabled: true,
+			allowDifferentEmails: true,
+		},
+	},
 	rateLimit: {
 		customRules: {
 			"/request-password-reset": { window: 60, max: 3 },

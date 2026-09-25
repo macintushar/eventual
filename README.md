@@ -44,6 +44,7 @@ Configure these server-side variables in the Vercel project for each deployment 
 - `TURSO_AUTH_TOKEN`: the database access token.
 - `BETTER_AUTH_SECRET`: a secret of at least 32 characters.
 - `BETTER_AUTH_URL`: the deployed application's HTTPS origin (e.g. `https://app.example.com`). Shared by Better Auth and the Shortcut, MCP, and API URLs shown on Integrations; these URLs do not use the incoming request's host. Defaults to `http://localhost:3000` for local development.
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (optional): Google OAuth credentials. Register `http://localhost:3000/api/auth/callback/google` for local development and `https://your-domain.com/api/auth/callback/google` for production in Google Cloud Console. Users can connect or disconnect Google from **Settings → Profile**; Better Auth also links a verified Google identity to an existing account when the email addresses match.
 
 Vercel runs `bun run db:migrate && bun run build` on every deployment, as configured in `vercel.json`. A failed migration stops the deployment. Migrations use the database credentials configured for that deployment environment, including Preview deployments.
 
