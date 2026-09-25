@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -83,7 +84,11 @@ export function LinkedAccounts() {
 				accountId: googleAccount.accountId,
 			});
 			if (error) {
-				toast.error(error.message || "Could not disconnect Google");
+				toast.error(
+					error.code === "SESSION_NOT_FRESH"
+						? "Sign in again before disconnecting Google."
+						: error.message || "Could not disconnect Google",
+				);
 			} else {
 				setAccounts((current) =>
 					current.filter((account) => account.id !== googleAccount.id),
@@ -150,7 +155,14 @@ export function LinkedAccounts() {
 				</div>
 				{googleAccount && !otherAccountExists ? (
 					<p className="mt-3 text-sm text-muted-foreground">
-						Add another sign-in method before disconnecting Google.
+						Set a password before disconnecting Google. You can do this from{" "}
+						<Link
+							to="/forgot-password"
+							className="underline underline-offset-4"
+						>
+							Forgot your password?
+						</Link>
+						.
 					</p>
 				) : null}
 			</CardContent>
