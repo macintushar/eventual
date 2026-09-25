@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as CheckEmailRouteImport } from './routes/check-email'
 import { Route as ClaimGuestRouteImport } from './routes/claim-guest'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -42,6 +43,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckEmailRoute = CheckEmailRouteImport.update({
+  id: '/check-email',
+  path: '/check-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClaimGuestRoute = ClaimGuestRouteImport.update({
@@ -159,6 +165,7 @@ const AppGroupsGroupIdExpensesExpenseIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/check-email': typeof CheckEmailRoute
   '/claim-guest': typeof ClaimGuestRoute
   '/docs': typeof DocsRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -184,6 +191,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/check-email': typeof CheckEmailRoute
   '/claim-guest': typeof ClaimGuestRoute
   '/docs': typeof DocsRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -209,6 +217,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/check-email': typeof CheckEmailRoute
   '/claim-guest': typeof ClaimGuestRoute
   '/docs': typeof DocsRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -237,6 +246,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/check-email'
     | '/claim-guest'
     | '/docs'
     | '/forgot-password'
@@ -262,6 +272,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/check-email'
     | '/claim-guest'
     | '/docs'
     | '/forgot-password'
@@ -286,6 +297,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/check-email'
     | '/claim-guest'
     | '/docs'
     | '/forgot-password'
@@ -313,6 +325,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  CheckEmailRoute: typeof CheckEmailRoute
   ClaimGuestRoute: typeof ClaimGuestRoute
   DocsRoute: typeof DocsRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
@@ -341,6 +354,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/check-email': {
+      id: '/check-email'
+      path: '/check-email'
+      fullPath: '/check-email'
+      preLoaderRoute: typeof CheckEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/claim-guest': {
@@ -549,6 +569,7 @@ const HelpRouteWithChildren = HelpRoute._addFileChildren(HelpRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  CheckEmailRoute: CheckEmailRoute,
   ClaimGuestRoute: ClaimGuestRoute,
   DocsRoute: DocsRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,

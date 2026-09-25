@@ -11,6 +11,11 @@ import { authEmailOptions, emailKey } from "#/lib/auth-email";
 import { guestAuthGuards, guestAuthPlugin } from "#/lib/guest-auth";
 import { sendEmail } from "#/server/email";
 import { reportError } from "#/server/error-reporting";
+import {
+	markVerificationSent,
+	releaseVerificationSend,
+	reserveVerificationSend,
+} from "#/server/pending-verification";
 
 const API_KEY_PREFIX = "ev_";
 const LEGACY_API_KEY_PREFIX = "ss_";
@@ -56,6 +61,11 @@ export const auth = betterAuth({
 		sendEmail,
 		env.BETTER_AUTH_URL,
 		Boolean(env.RESEND_API_KEY && env.EMAIL_FROM),
+		{
+			reserve: reserveVerificationSend,
+			markSent: markVerificationSent,
+			release: releaseVerificationSend,
+		},
 	),
 	socialProviders:
 		env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET

@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "#/components/confirm-dialog";
 import { GoogleIcon } from "#/components/google-icon";
 import { Button } from "#/components/ui/button";
 import {
@@ -75,8 +76,7 @@ export function LinkedAccounts() {
 	};
 
 	const disconnectGoogle = async () => {
-		if (!googleAccount || !otherAccountExists) return;
-		if (!window.confirm("Disconnect Google from your account?")) return;
+		if (!googleAccount || !otherAccountExists) return false;
 		setWorking(true);
 		try {
 			const { error } = await authClient.unlinkAccount({
@@ -89,16 +89,19 @@ export function LinkedAccounts() {
 						? "Sign in again before disconnecting Google."
 						: error.message || "Could not disconnect Google",
 				);
+				return false;
 			} else {
 				setAccounts((current) =>
 					current.filter((account) => account.id !== googleAccount.id),
 				);
 				toast.success("Google disconnected");
+				return true;
 			}
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : "Could not disconnect Google",
 			);
+			return false;
 		} finally {
 			setWorking(false);
 		}
@@ -128,15 +131,22 @@ export function LinkedAccounts() {
 						</div>
 					</div>
 					{googleAccount ? (
-						<Button
-							type="button"
-							variant="outline"
-							disabled={loading || working || !otherAccountExists}
-							onClick={disconnectGoogle}
-						>
-							{working ? <Spinner data-icon="inline-start" /> : null}
-							Disconnect
-						</Button>
+						<ConfirmDialog
+							trigger={
+								<Button
+									type="button"
+									variant="outline"
+									disabled={loading || working || !otherAccountExists}
+								>
+									Disconnect
+								</Button>
+							}
+							title="Disconnect Google?"
+							description="You won't be able to sign in with Google until you connect it again."
+							confirmLabel="Disconnect Google"
+							onConfirm={disconnectGoogle}
+							pending={working}
+						/>
 					) : (
 						<Button
 							type="button"

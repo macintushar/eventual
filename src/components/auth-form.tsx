@@ -87,6 +87,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 						})
 					: await authClient.signIn.email({ email, password });
 			if (result.error) {
+				if (result.error.code === "EMAIL_NOT_VERIFIED") {
+					window.location.assign("/check-email");
+					return;
+				}
 				setError(result.error.message ?? "Authentication failed");
 				if (
 					mode === "signup" &&
@@ -95,6 +99,19 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 				)
 					setClaimEmail(email);
 				return;
+			}
+			if (mode === "signup" && !result.data?.token) {
+				// Better Auth returns a generic response for existing addresses. Only
+				// a successful password check can open the pending-verification page.
+				const signIn = await authClient.signIn.email({ email, password });
+				if (signIn.error?.code === "EMAIL_NOT_VERIFIED") {
+					window.location.assign("/check-email");
+					return;
+				}
+				if (signIn.error) {
+					setError("Could not sign in with those credentials.");
+					return;
+				}
 			}
 			window.location.assign(target);
 		},
