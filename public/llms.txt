@@ -1,0 +1,35 @@
+# Eventual
+
+> Eventual is a free web app for splitting group expenses in Indian rupees (and other currencies). Log what everyone paid on trips, in shared flats and on nights out; Eventual splits each bill evenly, by exact amounts, by shares or by percent, and tells each person exactly who to pay and how much, down to the last paisa.
+
+Key facts:
+
+- Free to use. No paid plans.
+- Groups are private: only invited members see a group's expenses, balances and history.
+- Shares always add up: INR 1,000 split three ways is INR 333.34, 333.33 and 333.33.
+- Once someone marks their share paid, the expense locks so the settled amount can't change.
+- Balances are simplified into as few transfers as possible. Each currency is kept separate; amounts are never converted.
+- Eventual records who owes whom. It does not move money.
+- Expenses can be logged from the web app, an Apple Shortcut (iPhone, iPad, Mac, Watch, Siri), any MCP-capable AI assistant, or the REST API.
+
+## Help
+
+- [Help center](https://eventual.macintushar.xyz/help): FAQ on groups, invites, roles, split methods, locked expenses, settling up, password reset and integrations
+- [How do I create a group?](https://eventual.macintushar.xyz/help/create-a-group): step-by-step guide with screenshots
+- [How do I add an expense?](https://eventual.macintushar.xyz/help/add-an-expense): step-by-step guide covering split methods
+
+## Integrations
+
+- [Integrations](https://eventual.macintushar.xyz/docs): Apple Shortcut download and MCP setup for Claude, ChatGPT, Cursor, Codex, Claude Code, OpenCode, Hermes and OpenClaw
+- MCP server: `https://eventual.macintushar.xyz/mcp` (Streamable HTTP). Authenticate with `x-api-key: <your-api-key>` or `Authorization: Bearer <your-api-key>`, using an API key created at https://eventual.macintushar.xyz/app/settings/api-keys
+- MCP tools: `listGroups` (your groups and balance in each), `listExpenses` (recent expenses in a group), `createExpense` (log an expense with any split method), `getBalances` (who owes whom, with simplified transfers)
+- [OpenAPI spec](https://eventual.macintushar.xyz/api/openapi.json): the REST API under `/api/v1`, same API-key authentication
+
+## Legal
+
+- [Privacy policy](https://eventual.macintushar.xyz/privacy)
+- [Terms of service](https://eventual.macintushar.xyz/terms)
+
+## Optional
+
+- [Source code](https://github.com/macintushar/eventual)

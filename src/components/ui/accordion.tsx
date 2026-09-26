@@ -49,12 +49,19 @@ function AccordionTrigger({
 function AccordionContent({
 	className,
 	children,
+	forceMount,
 	...props
 }: React.ComponentProps<typeof AccordionPrimitive.Content>) {
 	return (
 		<AccordionPrimitive.Content
 			data-slot="accordion-content"
-			className="overflow-hidden text-sm data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+			forceMount={forceMount}
+			// A force-mounted panel stays in the DOM (and the prerendered HTML), so
+			// hide it with CSS when closed. It closes without the exit animation.
+			className={cn(
+				"overflow-hidden text-sm data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down",
+				forceMount && "data-[state=closed]:hidden",
+			)}
 			{...props}
 		>
 			<div className={cn("pt-0 pb-4", className)}>{children}</div>

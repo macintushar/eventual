@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/tanstackstart-react";
+import { useQuery } from "@tanstack/react-query";
 import {
 	type ErrorComponentProps,
 	Link,
@@ -13,7 +14,7 @@ import {
 	RotateCw,
 	TriangleAlert,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect } from "react";
 import { toast } from "sonner";
 
 import { useInAppShell } from "#/components/app-shell";
@@ -25,7 +26,7 @@ import {
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
 import { EmptyMedia } from "#/components/ui/empty";
-import { loadSession } from "#/lib/session";
+import { sessionQueryOptions } from "#/lib/queries";
 
 /**
  * Shared shape for both dead ends: a kicker, one short display-size line, quiet
@@ -55,25 +56,11 @@ function ErrorLayout({
 	detail?: string;
 }) {
 	const inShell = useInAppShell();
-	const [user, setUser] = useState<{ name: string; email: string } | null>(
-		null,
-	);
-
-	useEffect(() => {
-		if (inShell) return;
-		let active = true;
-		void loadSession().then(
-			(session) => {
-				if (active) setUser(session?.user ?? null);
-			},
-			() => {
-				if (active) setUser(null);
-			},
-		);
-		return () => {
-			active = false;
-		};
-	}, [inShell]);
+	const session = useQuery({
+		...sessionQueryOptions,
+		enabled: !inShell && !import.meta.env.SSR,
+	});
+	const user = inShell ? null : (session.data?.user ?? null);
 
 	const panel = (
 		<div className="mx-auto w-full max-w-xl">

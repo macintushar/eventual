@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Mail, Plus, Users } from "lucide-react";
 
@@ -20,27 +21,29 @@ import {
 	ItemGroup,
 	ItemTitle,
 } from "#/components/ui/item";
-import { getDashboardFn } from "#/server/fn/app";
+import { Spinner } from "#/components/ui/spinner";
+import { dashboardQueryOptions } from "#/lib/queries";
 
 export const Route = createFileRoute("/app/")({
-	loader: () => getDashboardFn(),
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(dashboardQueryOptions),
 	component: Dashboard,
 });
 
 function Dashboard() {
-	const { groups, invitations, user } = Route.useLoaderData();
+	const { data, isFetching } = useSuspenseQuery(dashboardQueryOptions);
+	const { groups, invitations, crossGroupBalances, user } = data;
 	const composer = useComposer();
-	const balances = groups.flatMap((group) => group.balances);
-	const totals = [...new Set(balances.map((row) => row.currency))]
+	const totals = [...new Set(crossGroupBalances.map((row) => row.currency))]
 		.sort()
 		.map((currency) => ({
 			currency,
-			owed: balances
+			owed: crossGroupBalances
 				.filter((row) => row.currency === currency)
-				.reduce((sum, row) => sum + Math.max(row.balanceMinor, 0), 0),
-			owing: balances
+				.reduce((sum, row) => sum + Math.max(row.amountMinor, 0), 0),
+			owing: crossGroupBalances
 				.filter((row) => row.currency === currency)
-				.reduce((sum, row) => sum + Math.max(-row.balanceMinor, 0), 0),
+				.reduce((sum, row) => sum + Math.max(-row.amountMinor, 0), 0),
 		}));
 
 	return (
@@ -49,14 +52,20 @@ function Dashboard() {
 				<CardContent className="grid gap-5 p-5 sm:gap-6 sm:p-7 md:grid-cols-[1.4fr_1fr] md:items-center">
 					<div>
 						<p className="island-kicker">Your running total</p>
-						<h1 className="display-title mt-2 text-[2.125rem] font-bold sm:text-5xl">
-							{balances.every((row) => row.balanceMinor === 0)
+						<h1 className="display-title mt-2 flex flex-wrap items-center gap-3 text-[2.125rem] font-bold sm:text-5xl">
+							{crossGroupBalances.length === 0
 								? "You're all square"
 								: "Your balances"}
 						</h1>
 						<p className="mt-2 text-sm text-muted-foreground sm:text-base">
 							Welcome back, {user.name.split(" ")[0]}. Across{" "}
 							{groups.length === 1 ? "1 group" : `${groups.length} groups`}.
+							{isFetching ? (
+								<span className="ml-2 inline-flex items-center gap-1.5 text-xs">
+									<Spinner className="size-3" />
+									Updating
+								</span>
+							) : null}
 						</p>
 					</div>
 					<dl className="grid grid-cols-2 gap-3">

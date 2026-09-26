@@ -1,6 +1,11 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import {
+	createFileRoute,
+	Link,
+	notFound,
+	useNavigate,
+} from "@tanstack/react-router";
 import { Users } from "lucide-react";
-import { useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -18,23 +23,36 @@ import {
 } from "#/components/ui/card";
 import { EmptyMedia } from "#/components/ui/empty";
 import { Spinner } from "#/components/ui/spinner";
-import { getInvitationFn, mutateFn } from "#/server/fn/app";
-import { getSessionFn } from "#/server/fn/auth";
+import { useAppMutation } from "#/lib/app-mutation";
+import { invitationQueryOptions, sessionQueryOptions } from "#/lib/queries";
+import { isApiNotFound } from "#/lib/web-api-client";
 
 export const Route = createFileRoute("/invite/$invitationId")({
 	head: () => ({ meta: [{ name: "robots", content: "noindex" }] }),
-	loader: async ({ params }) => ({
-		invitation: await getInvitationFn({ data: params }),
-		session: await getSessionFn(),
-	}),
+	loader: async ({ context, params }) => {
+		try {
+			await Promise.all([
+				context.queryClient.ensureQueryData(
+					invitationQueryOptions(params.invitationId),
+				),
+				context.queryClient.ensureQueryData(sessionQueryOptions),
+			]);
+		} catch (error) {
+			if (isApiNotFound(error)) throw notFound();
+			throw error;
+		}
+	},
 	component: InvitePage,
 });
 
 function InvitePage() {
-	const { invitation, session } = Route.useLoaderData();
 	const { invitationId } = Route.useParams();
+	const { data: invitation, isFetching } = useSuspenseQuery(
+		invitationQueryOptions(invitationId),
+	);
+	const session = useSuspenseQuery(sessionQueryOptions).data;
 	const navigate = useNavigate();
-	const [joining, setJoining] = useState(false);
+	const accept = useAppMutation();
 
 	return (
 		<PublicPage
@@ -53,6 +71,9 @@ function InvitePage() {
 						</EmptyMedia>
 						<CardTitle className="display-title text-3xl">
 							Join {invitation.groupName}
+							{isFetching ? (
+								<Spinner className="ml-2 inline size-4 text-muted-foreground" />
+							) : null}
 						</CardTitle>
 						<CardDescription>
 							<strong className="font-semibold text-foreground">
@@ -66,33 +87,29 @@ function InvitePage() {
 						{session ? (
 							<Button
 								size="lg"
-								disabled={joining}
+								disabled={accept.isPending}
 								onClick={async () => {
-									setJoining(true);
-									try {
-										const result = await mutateFn({
-											data: {
-												action: "invitation.accept",
-												input: { invitationId },
-											},
-										});
-										toast.success(`Welcome to ${invitation.groupName}`);
-										if (result && "groupId" in result)
-											await navigate({
-												to: "/app/groups/$groupId",
-												params: { groupId: result.groupId },
-											});
-									} catch (error) {
-										toast.error(
-											error instanceof Error ? error.message : "Could not join",
-										);
-									} finally {
-										setJoining(false);
-									}
+									const outcome = await accept.execute({
+										action: "invitation.accept",
+										input: { invitationId },
+									});
+									if (
+										!outcome.ok ||
+										!outcome.result ||
+										typeof outcome.result !== "object" ||
+										!("groupId" in outcome.result) ||
+										typeof outcome.result.groupId !== "string"
+									)
+										return;
+									toast.success(`Welcome to ${invitation.groupName}`);
+									await navigate({
+										to: "/app/groups/$groupId",
+										params: { groupId: outcome.result.groupId },
+									});
 								}}
 							>
-								{joining ? <Spinner data-icon="inline-start" /> : null}
-								{joining ? "Joining…" : "Accept invitation"}
+								{accept.isPending ? <Spinner data-icon="inline-start" /> : null}
+								{accept.isPending ? "Joining…" : "Accept invitation"}
 							</Button>
 						) : (
 							<>

@@ -7,6 +7,8 @@ export const Route = createFileRoute("/login")({
 	head: () => ({ meta: [{ name: "robots", content: "noindex" }] }),
 	// Landing here means the cached session is gone or was never valid, whether
 	// the user signed out or a server function redirected them.
-	beforeLoad: () => clearSession(),
+	beforeLoad: ({ context }) => {
+		clearSession(context.queryClient);
+	},
 	component: () => <AuthForm mode="login" />,
 });

@@ -1,25 +1,30 @@
 import {
-	createFileRoute,
-	Link,
-	useNavigate,
-	useRouter,
-} from "@tanstack/react-router";
+	useInfiniteQuery,
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
+	Archive,
+	ArchiveRestore,
 	ArrowRight,
 	Check,
-	ChevronRight,
 	Copy,
+	Download,
 	History,
-	Lock,
 	LogOut,
 	MoreHorizontal,
 	Plus,
 	Receipt,
+	Repeat,
+	Search,
 	Trash2,
 	UserMinus,
 	UserPlus,
 } from "lucide-react";
-import { useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ActivityLine } from "#/components/activity-line";
 import { Amount } from "#/components/amount";
@@ -29,12 +34,23 @@ import { useComposer } from "#/components/composer";
 import { ConfirmDialog } from "#/components/confirm-dialog";
 import { CurrencySelect } from "#/components/currency-select";
 import { EmptyState } from "#/components/empty-state";
+import { ExpenseTable } from "#/components/expense-table";
 import { MemberAvatar } from "#/components/member-avatar";
+import {
+	MemberProfileDetails,
+	MemberProfileDialog,
+} from "#/components/member-profile";
+import {
+	NewRecurringExpense,
+	RecurringExpenses,
+} from "#/components/recurring-expenses";
+import { SettingsRow, SettingsSection } from "#/components/settings-section";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
 	Card,
+	CardAction,
 	CardContent,
 	CardDescription,
 	CardHeader,
@@ -70,7 +86,6 @@ import {
 	ItemContent,
 	ItemDescription,
 	ItemGroup,
-	ItemMedia,
 	ItemTitle,
 } from "#/components/ui/item";
 import {
@@ -98,15 +113,24 @@ import {
 import { Spinner } from "#/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { Textarea } from "#/components/ui/textarea";
+import { useAppMutation } from "#/lib/app-mutation";
 import { copyToClipboard } from "#/lib/clipboard";
 import { currencySymbol } from "#/lib/currencies";
-import { formatShortDate } from "#/lib/dates";
 import { formatMinor, fromMinor, parseMinor } from "#/lib/money";
+import {
+	expensePageQueryOptions,
+	expensePageSize,
+	groupActivityInfiniteOptions,
+	groupPageQueryOptions,
+} from "#/lib/queries";
 import { repaymentLimit, validateRepayment } from "#/lib/settlements";
-import { getActivityFn, getGroupPageFn, mutateFn } from "#/server/fn/app";
+import type { getGroupPageFn } from "#/lib/web-api-client";
+import type { MutationInput } from "#/server/operations";
+import type { ExpenseSortBy } from "#/server/schemas/expenses";
 
 export const Route = createFileRoute("/app/groups/$groupId/")({
-	loader: ({ params }) => getGroupPageFn({ data: { groupId: params.groupId } }),
+	loader: ({ context, params }) =>
+		context.queryClient.ensureQueryData(groupPageQueryOptions(params.groupId)),
 	component: GroupPage,
 });
 
@@ -114,36 +138,22 @@ const ROLES = ["owner", "admin", "member"] as const;
 type Role = (typeof ROLES)[number];
 
 type LoaderData = Awaited<ReturnType<typeof getGroupPageFn>>;
-type Run = (
-	action: Parameters<typeof mutateFn>[0]["data"],
-	message: string,
-) => Promise<boolean>;
+type Run = (action: MutationInput, message: string) => Promise<boolean>;
+type Execute = ReturnType<typeof useAppMutation>["execute"];
 
 function GroupPage() {
-	const data = Route.useLoaderData();
 	const { groupId } = Route.useParams();
-	const router = useRouter();
+	const { data, isFetching } = useSuspenseQuery(groupPageQueryOptions(groupId));
 	const navigate = useNavigate();
 	const composer = useComposer();
-
-	const run: Run = async (action, message) => {
-		try {
-			await mutateFn({ data: action });
-			toast.success(message);
-			await router.invalidate();
-			return true;
-		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Action failed");
-			return false;
-		}
-	};
+	const { run, execute } = useAppMutation();
 
 	const mine = data.balances.members.filter(
 		(row) => row.userId === data.user.id,
 	);
 
 	return (
-		<div className="flex flex-col gap-5 sm:gap-6">
+		<div className="flex flex-col gap-6 sm:gap-8">
 			<AppBreadcrumb
 				parent={{ label: "All groups", to: "/app" }}
 				page={data.group.name}
@@ -151,10 +161,16 @@ function GroupPage() {
 			<header className="rise-in flex flex-wrap items-end justify-between gap-4">
 				<div className="min-w-0">
 					<p className="island-kicker capitalize">{data.group.myRole}</p>
-					<h1 className="display-title text-[2.125rem] font-bold sm:text-5xl">
+					<h1 className="display-title flex flex-wrap items-center gap-3 text-[2.125rem] font-bold sm:text-5xl">
 						{data.group.name}
+						{isFetching ? (
+							<span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+								<Spinner className="size-3" />
+								Updating
+							</span>
+						) : null}
 					</h1>
-					<p className="mt-1 text-sm text-muted-foreground">
+					<p className="mt-2 text-sm text-muted-foreground">
 						{data.group.members.length}{" "}
 						{data.group.members.length === 1 ? "member" : "members"}
 						{mine
@@ -191,7 +207,7 @@ function GroupPage() {
 				 * users get this free: the browser scrolls whatever it focuses.
 				 */}
 				<TabsList
-					className="segmented rail h-auto w-full justify-start p-1 [&>*]:shrink-0"
+					className="segmented rail h-auto w-fit max-w-full justify-start p-1 [&>*]:shrink-0 [&>*]:px-4"
 					onClick={(event) =>
 						(event.target as HTMLElement)
 							.closest('[data-slot="tabs-trigger"]')
@@ -209,23 +225,29 @@ function GroupPage() {
 					<TabsTrigger value="settings">Settings</TabsTrigger>
 				</TabsList>
 
-				<TabsContent value="expenses" className="mt-5">
-					<ExpensesTab data={data} groupId={groupId} />
+				<TabsContent value="expenses" className="mt-6 sm:mt-8">
+					<ExpensesTab key={groupId} data={data} groupId={groupId} run={run} />
 				</TabsContent>
-				<TabsContent value="balances" className="mt-5">
+				<TabsContent value="balances" className="mt-6 sm:mt-8">
 					<BalancesTab data={data} groupId={groupId} run={run} />
 				</TabsContent>
-				<TabsContent value="members" className="mt-5">
-					<MembersTab data={data} groupId={groupId} run={run} />
+				<TabsContent value="members" className="mt-6 sm:mt-8">
+					<MembersTab
+						data={data}
+						groupId={groupId}
+						run={run}
+						execute={execute}
+					/>
 				</TabsContent>
-				<TabsContent value="activity" className="mt-5">
+				<TabsContent value="activity" className="mt-6 sm:mt-8">
 					<ActivityTab data={data} groupId={groupId} />
 				</TabsContent>
-				<TabsContent value="settings" className="mt-5">
+				<TabsContent value="settings" className="mt-6 sm:mt-8">
 					<SettingsTab
 						data={data}
 						groupId={groupId}
 						run={run}
+						execute={execute}
 						onLeave={() => navigate({ to: "/app" })}
 					/>
 				</TabsContent>
@@ -236,73 +258,191 @@ function GroupPage() {
 
 /* ---------------------------------------------------------------- Expenses */
 
-function ExpensesTab({ data, groupId }: { data: LoaderData; groupId: string }) {
+function ExpensesTab({
+	data,
+	groupId,
+	run,
+}: {
+	data: LoaderData;
+	groupId: string;
+	run: Run;
+}) {
 	const composer = useComposer();
+	const [search, setSearch] = useState("");
+	const [submitted, setSubmitted] = useState("");
+	const [page, setPage] = useState(0);
+	const [sort, setSort] = useState<{ id: ExpenseSortBy; desc: boolean }>({
+		id: "date",
+		desc: true,
+	});
+	const searching = submitted.length > 0;
+	const expenseQuery = useQuery({
+		...expensePageQueryOptions(
+			groupId,
+			submitted,
+			sort.id,
+			sort.desc ? "desc" : "asc",
+			page * expensePageSize,
+		),
+		initialData:
+			!searching && page === 0 && sort.id === "date" && sort.desc
+				? data.expenses
+				: undefined,
+	});
 
-	if (data.expenses.items.length === 0)
+	useEffect(() => {
+		if (!expenseQuery.isError) return;
+		toast.error(
+			expenseQuery.error instanceof Error
+				? expenseQuery.error.message
+				: "Could not load expenses",
+		);
+	}, [expenseQuery.isError, expenseQuery.error]);
+
+	const hasRecurring = data.recurringExpenses.length > 0;
+	const recurring = (
+		<RecurringExpenses
+			groupId={groupId}
+			templates={data.recurringExpenses}
+			members={data.group.members}
+			currentUserId={data.user.id}
+			run={run}
+		/>
+	);
+	const newRecurring = (trigger?: ReactNode) => (
+		<NewRecurringExpense
+			groupId={groupId}
+			members={data.group.members}
+			currentUserId={data.user.id}
+			run={run}
+			trigger={trigger}
+		/>
+	);
+
+	if (data.expenses.items.length === 0 && !searching)
 		return (
-			<EmptyState
-				icon={Receipt}
-				title="No expenses yet"
-				description="Add the first shared cost and Eventual works out who owes what in each currency."
-				action={
-					<Button onClick={() => composer.expense({ groupId })}>
-						<Plus data-icon="inline-start" />
-						Add expense
-					</Button>
-				}
-			/>
+			<div className="flex flex-col gap-10 sm:gap-12">
+				{recurring}
+				<EmptyState
+					icon={Receipt}
+					title="No expenses yet"
+					description="Add the first shared cost and Eventual works out who owes what in each currency."
+					action={
+						<div className="flex flex-wrap justify-center gap-2">
+							<Button onClick={() => composer.expense({ groupId })}>
+								<Plus data-icon="inline-start" />
+								Add expense
+							</Button>
+							{hasRecurring
+								? null
+								: newRecurring(
+										<Button variant="outline">
+											<Repeat data-icon="inline-start" />
+											Set up recurring
+										</Button>,
+									)}
+						</div>
+					}
+				/>
+			</div>
 		);
 
+	const items = expenseQuery.data?.items ?? [];
+	const waiting = expenseQuery.isPending;
+
 	return (
-		<ItemGroup className="island-shell overflow-hidden rounded-2xl">
-			{data.expenses.items.map((item, index) => (
-				<Item
-					key={item.id}
-					asChild
-					size="sm"
-					/*
-					 * `flex-nowrap` matters on a phone: the default wrap drops the
-					 * amount onto its own line as soon as a description gets long,
-					 * which breaks the column of figures the list is read down.
-					 */
-					className="press rise-in flex-nowrap rounded-none border-b-border/60 last:border-b-transparent"
-					style={{ "--i": index } as React.CSSProperties}
-				>
-					<Link
-						to="/app/groups/$groupId/expenses/$expenseId"
-						params={{ groupId, expenseId: item.id }}
+		<div className="flex flex-col gap-10 sm:gap-12">
+			{recurring}
+			<section aria-label="Expenses" className="flex flex-col gap-3">
+				<div className="flex gap-2">
+					<form
+						className="flex min-w-0 flex-1 gap-2"
+						onSubmit={(event) => {
+							event.preventDefault();
+							setSubmitted(search.trim());
+							setPage(0);
+						}}
 					>
-						<ItemMedia>
-							<MemberAvatar name={item.payer.name} seed={item.payer.id} />
-						</ItemMedia>
-						<ItemContent className="min-w-0">
-							<ItemTitle className="w-full min-w-0">
-								<span className="truncate">{item.description}</span>
-								{item.locked ? (
-									<Badge variant="secondary" className="shrink-0">
-										<Lock data-icon="inline-start" />
-										Locked
-									</Badge>
-								) : null}
-							</ItemTitle>
-							<ItemDescription className="line-clamp-1">
-								Paid by {item.payer.name} · {formatShortDate(item.date)}
-							</ItemDescription>
-						</ItemContent>
-						<ItemActions className="shrink-0">
-							<span className="font-bold sm:text-lg">
-								<Amount minor={item.amountMinor} currency={item.currency} />
-							</span>
-							<ChevronRight
-								className="size-4 text-muted-foreground"
-								aria-hidden="true"
+						<InputGroup>
+							<InputGroupAddon>
+								<Search />
+							</InputGroupAddon>
+							<InputGroupInput
+								type="search"
+								value={search}
+								onChange={(event) => setSearch(event.target.value)}
+								placeholder="Search descriptions, notes, or categories"
+								aria-label="Search expenses"
 							/>
-						</ItemActions>
-					</Link>
-				</Item>
-			))}
-		</ItemGroup>
+							{expenseQuery.isFetching ? (
+								<InputGroupAddon align="inline-end">
+									<Spinner />
+								</InputGroupAddon>
+							) : null}
+						</InputGroup>
+					</form>
+					{hasRecurring
+						? null
+						: newRecurring(
+								<Button variant="outline">
+									<Repeat data-icon="inline-start" />
+									<span className="sr-only sm:not-sr-only">Recurring</span>
+								</Button>,
+							)}
+				</div>
+				{waiting ? (
+					<p className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+						<Spinner />
+						Loading expenses…
+					</p>
+				) : items.length === 0 ? (
+					<p className="py-8 text-center text-sm text-muted-foreground">
+						No expenses match this search.
+					</p>
+				) : (
+					<div className="island-shell overflow-hidden rounded-2xl">
+						<ExpenseTable
+							rows={items}
+							groupId={groupId}
+							fetching={expenseQuery.isFetching}
+							sort={sort}
+							onSortChange={(next) => {
+								setSort(next);
+								setPage(0);
+							}}
+						/>
+					</div>
+				)}
+				{!waiting && (page > 0 || expenseQuery.data?.nextOffset != null) ? (
+					<nav
+						className="flex items-center justify-end gap-3"
+						aria-label="Expense pages"
+					>
+						<Button
+							type="button"
+							variant="outline"
+							disabled={page === 0 || expenseQuery.isFetching}
+							onClick={() => setPage((current) => current - 1)}
+						>
+							Previous
+						</Button>
+						<span className="text-sm text-muted-foreground">
+							Page {page + 1}
+						</span>
+						<Button
+							type="button"
+							variant="outline"
+							disabled={
+								expenseQuery.data?.nextOffset == null || expenseQuery.isFetching
+							}
+							onClick={() => setPage((current) => current + 1)}
+						>
+							Next
+						</Button>
+					</nav>
+				) : null}
+			</section>
+		</div>
 	);
 }
 
@@ -342,6 +482,9 @@ function BalancesTab({
 	};
 	const invalid = validateRepayment(data.balances.transfers, repayment);
 	const limit = repaymentLimit(data.balances.transfers, repayment);
+	const recipient = data.group.members.find(
+		(member) => member.userId === settleTo,
+	);
 
 	const max = (currency: string) =>
 		Math.max(
@@ -421,12 +564,22 @@ function BalancesTab({
 						<CardDescription>
 							Suggested payments to settle everyone, per currency.
 						</CardDescription>
+						<CardAction>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setSettleOpen(true)}
+							>
+								Record payment
+							</Button>
+						</CardAction>
 					</CardHeader>
 					<CardContent className="flex flex-col gap-2">
 						{data.balances.transfers.length === 0 ? (
-							<Alert className="border-positive/30 bg-positive/10 text-positive">
-								<AlertTitle>Everyone is settled up.</AlertTitle>
-							</Alert>
+							<p className="flex items-center gap-2 text-sm text-positive">
+								<Check className="size-4" aria-hidden="true" />
+								Everyone is settled up.
+							</p>
 						) : (
 							<ItemGroup>
 								{data.balances.transfers.map((transfer) => (
@@ -450,22 +603,49 @@ function BalancesTab({
 												{formatMinor(transfer.amountMinor, transfer.currency)}
 											</strong>
 											{transfer.from.userId === data.user.id ? (
-												<Button
-													size="sm"
-													onClick={() => {
-														setSettleTo(transfer.to.userId);
-														setSettleCurrency(transfer.currency);
-														setSettleAmount(
-															fromMinor(
-																transfer.amountMinor,
-																transfer.currency,
-															),
-														);
-														setSettleOpen(true);
-													}}
-												>
-													Settle up
-												</Button>
+												<>
+													{data.paymentIntents.intents.find(
+														(intent) =>
+															intent.fromUserId === transfer.from.userId &&
+															intent.toUserId === transfer.to.userId &&
+															intent.currency === transfer.currency &&
+															intent.amountMinor === transfer.amountMinor,
+													)?.upiUrl ? (
+														<Button size="sm" variant="outline" asChild>
+															<a
+																href={
+																	data.paymentIntents.intents.find(
+																		(intent) =>
+																			intent.fromUserId ===
+																				transfer.from.userId &&
+																			intent.toUserId === transfer.to.userId &&
+																			intent.currency === transfer.currency &&
+																			intent.amountMinor ===
+																				transfer.amountMinor,
+																	)?.upiUrl ?? undefined
+																}
+															>
+																Pay via UPI
+															</a>
+														</Button>
+													) : null}
+													<Button
+														size="sm"
+														onClick={() => {
+															setSettleTo(transfer.to.userId);
+															setSettleCurrency(transfer.currency);
+															setSettleAmount(
+																fromMinor(
+																	transfer.amountMinor,
+																	transfer.currency,
+																),
+															);
+															setSettleOpen(true);
+														}}
+													>
+														Confirm paid
+													</Button>
+												</>
 											) : null}
 										</ItemActions>
 									</Item>
@@ -474,12 +654,8 @@ function BalancesTab({
 						)}
 
 						<Dialog open={settleOpen} onOpenChange={setSettleOpen}>
-							<DialogTrigger asChild>
-								<Button variant="outline" className="mt-1">
-									Record settlement
-								</Button>
-							</DialogTrigger>
 							<DialogContent
+								className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
 								ref={setSettleContent}
 								onEscapeKeyDown={(event) => {
 									// The currency list gets the first Escape, this dialog the
@@ -533,6 +709,7 @@ function BalancesTab({
 												</SelectContent>
 											</Select>
 										</Field>
+										{recipient && <MemberProfileDetails member={recipient} />}
 										<Field data-invalid={Boolean(settleAmount && invalid)}>
 											<FieldLabel htmlFor="settle-amount">Amount</FieldLabel>
 											<InputGroup>
@@ -611,10 +788,7 @@ function BalancesTab({
 
 				<Card className="island-shell">
 					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<History />
-							Settlement history
-						</CardTitle>
+						<CardTitle>Payment history</CardTitle>
 					</CardHeader>
 					<CardContent>
 						{data.settlements.length === 0 ? (
@@ -802,191 +976,381 @@ function MemberSheet({
 	);
 }
 
+/**
+ * Compact weight editor for one member, shown to those who can manage.
+ * Commits on change: only when the value is a valid positive integer that
+ * differs from the member's current weight.
+ */
+function MemberWeight({
+	member,
+	groupId,
+	run,
+}: {
+	member: LoaderData["group"]["members"][number];
+	groupId: string;
+	run: Run;
+}) {
+	const [weight, setWeight] = useState(String(member.weight));
+	const value = Number(weight);
+	const valid = Number.isInteger(value) && value > 0;
+
+	return (
+		<InputGroup className="w-28">
+			<InputGroupAddon>
+				<InputGroupText>Weight</InputGroupText>
+			</InputGroupAddon>
+			<InputGroupInput
+				type="number"
+				min={1}
+				step={1}
+				aria-label={`Weight for ${member.name}`}
+				placeholder="1"
+				className="tabular"
+				value={weight}
+				onChange={(event) => setWeight(event.target.value)}
+				onBlur={() => {
+					if (value === member.weight) setWeight(String(member.weight));
+					if (!valid || value === member.weight) return;
+					run(
+						{
+							action: "member.weight",
+							input: { groupId, userId: member.userId, weight: value },
+						},
+						"Weight updated",
+					);
+				}}
+			/>
+		</InputGroup>
+	);
+}
+
 function MembersTab({
 	data,
 	groupId,
 	run,
+	execute,
 }: {
 	data: LoaderData;
 	groupId: string;
 	run: Run;
+	execute: Execute;
 }) {
-	const router = useRouter();
 	const [inviteEmail, setInviteEmail] = useState("");
+	const [inviting, setInviting] = useState(false);
 	const [inviteRole, setInviteRole] = useState<"owner" | "admin" | "member">(
 		"member",
 	);
 	const [inviteUrl, setInviteUrl] = useState("");
 	const [copied, setCopied] = useState(false);
 	const canManage = data.group.myRole !== "member";
+	const [addOpen, setAddOpen] = useState(false);
+	const [addName, setAddName] = useState("");
+	const [addEmail, setAddEmail] = useState("");
+	const [addPhone, setAddPhone] = useState("");
+	const [addWeight, setAddWeight] = useState("1");
+	const addWeightValue = addWeight.trim() === "" ? 1 : Number(addWeight);
+	const addValid =
+		Boolean(addName.trim()) &&
+		Number.isInteger(addWeightValue) &&
+		addWeightValue > 0;
 
 	return (
-		<Card className="island-shell">
-			<CardHeader className="flex flex-wrap items-start justify-between gap-3">
-				<div>
-					<CardTitle>Members</CardTitle>
-					<CardDescription>
-						Owners manage roles; admins manage members.
-					</CardDescription>
-				</div>
-				{canManage && (
-					<Dialog
-						onOpenChange={(open) => {
-							if (!open) {
-								setInviteUrl("");
-								setCopied(false);
-							}
-						}}
-					>
-						<DialogTrigger asChild>
-							<Button>
-								<UserPlus data-icon="inline-start" />
-								Invite
-							</Button>
-						</DialogTrigger>
-						<DialogContent>
-							<DialogHeader>
-								<DialogTitle>Invite a member</DialogTitle>
-								<DialogDescription>
-									Eventual doesn't send email — create a link and share it
-									yourself.
-								</DialogDescription>
-							</DialogHeader>
-							<FieldGroup>
-								<Field>
-									<FieldLabel htmlFor="invite-email">Email</FieldLabel>
-									<Input
-										id="invite-email"
-										type="email"
-										placeholder="friend@example.com"
-										value={inviteEmail}
-										onChange={(event) => setInviteEmail(event.target.value)}
-									/>
-								</Field>
-								<Field>
-									<FieldLabel htmlFor="invite-role">Role</FieldLabel>
-									<Select
-										value={inviteRole}
-										onValueChange={(value) =>
-											setInviteRole(value as typeof inviteRole)
-										}
-									>
-										<SelectTrigger id="invite-role" className="w-full">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectGroup>
-												{["member", "admin", "owner"].map((role) => (
-													<SelectItem
-														key={role}
-														value={role}
-														className="capitalize"
-													>
-														{role}
-													</SelectItem>
-												))}
-											</SelectGroup>
-										</SelectContent>
-									</Select>
-								</Field>
-								<Button
-									disabled={!inviteEmail.trim()}
-									onClick={async () => {
-										try {
-											const result = await mutateFn({
-												data: {
+		<div className="flex flex-col gap-10 sm:gap-12">
+			<section
+				aria-labelledby="members-heading"
+				className="flex flex-col gap-4"
+			>
+				<div className="flex flex-wrap items-end justify-between gap-3">
+					<div className="flex flex-col gap-1">
+						<h2 id="members-heading" className="text-base font-semibold">
+							{data.group.members.length}{" "}
+							{data.group.members.length === 1 ? "member" : "members"}
+						</h2>
+						<p className="text-sm text-muted-foreground">
+							Owners manage roles; admins add and remove people.
+						</p>
+					</div>
+					{canManage && (
+						<div className="flex flex-wrap gap-2">
+							<Dialog
+								open={addOpen}
+								onOpenChange={(open) => {
+									setAddOpen(open);
+									if (!open) {
+										setAddName("");
+										setAddEmail("");
+										setAddPhone("");
+										setAddWeight("1");
+									}
+								}}
+							>
+								<DialogTrigger asChild>
+									<Button variant="outline">
+										<UserPlus data-icon="inline-start" />
+										Add person
+									</Button>
+								</DialogTrigger>
+								<DialogContent>
+									<DialogHeader>
+										<DialogTitle>Add a person</DialogTitle>
+										<DialogDescription>
+											Add someone without an account yet — for example, a guest
+											who pays in cash.
+										</DialogDescription>
+									</DialogHeader>
+									<FieldGroup>
+										<Field>
+											<FieldLabel htmlFor="add-name">Name</FieldLabel>
+											<Input
+												id="add-name"
+												placeholder="Guest name"
+												value={addName}
+												onChange={(event) => setAddName(event.target.value)}
+											/>
+										</Field>
+										<Field>
+											<FieldLabel htmlFor="add-email">Email</FieldLabel>
+											<Input
+												id="add-email"
+												type="email"
+												placeholder="person@example.com"
+												value={addEmail}
+												onChange={(event) => setAddEmail(event.target.value)}
+											/>
+											<FieldDescription>Optional.</FieldDescription>
+										</Field>
+										<Field>
+											<FieldLabel htmlFor="add-phone">Phone</FieldLabel>
+											<Input
+												id="add-phone"
+												type="tel"
+												inputMode="tel"
+												placeholder="+919876543210"
+												value={addPhone}
+												onChange={(event) => setAddPhone(event.target.value)}
+											/>
+											<FieldDescription>
+												Optional, international format with country code.
+											</FieldDescription>
+										</Field>
+										<Field>
+											<FieldLabel htmlFor="add-weight">Weight</FieldLabel>
+											<Input
+												id="add-weight"
+												type="number"
+												min={1}
+												step={1}
+												className="w-20 tabular"
+												value={addWeight}
+												onChange={(event) => setAddWeight(event.target.value)}
+											/>
+											<FieldDescription>
+												How many shares they count as in an even split. Default
+												1.
+											</FieldDescription>
+										</Field>
+									</FieldGroup>
+									<DialogFooter>
+										<Button
+											disabled={!addValid}
+											onClick={async () => {
+												const ok = await run(
+													{
+														action: "member.add",
+														input: {
+															groupId,
+															name: addName,
+															email: addEmail.trim() || undefined,
+															phone: addPhone.trim() || undefined,
+															weight: addWeightValue,
+														},
+													},
+													"Person added",
+												);
+												if (ok) setAddOpen(false);
+											}}
+										>
+											Add person
+										</Button>
+									</DialogFooter>
+								</DialogContent>
+							</Dialog>
+							<Dialog
+								onOpenChange={(open) => {
+									if (!open) {
+										setInviteUrl("");
+										setCopied(false);
+									}
+								}}
+							>
+								<DialogTrigger asChild>
+									<Button>
+										<UserPlus data-icon="inline-start" />
+										Invite
+									</Button>
+								</DialogTrigger>
+								<DialogContent>
+									<DialogHeader>
+										<DialogTitle>Invite a member</DialogTitle>
+										<DialogDescription>
+											We email the invitation when email is configured —
+											otherwise share the link yourself.
+										</DialogDescription>
+									</DialogHeader>
+									<FieldGroup>
+										<Field>
+											<FieldLabel htmlFor="invite-email">Email</FieldLabel>
+											<Input
+												id="invite-email"
+												type="email"
+												placeholder="friend@example.com"
+												value={inviteEmail}
+												onChange={(event) => setInviteEmail(event.target.value)}
+											/>
+										</Field>
+										<Field>
+											<FieldLabel htmlFor="invite-role">Role</FieldLabel>
+											<Select
+												value={inviteRole}
+												onValueChange={(value) =>
+													setInviteRole(value as typeof inviteRole)
+												}
+											>
+												<SelectTrigger id="invite-role" className="w-full">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectGroup>
+														{["member", "admin", "owner"].map((role) => (
+															<SelectItem
+																key={role}
+																value={role}
+																className="capitalize"
+															>
+																{role}
+															</SelectItem>
+														))}
+													</SelectGroup>
+												</SelectContent>
+											</Select>
+										</Field>
+										<Button
+											disabled={inviting || !inviteEmail.trim()}
+											onClick={async () => {
+												setInviting(true);
+												const outcome = await execute({
 													action: "invitation.create",
 													input: {
 														groupId,
 														email: inviteEmail,
 														role: inviteRole,
 													},
-												},
-											});
-											if (result && "inviteUrl" in result)
-												setInviteUrl(
-													`${window.location.origin}${result.inviteUrl}`,
-												);
-											if (result && "emailDelivery" in result) {
-												if (result.emailDelivery === "scheduled")
+												});
+												setInviting(false);
+												if (
+													!outcome.ok ||
+													!outcome.result ||
+													typeof outcome.result !== "object"
+												)
+													return;
+												if (
+													"inviteUrl" in outcome.result &&
+													typeof outcome.result.inviteUrl === "string"
+												)
+													setInviteUrl(
+														`${window.location.origin}${outcome.result.inviteUrl}`,
+													);
+												if (
+													"emailDelivery" in outcome.result &&
+													outcome.result.emailDelivery === "scheduled"
+												)
 													toast.success("Invitation email queued");
-											}
-											setCopied(false);
-											await router.invalidate();
-										} catch (error) {
-											toast.error(
-												error instanceof Error
-													? error.message
-													: "Invite failed",
-											);
-										}
-									}}
-								>
-									Send invitation
-								</Button>
+												setCopied(false);
+											}}
+										>
+											{inviting ? <Spinner data-icon="inline-start" /> : null}
+											{inviting ? "Sending…" : "Send invitation"}
+										</Button>
 
-								{inviteUrl ? (
-									<Alert className="border-primary/30 bg-primary/5">
-										<AlertTitle>Share this link</AlertTitle>
-										<AlertDescription>
-											<InputGroup className="mt-2">
-												<InputGroupInput
-													id="invite-url"
-													readOnly
-													value={inviteUrl}
-													className="text-xs"
-													onFocus={(event) => event.currentTarget.select()}
-												/>
-												<InputGroupAddon align="inline-end">
-													<InputGroupButton
-														aria-label={copied ? "Copied" : "Copy invite link"}
-														onClick={async () => {
-															const ok = await copyToClipboard(
-																inviteUrl,
-																"invite link",
-															);
-															if (!ok) return;
-															setCopied(true);
-															toast.success("Invite link copied");
-														}}
-													>
-														{copied ? <Check /> : <Copy />}
-														{copied ? "Copied" : "Copy"}
-													</InputGroupButton>
-												</InputGroupAddon>
-											</InputGroup>
-										</AlertDescription>
-									</Alert>
-								) : null}
-							</FieldGroup>
-						</DialogContent>
-					</Dialog>
-				)}
-			</CardHeader>
-			<CardContent>
-				<ItemGroup>
-					{data.group.members.map((member) => (
-						<Item key={member.userId} size="sm" className="flex-nowrap">
-							<ItemMedia>
-								<MemberAvatar name={member.name} seed={member.userId} />
-							</ItemMedia>
-							<ItemContent className="min-w-0">
-								<ItemTitle className="w-full min-w-0">
-									<span className="truncate">
-										{member.name}
-										{member.userId === data.user.id ? (
-											<span className="text-muted-foreground"> (you)</span>
+										{inviteUrl ? (
+											<Alert className="border-primary/30 bg-primary/5">
+												<AlertTitle>Share this link</AlertTitle>
+												<AlertDescription>
+													<InputGroup className="mt-2">
+														<InputGroupInput
+															id="invite-url"
+															readOnly
+															value={inviteUrl}
+															className="text-xs"
+															onFocus={(event) => event.currentTarget.select()}
+														/>
+														<InputGroupAddon align="inline-end">
+															<InputGroupButton
+																aria-label={
+																	copied ? "Copied" : "Copy invite link"
+																}
+																onClick={async () => {
+																	const ok = await copyToClipboard(
+																		inviteUrl,
+																		"invite link",
+																	);
+																	if (!ok) return;
+																	setCopied(true);
+																	toast.success("Invite link copied");
+																}}
+															>
+																{copied ? <Check /> : <Copy />}
+																{copied ? "Copied" : "Copy"}
+															</InputGroupButton>
+														</InputGroupAddon>
+													</InputGroup>
+												</AlertDescription>
+											</Alert>
 										) : null}
-									</span>
-								</ItemTitle>
-								<ItemDescription className="line-clamp-1">
-									{member.email}
-								</ItemDescription>
-							</ItemContent>
+									</FieldGroup>
+								</DialogContent>
+							</Dialog>
+						</div>
+					)}
+				</div>
+
+				<ul className="island-shell divide-y overflow-hidden rounded-2xl">
+					{data.group.members.map((member) => (
+						<li
+							key={member.userId}
+							className="flex items-center gap-3 py-3 ps-3 pe-4 sm:gap-4 sm:py-3.5 sm:ps-4 sm:pe-6"
+						>
+							<MemberProfileDialog
+								member={member}
+								trigger={
+									<button
+										type="button"
+										className="press flex min-w-0 flex-1 items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-muted/60"
+									>
+										<MemberAvatar
+											name={member.name}
+											seed={member.userId}
+											image={member.image}
+										/>
+										<span className="flex min-w-0 flex-col">
+											<span className="truncate text-sm font-medium">
+												{member.name}
+												{member.userId === data.user.id ? (
+													<span className="text-muted-foreground"> (you)</span>
+												) : null}
+											</span>
+											<span className="truncate text-sm text-muted-foreground">
+												{member.isGuest ? "Guest" : member.email}
+											</span>
+										</span>
+										<span className="sr-only">, view profile</span>
+									</button>
+								}
+							/>
 
 							{/* Phone: the role reads as a badge and everything you can do
 							    to this person is one tap away in a sheet. */}
-							<ItemActions className="shrink-0 sm:hidden">
+							<div className="flex shrink-0 items-center gap-2 sm:hidden">
 								<Badge variant="secondary" className="capitalize">
 									{member.role}
 								</Badge>
@@ -997,9 +1361,12 @@ function MembersTab({
 									run={run}
 									canManage={canManage}
 								/>
-							</ItemActions>
+							</div>
 
-							<ItemActions className="hidden shrink-0 sm:flex">
+							<div className="hidden shrink-0 items-center gap-2 sm:flex">
+								{canManage ? (
+									<MemberWeight member={member} groupId={groupId} run={run} />
+								) : null}
 								{data.group.myRole === "owner" ? (
 									<Select
 										value={member.role}
@@ -1018,7 +1385,7 @@ function MembersTab({
 										}
 									>
 										<SelectTrigger
-											className="w-32 capitalize"
+											className="w-28 capitalize"
 											aria-label={`Role for ${member.name}`}
 										>
 											<SelectValue />
@@ -1042,115 +1409,154 @@ function MembersTab({
 										{member.role}
 									</Badge>
 								)}
-								{member.userId !== data.user.id && canManage ? (
-									<ConfirmDialog
-										media={<UserMinus />}
-										title={`Remove ${member.name}?`}
-										description={`${member.name} loses access immediately. Their shares in expenses already recorded stay put, and you can invite them back with a new invitation.`}
-										confirmLabel="Remove from group"
-										onConfirm={() =>
-											run(
-												{
-													action: "member.remove",
-													input: { groupId, userId: member.userId },
-												},
-												"Member removed",
-											)
-										}
-										trigger={
-											<Button
-												variant="ghost"
-												size="sm"
-												className="press text-destructive"
-											>
-												Remove
-											</Button>
-										}
-									/>
-								) : null}
-							</ItemActions>
-						</Item>
-					))}
-				</ItemGroup>
-
-				{data.invitations.length > 0 ? (
-					<>
-						<Separator className="my-4" />
-						<p className="mb-2 text-sm font-semibold">Pending invitations</p>
-						<ItemGroup className="gap-2">
-							{data.invitations.map((invite) => (
-								<Item key={invite.id} variant="outline" size="sm">
-									<ItemContent>
-										<ItemTitle>
-											{invite.email}
-											<Badge variant="secondary" className="capitalize">
-												{invite.role}
-											</Badge>
-										</ItemTitle>
-									</ItemContent>
-									<ItemActions>
+								{canManage ? (
+									member.userId !== data.user.id ? (
 										<ConfirmDialog
 											media={<UserMinus />}
-											title="Revoke this invitation?"
-											description={`${invite.email} will not be able to join through this invitation. You can invite them again any time.`}
-											confirmLabel="Revoke invitation"
+											title={`Remove ${member.name}?`}
+											description={`${member.name} loses access immediately. Their shares in expenses already recorded stay put, and you can invite them back with a new invitation.`}
+											confirmLabel="Remove from group"
 											onConfirm={() =>
 												run(
 													{
-														action: "invitation.revoke",
-														input: { invitationId: invite.id },
+														action: "member.remove",
+														input: { groupId, userId: member.userId },
 													},
-													"Invitation revoked",
+													"Member removed",
 												)
 											}
 											trigger={
 												<Button
-													size="sm"
 													variant="ghost"
-													className="press text-destructive"
+													size="icon-sm"
+													className="text-muted-foreground hover:text-destructive"
+													aria-label={`Remove ${member.name}`}
 												>
-													Revoke
+													<UserMinus />
 												</Button>
 											}
 										/>
-									</ItemActions>
-								</Item>
-							))}
-						</ItemGroup>
-					</>
-				) : null}
-			</CardContent>
-		</Card>
+									) : (
+										// Keeps the columns lined up on your own row.
+										<span className="size-8" aria-hidden="true" />
+									)
+								) : null}
+							</div>
+						</li>
+					))}
+				</ul>
+			</section>
+
+			{data.invitations.length > 0 ? (
+				<section
+					aria-labelledby="invitations-heading"
+					className="flex flex-col gap-4"
+				>
+					<div className="flex flex-col gap-1">
+						<h2 id="invitations-heading" className="text-base font-semibold">
+							Pending invitations
+						</h2>
+						<p className="text-sm text-muted-foreground">
+							They join as soon as they accept.
+						</p>
+					</div>
+					<ul className="island-shell divide-y overflow-hidden rounded-2xl">
+						{data.invitations.map((invite) => (
+							<li
+								key={invite.id}
+								className="flex items-center gap-3 py-3 ps-5 pe-4 sm:ps-6"
+							>
+								<span className="min-w-0 flex-1 truncate text-sm font-medium">
+									{invite.email}
+								</span>
+								<Badge variant="secondary" className="capitalize">
+									{invite.role}
+								</Badge>
+								{canManage ? (
+									<ConfirmDialog
+										media={<UserMinus />}
+										title="Revoke this invitation?"
+										description={`${invite.email} will not be able to join through this invitation. You can invite them again any time.`}
+										confirmLabel="Revoke invitation"
+										onConfirm={() =>
+											run(
+												{
+													action: "invitation.revoke",
+													input: { invitationId: invite.id },
+												},
+												"Invitation revoked",
+											)
+										}
+										trigger={
+											<Button
+												size="sm"
+												variant="ghost"
+												className="text-destructive"
+											>
+												Revoke
+											</Button>
+										}
+									/>
+								) : null}
+							</li>
+						))}
+					</ul>
+				</section>
+			) : null}
+		</div>
 	);
 }
 
 /* ---------------------------------------------------------------- Activity */
 
 function ActivityTab({ data, groupId }: { data: LoaderData; groupId: string }) {
-	const [items, setItems] = useState(data.activities.items);
-	const [cursor, setCursor] = useState(data.activities.nextCursor);
-	const [loading, setLoading] = useState(false);
+	const queryClient = useQueryClient();
+	const activity = useInfiniteQuery({
+		...groupActivityInfiniteOptions(groupId),
+		initialData: () => ({
+			pages: [data.activities],
+			pageParams: [undefined],
+		}),
+		initialDataUpdatedAt: () =>
+			queryClient.getQueryState(groupPageQueryOptions(groupId).queryKey)
+				?.dataUpdatedAt ?? Date.now(),
+	});
+
+	useEffect(() => {
+		if (!activity.isFetchNextPageError) return;
+		toast.error(
+			activity.error instanceof Error
+				? activity.error.message
+				: "Could not load activity",
+		);
+	}, [activity.isFetchNextPageError, activity.error]);
 
 	const names = new Map(
 		data.group.members.map((member) => [member.userId, member.name]),
 	);
 	const nameOf = (userId: string) => names.get(userId) ?? "someone";
+	const items = activity.data?.pages.flatMap((page) => page.items) ?? [];
 
-	const loadMore = async () => {
-		if (!cursor) return;
-		setLoading(true);
-		try {
-			const next = await getActivityFn({ data: { groupId, cursor } });
-			setItems((old) => [...old, ...next.items]);
-			setCursor(next.nextCursor);
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Could not load activity",
-			);
-		} finally {
-			setLoading(false);
-		}
-	};
+	if (activity.isPending)
+		return (
+			<p className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+				<Spinner />
+				Loading activity…
+			</p>
+		);
+
+	if (activity.isError && items.length === 0)
+		return (
+			<EmptyState
+				icon={History}
+				title="Activity didn't load"
+				description={
+					activity.error instanceof Error
+						? activity.error.message
+						: "Could not load activity."
+				}
+			/>
+		);
 
 	if (items.length === 0)
 		return (
@@ -1165,7 +1571,12 @@ function ActivityTab({ data, groupId }: { data: LoaderData; groupId: string }) {
 		<Card className="island-shell">
 			<CardHeader>
 				<CardTitle>Activity</CardTitle>
-				<CardDescription>Newest changes first.</CardDescription>
+				<CardDescription>
+					Newest changes first.
+					{activity.isFetching && !activity.isFetchingNextPage
+						? " Updating…"
+						: ""}
+				</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<ItemGroup>
@@ -1173,15 +1584,19 @@ function ActivityTab({ data, groupId }: { data: LoaderData; groupId: string }) {
 						<ActivityLine key={item.id} item={item} nameOf={nameOf} />
 					))}
 				</ItemGroup>
-				{cursor ? (
+				{activity.hasNextPage ? (
 					<Button
 						variant="outline"
 						className="mt-4 w-full"
-						disabled={loading}
-						onClick={loadMore}
+						disabled={activity.isFetchingNextPage}
+						onClick={() => {
+							void activity.fetchNextPage();
+						}}
 					>
-						{loading ? <Spinner data-icon="inline-start" /> : null}
-						{loading ? "Loading…" : "Load more"}
+						{activity.isFetchingNextPage ? (
+							<Spinner data-icon="inline-start" />
+						) : null}
+						{activity.isFetchingNextPage ? "Loading…" : "Load more"}
 					</Button>
 				) : null}
 			</CardContent>
@@ -1191,76 +1606,409 @@ function ActivityTab({ data, groupId }: { data: LoaderData; groupId: string }) {
 
 /* ---------------------------------------------------------------- Settings */
 
+/** Payloads are stored as JSON text; a malformed one should not take the page down. */
+function parsePayload<T>(payload: unknown): Partial<T> {
+	if (typeof payload !== "string") return (payload ?? {}) as Partial<T>;
+	try {
+		return JSON.parse(payload) as Partial<T>;
+	} catch {
+		return {};
+	}
+}
+
+function formatWhen(value: Date | string) {
+	return new Date(value).toLocaleString(undefined, {
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	});
+}
+
+/**
+ * Grouped by what a setting is for — the group itself, what runs on its own,
+ * getting data out, and the irreversible actions last — so the page reads top
+ * to bottom from everyday to rare.
+ */
 function SettingsTab({
 	data,
 	groupId,
 	run,
+	execute,
 	onLeave,
 }: {
 	data: LoaderData;
 	groupId: string;
 	run: Run;
+	execute: Execute;
 	onLeave: () => void;
 }) {
 	const [groupName, setGroupName] = useState(data.group.name);
 	const [confirmName, setConfirmName] = useState("");
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [rulePattern, setRulePattern] = useState("");
+	const [ruleCategory, setRuleCategory] = useState("");
+	const [reminderUser, setReminderUser] = useState(
+		data.group.members.find((member) => member.userId !== data.user.id)
+			?.userId ?? data.user.id,
+	);
+	const [reminderAt, setReminderAt] = useState("");
 	const isMember = data.group.myRole === "member";
+	const navigate = useNavigate();
+	const [duplicating, setDuplicating] = useState(false);
+	const archived = Boolean(data.group.archivedAt);
+	const reportHref = (format: "csv" | "pdf") =>
+		`/api/v1/groups/${groupId}/reports/expenses?format=${format}`;
+	const names = new Map(
+		data.group.members.map((member) => [member.userId, member.name]),
+	);
+	const pendingReminders = data.reminders.filter((job) => !job.completedAt);
 
 	return (
-		<div className="grid gap-4 lg:grid-cols-2">
-			<Card className="island-shell">
-				<CardHeader>
-					<CardTitle>Rename group</CardTitle>
-					<CardDescription>
-						{isMember
+		<div className="flex flex-col gap-10 sm:gap-12">
+			<SettingsSection
+				title="General"
+				description="The basics everyone in the group sees."
+			>
+				<SettingsRow
+					title="Group name"
+					htmlFor="group-rename"
+					description={
+						isMember
 							? "Only owners and admins can rename this group."
-							: "Everyone in the group sees the new name."}
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<FieldGroup className="flex-row items-end gap-2">
-						<Field className="flex-1">
-							<FieldLabel htmlFor="group-rename" className="sr-only">
-								Group name
-							</FieldLabel>
-							<Input
-								id="group-rename"
-								aria-label="Group name"
-								value={groupName}
-								onChange={(event) => setGroupName(event.target.value)}
-								disabled={isMember}
-							/>
-						</Field>
+							: "Everyone in the group sees the new name."
+					}
+				>
+					<form
+						className="flex w-full gap-2 sm:w-80"
+						onSubmit={(event) => {
+							event.preventDefault();
+							if (isMember || !groupName.trim()) return;
+							if (groupName === data.group.name) return;
+							void run(
+								{
+									action: "group.rename",
+									input: { groupId, name: groupName },
+								},
+								"Group renamed",
+							);
+						}}
+					>
+						<Input
+							id="group-rename"
+							value={groupName}
+							onChange={(event) => setGroupName(event.target.value)}
+							disabled={isMember}
+						/>
 						<Button
+							type="submit"
+							variant="outline"
 							disabled={
 								isMember || !groupName.trim() || groupName === data.group.name
-							}
-							onClick={() =>
-								run(
-									{
-										action: "group.rename",
-										input: { groupId, name: groupName },
-									},
-									"Group renamed",
-								)
 							}
 						>
 							Save
 						</Button>
-					</FieldGroup>
-				</CardContent>
-			</Card>
+					</form>
+				</SettingsRow>
+				<SettingsRow
+					title={archived ? "Archived" : "Archive"}
+					description={
+						archived
+							? "This group is read-only. Unarchive it to add expenses again."
+							: "Make the group read-only. Balances and history stay visible."
+					}
+				>
+					<Button
+						variant="outline"
+						disabled={isMember}
+						onClick={() =>
+							run(
+								{
+									action: archived ? "group.unarchive" : "group.archive",
+									input: { groupId },
+								},
+								archived ? "Group unarchived" : "Group archived",
+							)
+						}
+					>
+						{archived ? (
+							<ArchiveRestore data-icon="inline-start" />
+						) : (
+							<Archive data-icon="inline-start" />
+						)}
+						{archived ? "Unarchive" : "Archive"}
+					</Button>
+				</SettingsRow>
+			</SettingsSection>
 
-			<Card className="island-shell">
-				<CardHeader>
-					<CardTitle>Leave group</CardTitle>
-					<CardDescription>
-						You can only leave once your balance is zero and no share of yours
-						is still unpaid.
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
+			<SettingsSection
+				title="Automation"
+				description="Rules and reminders Eventual runs for this group on its own. Recurring expenses live on the Expenses tab."
+			>
+				<SettingsRow
+					layout="stacked"
+					title="Category rules"
+					description="New expenses whose description contains the phrase get the category automatically."
+				>
+					<div className="flex flex-col gap-4">
+						{data.categoryRules.length > 0 ? (
+							<ul className="divide-y rounded-xl border">
+								{data.categoryRules.map((rule) => (
+									<li
+										key={rule.id}
+										className="flex items-center gap-3 py-2 ps-4 pe-2 text-sm"
+									>
+										<span className="min-w-0 flex-1 truncate">
+											<span className="text-muted-foreground">Contains </span>
+											<span className="font-medium">“{rule.pattern}”</span>
+											<ArrowRight
+												className="mx-2 inline size-3.5 text-muted-foreground"
+												aria-hidden="true"
+											/>
+											<span className="sr-only">sets category to </span>
+											<Badge variant="secondary">{rule.category}</Badge>
+										</span>
+										{isMember ? null : (
+											<Button
+												size="icon-sm"
+												variant="ghost"
+												className="text-muted-foreground hover:text-destructive"
+												aria-label={`Delete rule for “${rule.pattern}”`}
+												onClick={() =>
+													run(
+														{
+															action: "category.delete",
+															input: { groupId, ruleId: rule.id },
+														},
+														"Category rule deleted",
+													)
+												}
+											>
+												<Trash2 />
+											</Button>
+										)}
+									</li>
+								))}
+							</ul>
+						) : null}
+						{isMember ? (
+							<p className="text-sm text-muted-foreground">
+								Only owners and admins can add rules.
+							</p>
+						) : (
+							<form
+								className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+								onSubmit={async (event) => {
+									event.preventDefault();
+									if (!rulePattern.trim() || !ruleCategory.trim()) return;
+									const ok = await run(
+										{
+											action: "category.create",
+											input: {
+												groupId,
+												pattern: rulePattern,
+												category: ruleCategory,
+												priority: 0,
+											},
+										},
+										"Category rule added",
+									);
+									if (ok) {
+										setRulePattern("");
+										setRuleCategory("");
+									}
+								}}
+							>
+								<Field className="gap-1.5">
+									<FieldLabel htmlFor="category-pattern">
+										Description contains
+									</FieldLabel>
+									<Input
+										id="category-pattern"
+										value={rulePattern}
+										onChange={(event) => setRulePattern(event.target.value)}
+										placeholder="coffee"
+									/>
+								</Field>
+								<Field className="gap-1.5">
+									<FieldLabel htmlFor="category-name">Category</FieldLabel>
+									<Input
+										id="category-name"
+										value={ruleCategory}
+										onChange={(event) => setRuleCategory(event.target.value)}
+										placeholder="Food & drink"
+									/>
+								</Field>
+								<Button
+									type="submit"
+									variant="outline"
+									disabled={!rulePattern.trim() || !ruleCategory.trim()}
+								>
+									<Plus data-icon="inline-start" />
+									Add rule
+								</Button>
+							</form>
+						)}
+					</div>
+				</SettingsRow>
+
+				<SettingsRow
+					layout="stacked"
+					title="Email reminders"
+					description="Email someone a nudge about their balance at a time you choose. Failed sends are retried."
+				>
+					<div className="flex flex-col gap-4">
+						{pendingReminders.length > 0 ? (
+							<ul className="divide-y rounded-xl border">
+								{pendingReminders.map((job) => {
+									const payload = parsePayload<{ userId: string }>(job.payload);
+									return (
+										<li
+											key={job.id}
+											className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+										>
+											<span className="truncate font-medium">
+												{names.get(payload.userId ?? "") ?? "A member"}
+											</span>
+											<span className="shrink-0 text-muted-foreground">
+												{formatWhen(job.dueAt)}
+											</span>
+										</li>
+									);
+								})}
+							</ul>
+						) : null}
+						<form
+							className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+							onSubmit={async (event) => {
+								event.preventDefault();
+								const dueAt = new Date(reminderAt);
+								if (!reminderUser || Number.isNaN(dueAt.getTime())) return;
+								if (
+									await run(
+										{
+											action: "reminder.schedule",
+											input: { groupId, userId: reminderUser, dueAt },
+										},
+										"Reminder scheduled",
+									)
+								)
+									setReminderAt("");
+							}}
+						>
+							<Field className="gap-1.5">
+								<FieldLabel htmlFor="reminder-user">Remind</FieldLabel>
+								<Select value={reminderUser} onValueChange={setReminderUser}>
+									<SelectTrigger id="reminder-user" className="w-full">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectGroup>
+											{data.group.members.map((member) => (
+												<SelectItem key={member.userId} value={member.userId}>
+													{member.name}
+												</SelectItem>
+											))}
+										</SelectGroup>
+									</SelectContent>
+								</Select>
+							</Field>
+							<Field className="gap-1.5">
+								<FieldLabel htmlFor="reminder-at">Send on</FieldLabel>
+								<Input
+									id="reminder-at"
+									type="datetime-local"
+									value={reminderAt}
+									onChange={(event) => setReminderAt(event.target.value)}
+								/>
+							</Field>
+							<Button
+								type="submit"
+								variant="outline"
+								disabled={!reminderAt || !reminderUser}
+							>
+								Schedule
+							</Button>
+						</form>
+					</div>
+				</SettingsRow>
+			</SettingsSection>
+
+			<SettingsSection
+				title="Data"
+				description="Take this group's records elsewhere, or start fresh with the same people."
+			>
+				<SettingsRow
+					title="Expense report"
+					description="Every expense in this group, as a spreadsheet or a printable PDF."
+				>
+					<Button variant="outline" asChild>
+						<a href={reportHref("csv")} download>
+							<Download data-icon="inline-start" />
+							CSV
+						</a>
+					</Button>
+					<Button variant="outline" asChild>
+						<a href={reportHref("pdf")} download>
+							<Download data-icon="inline-start" />
+							PDF
+						</a>
+					</Button>
+				</SettingsRow>
+				<SettingsRow
+					title="Duplicate group"
+					description={
+						isMember
+							? "Only owners and admins can duplicate this group."
+							: "An empty copy with the same members, roles and weights."
+					}
+				>
+					<Button
+						variant="outline"
+						disabled={isMember || duplicating}
+						onClick={async () => {
+							setDuplicating(true);
+							const outcome = await execute({
+								action: "group.duplicate",
+								input: { groupId },
+							});
+							setDuplicating(false);
+							if (
+								!outcome.ok ||
+								!outcome.result ||
+								typeof outcome.result !== "object" ||
+								!("id" in outcome.result) ||
+								typeof outcome.result.id !== "string"
+							)
+								return;
+							toast.success("Group duplicated");
+							await navigate({
+								to: "/app/groups/$groupId",
+								params: { groupId: outcome.result.id },
+							});
+						}}
+					>
+						{duplicating ? (
+							<Spinner data-icon="inline-start" />
+						) : (
+							<Copy data-icon="inline-start" />
+						)}
+						{duplicating ? "Duplicating…" : "Duplicate"}
+					</Button>
+				</SettingsRow>
+			</SettingsSection>
+
+			<SettingsSection
+				title="Danger zone"
+				tone="danger"
+				description="These can't be undone from here."
+			>
+				<SettingsRow
+					title="Leave group"
+					description="You can leave once your balance is zero and none of your shares are unpaid."
+				>
 					<ConfirmDialog
 						media={<LogOut />}
 						title={`Leave “${data.group.name}”?`}
@@ -1275,25 +2023,20 @@ function SettingsTab({
 							return ok;
 						}}
 						trigger={
-							<Button variant="outline" className="press text-destructive">
-								Leave group
+							<Button variant="outline" className="text-destructive">
+								<LogOut data-icon="inline-start" />
+								Leave
 							</Button>
 						}
 					/>
-				</CardContent>
-			</Card>
-
-			{data.group.myRole === "owner" && (
-				<Card className="island-shell border-destructive/30 lg:col-span-2">
-					<CardHeader>
-						<CardTitle className="text-destructive">Delete group</CardTitle>
-						<CardDescription>
-							Permanently removes every expense, settlement and activity record
-							for all {data.group.members.length} members. This cannot be
-							undone.
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
+				</SettingsRow>
+				{data.group.myRole === "owner" ? (
+					<SettingsRow
+						title="Delete group"
+						description={`Permanently removes every expense, settlement and activity record for all ${data.group.members.length} ${
+							data.group.members.length === 1 ? "member" : "members"
+						}.`}
+					>
 						<Dialog
 							open={deleteOpen}
 							onOpenChange={(open) => {
@@ -1304,7 +2047,7 @@ function SettingsTab({
 							<DialogTrigger asChild>
 								<Button variant="destructive">
 									<Trash2 data-icon="inline-start" />
-									Delete group
+									Delete
 								</Button>
 							</DialogTrigger>
 							<DialogContent>
@@ -1343,9 +2086,9 @@ function SettingsTab({
 								</DialogFooter>
 							</DialogContent>
 						</Dialog>
-					</CardContent>
-				</Card>
-			)}
+					</SettingsRow>
+				) : null}
+			</SettingsSection>
 		</div>
 	);
 }

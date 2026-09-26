@@ -1,12 +1,23 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import type { QueryClient } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import {
+	createRootRouteWithContext,
+	HeadContent,
+	Outlet,
+	Scripts,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AnalyticsProvider } from "#/components/analytics-provider";
 import { AppThemeProvider, THEME_COLORS } from "#/components/theme";
 import { Toaster } from "#/components/ui/sonner";
 import appCss from "../styles.css?url";
 
-export const Route = createRootRoute({
+export interface RouterContext {
+	queryClient: QueryClient;
+}
+
+export const Route = createRootRouteWithContext<RouterContext>()({
 	head: () => ({
 		meta: [
 			{
@@ -44,8 +55,23 @@ export const Route = createRootRoute({
 			},
 		],
 	}),
+	component: RootComponent,
 	shellComponent: RootDocument,
 });
+
+function RootComponent() {
+	return (
+		<>
+			<Outlet />
+			{import.meta.env.DEV ? (
+				<ReactQueryDevtools
+					buttonPosition="bottom-left"
+					initialIsOpen={false}
+				/>
+			) : null}
+		</>
+	);
+}
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (

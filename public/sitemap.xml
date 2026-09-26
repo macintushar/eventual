@@ -2,11 +2,30 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://eventual.macintushar.xyz/</loc>
+    <lastmod>2026-09-26</lastmod>
   </url>
   <url>
     <loc>https://eventual.macintushar.xyz/docs</loc>
+    <lastmod>2026-09-26</lastmod>
   </url>
   <url>
     <loc>https://eventual.macintushar.xyz/help</loc>
+    <lastmod>2026-09-26</lastmod>
+  </url>
+  <url>
+    <loc>https://eventual.macintushar.xyz/help/create-a-group</loc>
+    <lastmod>2026-09-26</lastmod>
+  </url>
+  <url>
+    <loc>https://eventual.macintushar.xyz/help/add-an-expense</loc>
+    <lastmod>2026-09-26</lastmod>
+  </url>
+  <url>
+    <loc>https://eventual.macintushar.xyz/privacy</loc>
+    <lastmod>2026-09-26</lastmod>
+  </url>
+  <url>
+    <loc>https://eventual.macintushar.xyz/terms</loc>
+    <lastmod>2026-09-26</lastmod>
   </url>
 </urlset>

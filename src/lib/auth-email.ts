@@ -9,6 +9,12 @@ export type SendAuthEmail = (
 	idempotencyKey: string,
 ) => Promise<string>;
 
+export type VerificationSendGate = {
+	reserve: (userId: string) => Promise<boolean>;
+	markSent: (userId: string) => Promise<void>;
+	release: (userId: string) => Promise<void>;
+};
+
 /*
  * One hour, shared by both link types. Better Auth is configured from it and
  * the emails stamp their deadline from it, so the copy can never drift from
@@ -29,11 +35,12 @@ export function authEmailOptions(
 	send: SendAuthEmail,
 	origin: string,
 	configured: boolean,
+	verificationGate?: VerificationSendGate,
 ) {
 	return {
 		emailAndPassword: {
 			enabled: true,
-			requireEmailVerification: false,
+			requireEmailVerification: configured,
 			revokeSessionsOnPasswordReset: true,
 			resetPasswordTokenExpiresIn: LINK_TTL_SECONDS,
 			sendResetPassword: async ({ user, url, token }) => {
@@ -75,9 +82,18 @@ export function authEmailOptions(
 			},
 		},
 		emailVerification: {
-			sendOnSignUp: configured,
+			sendOnSignUp: false,
+			autoSignInAfterVerification: true,
 			expiresIn: LINK_TTL_SECONDS,
 			sendVerificationEmail: async ({ user, url, token }) => {
+				if (verificationGate) {
+					try {
+						if (!(await verificationGate.reserve(user.id))) return;
+					} catch (error) {
+						reportError(error, { component: "email", kind: "verification" });
+						return;
+					}
+				}
 				try {
 					await send(
 						user.email,
@@ -90,13 +106,24 @@ export function authEmailOptions(
 						emailKey("verification", token),
 					);
 				} catch (error) {
+					await verificationGate?.release(user.id).catch((releaseError) =>
+						reportError(releaseError, {
+							component: "email",
+							kind: "verification-cooldown",
+						}),
+					);
 					reportError(error, {
 						component: "email",
 						kind: "verification",
 					});
-					// Better Auth treats this hook as a background notification. Signup
-					// still succeeds and settings lets the user request a fresh link.
+					return;
 				}
+				await verificationGate?.markSent(user.id).catch((error) =>
+					reportError(error, {
+						component: "email",
+						kind: "verification-cooldown",
+					}),
+				);
 			},
 		},
 	} satisfies Pick<BetterAuthOptions, "emailAndPassword" | "emailVerification">;

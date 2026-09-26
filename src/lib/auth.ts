@@ -8,8 +8,14 @@ import { db } from "#/db";
 import * as schema from "#/db/schema";
 import { env } from "#/env";
 import { authEmailOptions, emailKey } from "#/lib/auth-email";
+import { guestAuthGuards, guestAuthPlugin } from "#/lib/guest-auth";
 import { sendEmail } from "#/server/email";
 import { reportError } from "#/server/error-reporting";
+import {
+	markVerificationSent,
+	releaseVerificationSend,
+	reserveVerificationSend,
+} from "#/server/pending-verification";
 
 const API_KEY_PREFIX = "ev_";
 const LEGACY_API_KEY_PREFIX = "ss_";
@@ -39,26 +45,58 @@ export const auth = betterAuth({
 		? ["http://localhost:*", "http://127.0.0.1:*"]
 		: [env.BETTER_AUTH_URL],
 	database: drizzleAdapter(db, { provider: "sqlite", schema }),
+	...guestAuthGuards(db),
 	user: {
-		// Written only through `updateProfileFn`, which validates them; `input:
+		// Written only through the validated v1 profile endpoint; `input:
 		// false` keeps better-auth's own update-user endpoint from bypassing that.
 		additionalFields: {
 			upiVpa: { type: "string", required: false, input: false },
 			wiseTag: { type: "string", required: false, input: false },
+			isGuest: { type: "boolean", required: false, input: false },
+			claimedAt: { type: "date", required: false, input: false },
+			emailReminders: { type: "boolean", required: false, input: false },
 		},
 	},
 	...authEmailOptions(
 		sendEmail,
 		env.BETTER_AUTH_URL,
 		Boolean(env.RESEND_API_KEY && env.EMAIL_FROM),
+		{
+			reserve: reserveVerificationSend,
+			markSent: markVerificationSent,
+			release: releaseVerificationSend,
+		},
 	),
+	socialProviders:
+		env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+			? {
+					google: {
+						clientId: env.GOOGLE_CLIENT_ID,
+						clientSecret: env.GOOGLE_CLIENT_SECRET,
+					},
+				}
+			: undefined,
+	account: {
+		accountLinking: {
+			enabled: true,
+			allowDifferentEmails: true,
+		},
+	},
 	rateLimit: {
 		customRules: {
 			"/request-password-reset": { window: 60, max: 3 },
 			"/send-verification-email": { window: 60, max: 3 },
+			"/guest-claim/request": { window: 60, max: 3 },
+			"/guest-claim/confirm": { window: 60, max: 5 },
 		},
 	},
 	plugins: [
+		guestAuthPlugin(
+			db,
+			sendEmail,
+			env.BETTER_AUTH_URL,
+			Boolean(env.RESEND_API_KEY && env.EMAIL_FROM),
+		),
 		organization({
 			invitationExpiresIn: 60 * 60 * 24 * 7,
 			sendInvitationEmail: async ({

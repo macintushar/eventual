@@ -1,6 +1,6 @@
 # Eventual
 
-Eventual is a TanStack Start expense-sharing app for multi-currency groups. It uses Better Auth organizations, Drizzle ORM, libSQL/Turso, typed server functions, a JSON REST API, and an authenticated MCP endpoint.
+Eventual is a TanStack Start expense-sharing app for multi-currency groups. It uses Better Auth organizations, Drizzle ORM, libSQL/Turso, a versioned JSON REST API, and an authenticated MCP endpoint.
 
 ## Local setup
 
@@ -44,10 +44,17 @@ Configure these server-side variables in the Vercel project for each deployment 
 - `TURSO_AUTH_TOKEN`: the database access token.
 - `BETTER_AUTH_SECRET`: a secret of at least 32 characters.
 - `BETTER_AUTH_URL`: the deployed application's HTTPS origin (e.g. `https://app.example.com`). Shared by Better Auth and the Shortcut, MCP, and API URLs shown on Integrations; these URLs do not use the incoming request's host. Defaults to `http://localhost:3000` for local development.
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (optional): Google OAuth credentials. Register `http://localhost:3000/api/auth/callback/google` for local development and `https://your-domain.com/api/auth/callback/google` for production in Google Cloud Console. Users can connect or disconnect Google from **Settings → Profile**; Better Auth also links a verified Google identity to an existing account when the email addresses match.
 
 Vercel runs `bun run db:migrate && bun run build` on every deployment, as configured in `vercel.json`. A failed migration stops the deployment. Migrations use the database credentials configured for that deployment environment, including Preview deployments.
 
+The scheduled job runner runs once per day at 00:00 UTC to stay within Vercel Hobby's cron limit. Scheduled reminders and recurring expenses may therefore run up to a day after their due time.
+
 Vercel project variables are not automatically available in your local shell. Do not run the seed command against production.
+
+## Health check
+
+`GET /health` returns `200 {"status":"ok"}` without authentication. It runs a server function and sets `Cache-Control: no-store`. Use it for an external uptime check. It deliberately does not query Turso; monitor database availability separately with provider alerts or a less frequent check that performs a read through the application.
 
 ## Behaviour
 
@@ -70,7 +77,7 @@ Expense creation accepts `currency` (omitting it defaults to INR for existing cl
 
 ## Auth emails
 
-Account emails use Resend and React Email: a combined welcome/email-verification message on signup, password-reset links, and password-reset security confirmations. Group invitations, balance reminders, and expense/settlement notifications do not send email.
+Account emails use Resend and React Email: email-verification links, password-reset links, and password-reset security confirmations. Group invitations, balance reminders, and expense/settlement notifications do not send email.
 
 Set these server-only values in `.env.local` (or your deployment environment):
 
@@ -81,10 +88,10 @@ EMAIL_FROM="Eventual <accounts@your-verified-domain.com>"
 EMAIL_REPLY_TO=support@your-verified-domain.com
 ```
 
-Verify the sending domain in Resend and set `BETTER_AUTH_URL` to your public HTTPS origin. Restart the app after changing these values. No database migration is needed. Without both Resend settings, automatic signup and invitation emails are disabled; invitations still produce a shareable link. Verification remains optional for signing in, matching the existing account behavior.
+Verify the sending domain in Resend and set `BETTER_AUTH_URL` to your public HTTPS origin. Restart the app after changing these values. No database migration is needed. Without both Resend settings, verification and invitation emails are disabled; invitations still produce a shareable link, and sign-in does not require verification. When email sending is configured, users must verify their address before signing in. Signup and a correct password for an unverified account open `/check-email`, which sends a verification link on arrival unless one was sent in the last five minutes.
 
 - Sign in → **Forgot your password?** opens `/forgot-password`. Reset links expire after one hour, can be used once, and lead to `/reset-password`. A successful reset revokes existing sessions.
-- **Account / API keys** shows email-verification status and a resend action. Verification links expire after one hour and return to `/verify-email`.
+- **Settings → Profile** shows email-verification status and a resend action. Verification links expire after one hour and return to `/verify-email`, where verification signs the user in.
 - Password-reset requests return the same generic response for unknown accounts and delivery failures. Better Auth also treats verification delivery as a background notification, so a successful request is not proof of delivery. Failures are logged without email content or tokens; check Resend delivery logs and retry after fixing configuration. There is no automatic retry queue.
 - Reset and verification requests use Better Auth's per-IP rate limits (three per minute in production). Resend idempotency keys deduplicate retries of the same token within its 24-hour window; token values are hashed before being used as keys.
 - `bun run email:dev` previews templates on port 3002. HTML and plain-text versions are rendered at send time.
@@ -102,42 +109,46 @@ CURL="curl -b cookies.txt -H Content-Type:application/json"
 # CURL="curl -H x-api-key:$EVENTUAL_API_KEY -H Content-Type:application/json"
 ```
 
-Each endpoint has an example below. Replace IDs as appropriate.
+The UI calls the same `/api/v1/*` endpoints. The operation catalog is available at `/api/openapi.json`. Browser GET responses containing account data use a five-second private cache with cookie and credential variation; writes and session or API-key responses use `no-store`. The UI changes its GET cache URL after a successful write. These private responses are not intended for a shared CDN cache.
+
+Account-only UI endpoints include `GET /api/v1/app/dashboard`, `GET /api/v1/app/composer`, `GET /api/v1/app/groups/{groupId}/page`, `PATCH /api/v1/me/profile`, and `/api/v1/me/api-keys` (GET, POST, DELETE by key ID). They require a session cookie. Public metadata endpoints include `/api/v1/site`, `/api/v1/legal`, and `/api/v1/health`; `GET /api/v1/session` is always uncached.
+
+Each domain endpoint has an example below. Replace IDs as appropriate.
 
 ```bash
-$CURL "$BASE/api/groups"
-$CURL -X POST -d '{"name":"Goa weekend"}' "$BASE/api/groups"
-$CURL "$BASE/api/groups/GROUP_ID"
-$CURL -X PATCH -d '{"name":"Goa 2027"}' "$BASE/api/groups/GROUP_ID"
-$CURL -X DELETE "$BASE/api/groups/GROUP_ID"
+$CURL "$BASE/api/v1/groups"
+$CURL -X POST -d '{"name":"Goa weekend"}' "$BASE/api/v1/groups"
+$CURL "$BASE/api/v1/groups/GROUP_ID"
+$CURL -X PATCH -d '{"name":"Goa 2027"}' "$BASE/api/v1/groups/GROUP_ID"
+$CURL -X DELETE "$BASE/api/v1/groups/GROUP_ID"
 
-$CURL "$BASE/api/groups/GROUP_ID/members"
-$CURL -X PATCH -d '{"role":"admin"}' "$BASE/api/groups/GROUP_ID/members/USER_ID"
-$CURL -X DELETE "$BASE/api/groups/GROUP_ID/members/USER_ID"
-$CURL -X POST "$BASE/api/groups/GROUP_ID/leave"
+$CURL "$BASE/api/v1/groups/GROUP_ID/members"
+$CURL -X PATCH -d '{"role":"admin"}' "$BASE/api/v1/groups/GROUP_ID/members/USER_ID"
+$CURL -X DELETE "$BASE/api/v1/groups/GROUP_ID/members/USER_ID"
+$CURL -X POST "$BASE/api/v1/groups/GROUP_ID/leave"
 
-$CURL "$BASE/api/groups/GROUP_ID/invitations"
-$CURL -X POST -d '{"email":"friend@example.com","role":"member"}' "$BASE/api/groups/GROUP_ID/invitations"
-$CURL -X DELETE "$BASE/api/invitations/INVITATION_ID"
-$CURL "$BASE/api/invitations/INVITATION_ID"
-$CURL -X POST "$BASE/api/invitations/INVITATION_ID/accept"
-$CURL "$BASE/api/me/invitations"
+$CURL "$BASE/api/v1/groups/GROUP_ID/invitations"
+$CURL -X POST -d '{"email":"friend@example.com","role":"member"}' "$BASE/api/v1/groups/GROUP_ID/invitations"
+$CURL -X DELETE "$BASE/api/v1/invitations/INVITATION_ID"
+$CURL "$BASE/api/v1/invitations/INVITATION_ID"
+$CURL -X POST "$BASE/api/v1/invitations/INVITATION_ID/accept"
+$CURL "$BASE/api/v1/me/invitations"
 
-$CURL "$BASE/api/groups/GROUP_ID/expenses?limit=20&paidBy=USER_ID&participant=USER_ID&from=2026-01-01&to=2026-12-31"
-$CURL -X POST -d '{"description":"Dinner","amountMinor":120000,"currency":"INR","paidByUserId":"USER_ID","splitMethod":"even","date":"2026-09-05","participants":[{"userId":"USER_ID","input":null}]}' "$BASE/api/groups/GROUP_ID/expenses"
-$CURL -X POST -d '{"amountMinor":10000,"splitMethod":"percent","participants":[{"userId":"A","input":5000},{"userId":"B","input":5000}]}' "$BASE/api/groups/GROUP_ID/expenses/preview"
-$CURL "$BASE/api/expenses/EXPENSE_ID"
-$CURL -X PATCH -d '{"description":"Updated dinner","amountMinor":120000,"currency":"INR","paidByUserId":"USER_ID","splitMethod":"even","date":"2026-09-05","participants":[{"userId":"USER_ID","input":null}]}' "$BASE/api/expenses/EXPENSE_ID"
-$CURL -X DELETE "$BASE/api/expenses/EXPENSE_ID"
-$CURL -X POST "$BASE/api/expenses/EXPENSE_ID/shares/USER_ID/paid"
-$CURL -X DELETE "$BASE/api/expenses/EXPENSE_ID/shares/USER_ID/paid"
+$CURL "$BASE/api/v1/groups/GROUP_ID/expenses?limit=20&paidBy=USER_ID&participant=USER_ID&from=2026-01-01&to=2026-12-31"
+$CURL -X POST -d '{"description":"Dinner","amountMinor":120000,"currency":"INR","paidByUserId":"USER_ID","splitMethod":"even","date":"2026-09-05","participants":[{"userId":"USER_ID","input":null}]}' "$BASE/api/v1/groups/GROUP_ID/expenses"
+$CURL -X POST -d '{"amountMinor":10000,"splitMethod":"percent","participants":[{"userId":"A","input":5000},{"userId":"B","input":5000}]}' "$BASE/api/v1/groups/GROUP_ID/expenses/preview"
+$CURL "$BASE/api/v1/expenses/EXPENSE_ID"
+$CURL -X PATCH -d '{"description":"Updated dinner","amountMinor":120000,"currency":"INR","paidByUserId":"USER_ID","splitMethod":"even","date":"2026-09-05","participants":[{"userId":"USER_ID","input":null}]}' "$BASE/api/v1/expenses/EXPENSE_ID"
+$CURL -X DELETE "$BASE/api/v1/expenses/EXPENSE_ID"
+$CURL -X POST "$BASE/api/v1/expenses/EXPENSE_ID/shares/USER_ID/paid"
+$CURL -X DELETE "$BASE/api/v1/expenses/EXPENSE_ID/shares/USER_ID/paid"
 
-$CURL "$BASE/api/groups/GROUP_ID/balances"
-$CURL "$BASE/api/groups/GROUP_ID/settlements"
-$CURL -X POST -d '{"toUserId":"USER_ID","currency":"INR","amountMinor":50000,"note":"UPI"}' "$BASE/api/groups/GROUP_ID/settlements"
-$CURL -X DELETE "$BASE/api/settlements/SETTLEMENT_ID"
-$CURL "$BASE/api/groups/GROUP_ID/activity?limit=30"
-$CURL "$BASE/api/me/activity?limit=30"                  # every event involving you, across groups; page with ?cursor=nextCursor
+$CURL "$BASE/api/v1/groups/GROUP_ID/balances"
+$CURL "$BASE/api/v1/groups/GROUP_ID/settlements"
+$CURL -X POST -d '{"toUserId":"USER_ID","currency":"INR","amountMinor":50000,"note":"UPI"}' "$BASE/api/v1/groups/GROUP_ID/settlements"
+$CURL -X DELETE "$BASE/api/v1/settlements/SETTLEMENT_ID"
+$CURL "$BASE/api/v1/groups/GROUP_ID/activity?limit=30"
+$CURL "$BASE/api/v1/me/activity?limit=30"                  # every event involving you, across groups; page with ?cursor=nextCursor
 ```
 
 Errors use one envelope:
@@ -150,7 +161,7 @@ Status mapping: `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `VALIDA
 
 ## MCP
 
-`POST /mcp` exposes `listGroups`, `listExpenses`, `createExpense`, and `getBalances`. It uses the same Better Auth cookie or API key and service layer as REST and server functions. Each HTTP request gets an isolated stateless MCP transport. Setup instructions for each client (Claude Code, the Claude app, Cursor, OpenCode, Hermes, OpenClaw) are at `/docs`.
+`POST /mcp` exposes `listGroups`, `listExpenses`, `createExpense`, and `getBalances`. It uses the same Better Auth cookie or API key and service layer as REST. Each HTTP request gets an isolated stateless MCP transport. Setup instructions for each client (Claude Code, the Claude app, Cursor, OpenCode, Hermes, OpenClaw) are at `/docs`.
 
 ## Observability
 
@@ -172,6 +183,10 @@ Recommended PostHog insights:
 - **Transactions logged through MCP:** total `mcp_tool_called`, filtered to `tool_name = createExpense` and `success = true`.
 - **MCP reliability:** failure percentage and p95 `duration_ms` for `mcp_tool_called`, broken down by `tool_name`.
 - **Web feature adoption:** total `product_mutation_completed`, broken down by `action`.
+
+## Privacy policy and terms
+
+`/privacy` and `/terms` are written for whoever runs the instance. Set `LEGAL_OPERATOR_NAME` (e.g. `Jane Doe`) to name the operator and `LEGAL_GOVERNING_LAW` (e.g. `India`) to name the law governing the terms. Set `LEGAL_CONTACT_EMAIL` to publish an address for privacy, deletion and security requests; without it, the pages ask people to contact the operator directly. Set `LEGAL_DATA_LOCATION` (e.g. `India`) to state where the database is stored. Left empty, the pages describe an independently run open-source instance. The privacy policy lists only the service providers this instance is configured to use: Vercel (when `VERCEL` is set), Turso (a `libsql://` database), Resend, Google, Sentry and PostHog. Both pages are prerendered, so redeploy after changing these values. When you change the wording, update `LEGAL_UPDATED` in `src/components/legal-page.tsx`. These pages are a starting point, not legal advice.
 
 ## Apple Shortcut
 
