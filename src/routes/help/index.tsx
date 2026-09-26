@@ -217,7 +217,7 @@ const categories: FaqCategory[] = [
 				id: "shortcut",
 				question: "How do I log an expense from my iPhone?",
 				answer:
-					"The Apple Shortcut logs a split using group member weights in three taps: pick the group, who paid, and the amount. You can fine-tune the split later in the app. Get it from Integrations.",
+					"Install the Apple Shortcut from Integrations, then press the Action Button or ask Siri and just type an amount — it splits evenly across the group and you can fine-tune later in the app. It also reads bank SMS alerts: share the message to the shortcut, copy it before running, or set a Messages automation for your bank's sender to log them automatically.",
 			},
 			{
 				id: "mcp",

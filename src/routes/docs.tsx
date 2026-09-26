@@ -6,9 +6,9 @@ import {
 	ExternalLink,
 	IndianRupee,
 	KeyRound,
+	MessageSquareText,
 	MousePointerClick,
-	UserRound,
-	Users,
+	Zap,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -84,9 +84,21 @@ export const Route = createFileRoute("/docs")({
 const KEY = "ev_your_api_key";
 
 const shortcutSteps = [
-	{ icon: Users, title: "Pick the group", text: "Every group you belong to." },
-	{ icon: UserRound, title: "Pick who paid", text: "You're listed first." },
-	{ icon: IndianRupee, title: "Type the amount", text: "In rupees." },
+	{
+		icon: IndianRupee,
+		title: "Type the amount",
+		text: "That's the whole ask. Your group is remembered, the payer is you.",
+	},
+	{
+		icon: Zap,
+		title: "One tap from the Action Button",
+		text: "Map it under Settings → Action Button → Shortcut.",
+	},
+	{
+		icon: MessageSquareText,
+		title: "Or forward a bank SMS",
+		text: "Share it, copy it first, or automate on the sender. It reads the amount and merchant.",
+	},
 ];
 
 const tools = [
@@ -341,8 +353,8 @@ function DocsPage() {
 						<Badge variant="secondary">iPhone · iPad · Mac · Watch</Badge>
 					</div>
 					<CardDescription>
-						Log an expense in three taps. It splits evenly between everyone in
-						the group and uses today's date. You can change the split,
+						Log an expense in one prompt. It splits evenly between everyone in
+						the group and uses today's date. You can change the split, payer,
 						description or date in the app later.
 					</CardDescription>
 				</CardHeader>
@@ -368,12 +380,20 @@ function DocsPage() {
 					</ol>
 
 					<div className="flex flex-col gap-3">
-						<Button size="lg" className="w-fit" asChild>
-							<a href="/eventual.shortcut" download>
-								<Download data-icon="inline-start" />
-								Get the shortcut
-							</a>
-						</Button>
+						<div className="flex flex-wrap gap-3">
+							<Button size="lg" className="w-fit" asChild>
+								<a href="/eventual.shortcut" download>
+									<Download data-icon="inline-start" />
+									Get the shortcut
+								</a>
+							</Button>
+							<Button size="lg" variant="outline" className="w-fit" asChild>
+								<a href="/eventual-ai.shortcut" download>
+									<Download data-icon="inline-start" />
+									Get the AI shortcut
+								</a>
+							</Button>
+						</div>
 						<p className="text-sm text-muted-foreground">
 							When you add it, Shortcuts asks for two things: your API key and
 							this URL.
@@ -381,8 +401,58 @@ function DocsPage() {
 						<CodeBlock label="Eventual URL" code={origin} />
 						<p className="text-sm text-muted-foreground">
 							Already installed? Download it again and replace the old shortcut
-							to get fixes. Tip: say "Hey Siri, log to Eventual", or add it to
-							your Home Screen or Action button.
+							to get fixes. You can also run it with Siri or assign it to the
+							Action Button.
+						</p>
+					</div>
+
+					<Separator />
+
+					<div className="flex flex-col gap-3">
+						<h3 className="font-semibold">Extract from Messages with AI</h3>
+						<p className="text-sm text-muted-foreground">
+							The separate AI shortcut needs an iPhone with Apple Intelligence
+							enabled. It cannot read your inbox or search old messages on its
+							own; you must give it text from a new-message automation, or copy
+							an older message and run it manually. It is not available on
+							Watch.
+						</p>
+						<ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+							<li>
+								Install “Get the AI shortcut” above and enter your API key and
+								Eventual URL.
+							</li>
+							<li>
+								In Shortcuts, open Automation → New Automation → Message. Select
+								your bank’s sender; optionally add a “Message Contains” filter
+								for its debit alerts.
+							</li>
+							<li>
+								Add Run Shortcut, choose the AI shortcut, and set its input to
+								the received message’s <strong>body/content</strong> from the
+								automation. Selecting the shortcut alone does not pass the SMS.
+							</li>
+							<li>
+								Test with a real or sample bank alert and check the resulting
+								expense. Only then enable Run Immediately if you want unattended
+								logging; otherwise keep the automation interactive.
+							</li>
+						</ol>
+						<p className="text-sm text-muted-foreground">
+							The AI shortcut asks Apple Intelligence for an amount, currency,
+							description and optional group. It uses a named group only when it
+							exactly matches one of yours; otherwise it uses your saved group,
+							your sole group, or asks. It sends those extracted fields to
+							Eventual, where the payer is you and the expense is split evenly
+							across the group. The bank message itself is not sent to Eventual.
+							A notification reports success or failure.
+						</p>
+						<p className="text-sm text-muted-foreground">
+							For an older SMS, copy its text in Messages, run the AI shortcut,
+							and check the pre-filled “What did you spend?” prompt. You can
+							also dictate a phrase such as “goa dinner 1200”. AI can misread
+							amounts or classify a balance, credit or OTP incorrectly, so
+							review expenses—especially before using unattended automation.
 						</p>
 					</div>
 
@@ -402,16 +472,20 @@ function DocsPage() {
 								`GET  ${origin}/api/shortcut/groups`,
 								`GET  ${origin}/api/shortcut/groups/{groupId}/members`,
 								`POST ${origin}/api/shortcut/groups/{groupId}/expenses`,
-								`     { "paidByUserId": "…", "amount": 1200.5, "description": "optional" }`,
+								`     { "amount": 1200.5, "currency": "INR", "description": "optional",`,
+								`       "paidByUserId": "optional, defaults to you" }`,
 							].join("\n")}
 						/>
 						<ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
 							<li>
 								Get Contents of URL (groups) → Get Dictionary from Input →
 								Choose from List. The chosen item is already the group ID; use
-								it directly in the members and expense URLs.
+								it directly in the expense URL.
 							</li>
-							<li>Do the same with the members endpoint to pick who paid.</li>
+							<li>
+								The payer defaults to you. Only call the members endpoint if you
+								want to log for someone else.
+							</li>
 							<li>
 								Ask for Input (Number), then POST the expense with a JSON body.
 							</li>

@@ -190,15 +190,33 @@ Recommended PostHog insights:
 
 ## Apple Shortcut
 
-`public/eventual.shortcut` asks for a group, then who paid, then an amount, and logs a split using all group members' weights dated today. On import, Shortcuts asks for an API key and the app URL. It calls:
+`public/eventual.shortcut` logs a split using all group members' weights dated today. On import, Shortcuts asks for an API key and the app URL. Three ways in:
+
+- **Action Button, Siri or Home Screen (no input):** asks only for the amount. If the clipboard holds a bank SMS, the parsed amount is pre-filled for confirmation. The payer defaults to you; the group is asked once and remembered on device in iCloud `Shortcuts/Eventual/last-group.txt`.
+- **Share Sheet or Messages automation (text input):** parses the amount, currency and merchant from a bank SMS and logs without asking. A notification confirms what was logged, or why it wasn't. Set it up under Shortcuts → Automation → Message, filtered to your bank's sender.
+- **Watch:** the same one-prompt flow, without the clipboard and group cache (file and clipboard actions don't exist on watchOS).
+
+It calls:
 
 ```bash
 $CURL "$BASE/api/shortcut/groups"                      # { "Group name": "GROUP_ID" }
 $CURL "$BASE/api/shortcut/groups/GROUP_ID/members"     # { "Me (Name)": "USER_ID", ... }
-$CURL -X POST -d '{"paidByUserId":"USER_ID","amount":1200.5}' "$BASE/api/shortcut/groups/GROUP_ID/expenses"
+$CURL -X POST -d '{"amount":1200.5,"currency":"INR","description":"Swiggy"}' "$BASE/api/shortcut/groups/GROUP_ID/expenses"
 ```
 
-The group and member responses are dictionaries: Choose from List displays their keys but returns the selected value (the ID). Use that output directly, without another dictionary lookup. The expense response and errors have a `message` field. After changing `scripts/build-shortcut.ts`, rebuild and re-sign the file on macOS with `bun run shortcut:build [default-url]`. Existing users must download the updated file and replace their installed shortcut to receive fixes.
+The group and member responses are dictionaries: Choose from List displays their keys but returns the selected value (the ID). Use that output directly, without another dictionary lookup. `paidByUserId` is optional and defaults to you; the members endpoint is for custom shortcuts that log for someone else. The expense response and errors have a `message` field. After changing `scripts/build-shortcut.ts`, rebuild and re-sign the file on macOS with `bun run shortcut:build [default-url]`. Existing users must download the updated file and replace their installed shortcut to receive fixes.
+
+### Apple Intelligence variant
+
+`public/eventual-ai.shortcut` is a separate shortcut for an iPhone with Apple Intelligence enabled (not Apple Watch). Import it with its own API key and Eventual URL. The original `eventual.shortcut` remains independent and does not require Apple Intelligence.
+
+**New bank alerts:** In Shortcuts → Automation, create a **Message** trigger filtered by your bank’s sender (and optionally **Message Contains** for debit alerts). Add **Run Shortcut**, choose the AI shortcut, and set its **input** to the received message’s body/content from the automation. Simply selecting the shortcut does **not** pass the message. Test with a real or sample alert and review the resulting expense before enabling **Run Immediately**; leave it interactive if you prefer to approve each run. The automation only receives messages after you set it up—it does not scan Messages history.
+
+**Old messages or manual entry:** Copy a bank SMS in Messages, then run the AI shortcut. If the clipboard resembles an amount-bearing alert, its text is pre-filled into “What did you spend?” for confirmation. You can also type or dictate a phrase such as “goa dinner 1200”. The shortcut does not have direct access to search or read your Messages inbox.
+
+**What happens:** The shortcut fetches your available group names from Eventual and asks Apple Intelligence to extract `{ amount, currency, description, group }` from the supplied text. It instructs the model to reject OTP, incoming-credit, refund, balance-only, and failed-transaction messages by returning `amount: null`; this is a guard, not a guarantee. A group name is accepted only if it exactly matches a group returned by the API; otherwise the shortcut uses the last group shared with the standard shortcut (`Shortcuts/Eventual/last-group.txt`), selects the sole group, or asks you. It posts **only the extracted amount, currency and description** to `/api/shortcut/groups/{groupId}/expenses` using your key. The server assigns you as payer, uses today’s date, splits evenly across all group members, and returns a confirmation message shown as a notification. The raw SMS is not posted to Eventual. Model errors and ambiguous messages still warrant checking the expense in the app before relying on unattended logging.
+
+Build it with `bun run shortcut:build-ai [default-url]`; both generators share `scripts/shortcut-lib.ts`. After changing either generator, rebuild and re-import the signed shortcut. The plist structure, build and API contract have been checked locally; the Message automation handoff and Apple Intelligence response still need testing on an iPhone.
 
 ## Verification
 

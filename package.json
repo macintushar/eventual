@@ -21,6 +21,7 @@
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
     "shortcut:build": "tsx scripts/build-shortcut.ts",
+    "shortcut:build-ai": "tsx scripts/build-shortcut-ai.ts",
     "api:generate": "tsx scripts/generate-api-client.ts && biome check --write src/lib/api-client.gen.ts"
   },
   "dependencies": {

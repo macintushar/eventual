@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "apple-shortcuts": {
+      "source": "rohanvinaik/shortcutforge",
+      "sourceType": "github",
+      "skillPath": "docs/SKILL.md",
+      "computedHash": "601df700a276ac32571f0aed1c5ec651eae9d6532077ac5bf544370ad79d9fc5"
+    },
     "better-auth-best-practices": {
       "source": "better-auth/skills",
       "sourceType": "github",
