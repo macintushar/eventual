@@ -1,11 +1,7 @@
-import {
-	createFileRoute,
-	useNavigate,
-	useRouter,
-} from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { Lock, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { Amount } from "#/components/amount";
 import { AppBreadcrumb } from "#/components/app-breadcrumb";
@@ -41,17 +37,31 @@ import {
 	ItemTitle,
 } from "#/components/ui/item";
 import { Separator } from "#/components/ui/separator";
+import { Spinner } from "#/components/ui/spinner";
+import { useAppMutation } from "#/lib/app-mutation";
 import { formatMinor } from "#/lib/money";
+import { expenseQueryOptions, groupPageQueryOptions } from "#/lib/queries";
 import { validateSharePayment } from "#/lib/settlements";
-import { getExpenseFn, getGroupPageFn, mutateFn } from "#/server/fn/app";
+import { isApiNotFound } from "#/lib/web-api-client";
 
 export const Route = createFileRoute(
 	"/app/groups/$groupId/expenses/$expenseId",
 )({
-	loader: async ({ params }) => ({
-		expense: await getExpenseFn({ data: { expenseId: params.expenseId } }),
-		page: await getGroupPageFn({ data: { groupId: params.groupId } }),
-	}),
+	loader: async ({ context, params }) => {
+		try {
+			await Promise.all([
+				context.queryClient.ensureQueryData(
+					expenseQueryOptions(params.expenseId),
+				),
+				context.queryClient.ensureQueryData(
+					groupPageQueryOptions(params.groupId),
+				),
+			]);
+		} catch (error) {
+			if (isApiNotFound(error)) throw notFound();
+			throw error;
+		}
+	},
 	component: ExpenseDetail,
 });
 
@@ -63,29 +73,28 @@ const methodLabel = {
 } as const;
 
 function ExpenseDetail() {
-	const { expense, page } = Route.useLoaderData();
-	const { groupId } = Route.useParams();
-	const router = useRouter();
+	const { groupId, expenseId } = Route.useParams();
+	const { data: expense, isFetching } = useSuspenseQuery(
+		expenseQueryOptions(expenseId),
+	);
+	const { data: page } = useSuspenseQuery(groupPageQueryOptions(groupId));
 	const navigate = useNavigate();
+	const { run, isPending } = useAppMutation();
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [deleting, setDeleting] = useState(false);
 	const [editOpen, setEditOpen] = useState(false);
 	// Every open starts from the expense as it stands, not from whatever the last
 	// abandoned edit left behind.
 	const [editToken, setEditToken] = useState(0);
 
 	async function toggle(userId: string, paid: boolean) {
-		try {
-			await mutateFn({
-				data: {
-					action: "share.paid",
-					input: { expenseId: expense.id, userId, paid },
-				},
-			});
-			toast.success(paid ? "Share marked paid" : "Share marked unpaid");
-			await router.invalidate();
-		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Could not update");
-		}
+		await run(
+			{
+				action: "share.paid",
+				input: { expenseId: expense.id, userId, paid },
+			},
+			paid ? "Share marked paid" : "Share marked unpaid",
+		);
 	}
 
 	return (
@@ -104,8 +113,14 @@ function ExpenseDetail() {
 					<CardDescription className="island-kicker">
 						{methodLabel[expense.splitMethod]}
 					</CardDescription>
-					<CardTitle className="display-title text-[2.125rem] font-bold sm:text-4xl">
+					<CardTitle className="display-title flex flex-wrap items-center gap-3 text-[2.125rem] font-bold sm:text-4xl">
 						{expense.description}
+						{isFetching || isPending ? (
+							<span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+								<Spinner className="size-3" />
+								{isPending ? "Saving" : "Updating"}
+							</span>
+						) : null}
 					</CardTitle>
 					<p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
 						<span className="text-2xl font-bold text-foreground">
@@ -260,7 +275,7 @@ function ExpenseDetail() {
 							currentUserId={page.user.id}
 							defaultGroupId={groupId}
 							initial={expense}
-							onSaved={() => router.invalidate()}
+							onSaved={() => undefined}
 						/>
 					) : null}
 
@@ -295,29 +310,28 @@ function ExpenseDetail() {
 								<DialogFooter>
 									<Button
 										variant="destructive"
+										disabled={deleting}
 										onClick={async () => {
-											try {
-												await mutateFn({
-													data: {
-														action: "expense.delete",
-														input: { expenseId: expense.id },
-													},
-												});
-												toast.success("Expense deleted");
-												await navigate({
-													to: "/app/groups/$groupId",
-													params: { groupId },
-												});
-											} catch (error) {
-												toast.error(
-													error instanceof Error
-														? error.message
-														: "Could not delete",
-												);
+											setDeleting(true);
+											const deleted = await run(
+												{
+													action: "expense.delete",
+													input: { expenseId: expense.id },
+												},
+												"Expense deleted",
+											);
+											if (!deleted) {
+												setDeleting(false);
+												return;
 											}
+											await navigate({
+												to: "/app/groups/$groupId",
+												params: { groupId },
+											});
 										}}
 									>
-										Delete expense
+										{deleting ? <Spinner data-icon="inline-start" /> : null}
+										{deleting ? "Deleting…" : "Delete expense"}
 									</Button>
 								</DialogFooter>
 							</DialogContent>

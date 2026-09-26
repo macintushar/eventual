@@ -3,32 +3,12 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import * as Sentry from "@sentry/tanstackstart-react";
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
-import { z } from "zod";
-
 import { buildContext, type Ctx } from "#/server/context";
 import { AppError, errorStatus } from "#/server/errors";
-import {
-	createExpenseSchema,
-	groupIdSchema,
-	pageSchema,
-} from "#/server/schemas";
-import {
-	createExpense,
-	getBalances,
-	listExpenses,
-	listGroups,
-} from "#/server/services/app";
-import { captureEvent, type McpToolName } from "#/server/telemetry";
-
-// `createExpenseSchema.date` is `z.coerce.date()`, which cannot be rendered as
-// JSON Schema — advertising it directly makes `tools/list` fail. Expose an ISO
-// string to clients and let `createExpenseSchema` coerce it back to a Date.
-const createExpenseToolShape = {
-	...createExpenseSchema.shape,
-	date: z.iso
-		.datetime()
-		.describe("ISO 8601 date-time, e.g. 2026-09-05T00:00:00Z"),
-};
+import { enforceOperationScope } from "#/server/http";
+import { mcpWireShape } from "#/server/mcp-schema";
+import { executeOperation, operations } from "#/server/operations";
+import { captureEvent } from "#/server/telemetry";
 
 const text = (value: unknown) => ({
 	content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }],
@@ -47,82 +27,26 @@ function metricMethod(value: unknown) {
 	return metricMethods.has(value) ? value : "other";
 }
 
-async function measuredTool<Result>(
-	ctx: Ctx,
-	toolName: McpToolName,
-	run: () => Promise<Result>,
-) {
-	const startedAt = performance.now();
-	try {
-		const result = await run();
-		captureEvent({
-			event: "mcp_tool_called",
-			distinctId: ctx.user.id,
-			properties: {
-				tool_name: toolName,
-				success: true,
-				duration_ms: Math.round(performance.now() - startedAt),
-			},
-		});
-		return result;
-	} catch (error) {
-		captureEvent({
-			event: "mcp_tool_called",
-			distinctId: ctx.user.id,
-			properties: {
-				tool_name: toolName,
-				success: false,
-				duration_ms: Math.round(performance.now() - startedAt),
-			},
-		});
-		throw error;
-	}
-}
-
 function createMcpServer(ctx: Ctx) {
 	const server = Sentry.wrapMcpServerWithSentry(
 		new McpServer({ name: "eventual", version: "1.0.0" }),
 		// Expense inputs and tool results must never leave the application.
 		{ recordInputs: false, recordOutputs: false },
 	);
-	server.registerTool(
-		"listGroups",
-		{ description: "List the signed-in user's groups", inputSchema: {} },
-		async () =>
-			measuredTool(ctx, "listGroups", async () => text(await listGroups(ctx))),
-	);
-	server.registerTool(
-		"listExpenses",
-		{ description: "List expenses in a group", inputSchema: pageSchema.shape },
-		async (input) =>
-			measuredTool(ctx, "listExpenses", async () =>
-				text(await listExpenses(ctx, input)),
-			),
-	);
-	server.registerTool(
-		"createExpense",
-		{
-			description:
-				"Create and split an expense in its original currency. amountMinor uses that currency's smallest unit; no exchange conversion is performed.",
-			inputSchema: createExpenseToolShape,
-		},
-		async (input) =>
-			measuredTool(ctx, "createExpense", async () =>
-				text(await createExpense(ctx, createExpenseSchema.parse(input))),
-			),
-	);
-	server.registerTool(
-		"getBalances",
-		{
-			description:
-				"Get member balances and simplified transfers, separately for each currency. Every balance and transfer includes its currency code.",
-			inputSchema: groupIdSchema.shape,
-		},
-		async (input) =>
-			measuredTool(ctx, "getBalances", async () =>
-				text(await getBalances(ctx, input)),
-			),
-	);
+	for (const operation of operations) {
+		if (!("mcp" in operation) || !operation.mcp) continue;
+		server.registerTool(
+			operation.mcp.tool,
+			{
+				description: operation.mcp.description,
+				inputSchema: mcpWireShape(operation.input),
+			},
+			async (input) => {
+				await enforceOperationScope(ctx, operation);
+				return text(await executeOperation(operation, ctx, input, "mcp"));
+			},
+		);
+	}
 	return server;
 }
 

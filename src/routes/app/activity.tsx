@@ -1,6 +1,7 @@
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { History } from "lucide-react";
-import { useState } from "react";
+import { useEffect } from "react";
 import { toast } from "sonner";
 
 import { AppBreadcrumb } from "#/components/app-breadcrumb";
@@ -8,38 +9,32 @@ import { EmptyState } from "#/components/empty-state";
 import { PersonalActivityRow } from "#/components/personal-activity";
 import { Button } from "#/components/ui/button";
 import { Spinner } from "#/components/ui/spinner";
-import { getMyActivityFn } from "#/server/fn/app";
+import { myActivityInfiniteOptions } from "#/lib/queries";
 
 export const Route = createFileRoute("/app/activity")({
 	head: () => ({ meta: [{ title: "Activity · Eventual" }] }),
-	loader: () => getMyActivityFn({ data: {} }),
+	loader: ({ context }) =>
+		context.queryClient.ensureInfiniteQueryData(myActivityInfiniteOptions),
 	component: ActivityPage,
 });
 
 function ActivityPage() {
-	const initial = Route.useLoaderData();
 	const { user } = Route.useRouteContext();
-	const [items, setItems] = useState(initial.items);
-	const [names, setNames] = useState(initial.names);
-	const [cursor, setCursor] = useState(initial.nextCursor);
-	const [loading, setLoading] = useState(false);
+	const activity = useInfiniteQuery(myActivityInfiniteOptions);
+	const items = activity.data?.pages.flatMap((page) => page.items) ?? [];
+	const names = Object.assign(
+		{},
+		...(activity.data?.pages.map((page) => page.names) ?? []),
+	);
 
-	const loadMore = async () => {
-		if (!cursor) return;
-		setLoading(true);
-		try {
-			const next = await getMyActivityFn({ data: { cursor } });
-			setItems((old) => [...old, ...next.items]);
-			setNames((old) => ({ ...old, ...next.names }));
-			setCursor(next.nextCursor);
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Could not load activity",
-			);
-		} finally {
-			setLoading(false);
-		}
-	};
+	useEffect(() => {
+		if (!activity.isFetchNextPageError) return;
+		toast.error(
+			activity.error instanceof Error
+				? activity.error.message
+				: "Could not load activity",
+		);
+	}, [activity.isFetchNextPageError, activity.error]);
 
 	return (
 		<div className="col-form flex flex-col gap-6">
@@ -49,8 +44,14 @@ function ActivityPage() {
 			/>
 			<div>
 				<p className="island-kicker">Across all your groups</p>
-				<h1 className="display-title mt-2 text-3xl font-bold sm:text-4xl">
+				<h1 className="display-title mt-2 flex flex-wrap items-center gap-3 text-3xl font-bold sm:text-4xl">
 					Activity
+					{activity.isFetching && !activity.isFetchingNextPage ? (
+						<span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+							<Spinner className="size-3" />
+							Updating
+						</span>
+					) : null}
 				</h1>
 				<p className="mt-1 text-sm text-muted-foreground">
 					Expenses you're on, payments to and from you, and changes to your
@@ -58,7 +59,27 @@ function ActivityPage() {
 				</p>
 			</div>
 
-			{items.length === 0 ? (
+			{activity.isPending ? (
+				<p className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+					<Spinner />
+					Loading activity…
+				</p>
+			) : activity.isError && items.length === 0 ? (
+				<EmptyState
+					icon={History}
+					title="Activity didn't load"
+					description={
+						activity.error instanceof Error
+							? activity.error.message
+							: "Could not load activity."
+					}
+					action={
+						<Button variant="outline" onClick={() => void activity.refetch()}>
+							Try again
+						</Button>
+					}
+				/>
+			) : items.length === 0 ? (
 				<EmptyState
 					icon={History}
 					title="Nothing involving you yet"
@@ -77,15 +98,19 @@ function ActivityPage() {
 							</li>
 						))}
 					</ol>
-					{cursor ? (
+					{activity.hasNextPage ? (
 						<Button
 							variant="outline"
 							className="m-2 w-[calc(100%-1rem)]"
-							disabled={loading}
-							onClick={loadMore}
+							disabled={activity.isFetchingNextPage}
+							onClick={() => {
+								void activity.fetchNextPage();
+							}}
 						>
-							{loading ? <Spinner data-icon="inline-start" /> : null}
-							{loading ? "Loading…" : "Load more"}
+							{activity.isFetchingNextPage ? (
+								<Spinner data-icon="inline-start" />
+							) : null}
+							{activity.isFetchingNextPage ? "Loading…" : "Load more"}
 						</Button>
 					) : null}
 				</section>

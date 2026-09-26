@@ -1,70 +1,48 @@
-import { useEffect, useState } from "react";
-import { getSessionFn } from "#/server/fn/auth";
+import { type QueryClient, useQuery } from "@tanstack/react-query";
 
-type Session = Awaited<ReturnType<typeof getSessionFn>>;
+import { sessionQueryOptions } from "#/lib/queries";
 
-let cached: Session | undefined;
-let inFlight: Promise<Session> | undefined;
+// Queries whose data is the same for every visitor. Everything else belongs to
+// whoever was signed in when it was fetched.
+const publicQueryKeys = new Set<unknown>(["legal", "site"]);
+const cacheOwners = new WeakMap<QueryClient, string>();
+
+function clearAccountQueries(queryClient: QueryClient, keepSession = false) {
+	queryClient.removeQueries({
+		predicate: (query) =>
+			!publicQueryKeys.has(query.queryKey[0]) &&
+			!(keepSession && query.queryKey[0] === sessionQueryOptions.queryKey[0]),
+	});
+}
 
 /**
- * The session behind the `/app` guard, read from memory on the client.
- *
- * `beforeLoad` runs on every navigation and every hover preload, so asking the
- * server each time put two serial round trips in front of each page. Nothing
- * security-sensitive rests on this cache: every server function re-reads the
- * session from the request headers, and one that has since expired or been
- * revoked redirects to login from there.
+ * Drop the cached session, and every account-scoped query with it, so the next
+ * guard reads the server again and no page renders the previous user's data.
  */
-export async function loadSession() {
-	// Module state lives per-tab in the browser but is shared across every
-	// request on the server, so the cache must only ever exist on the client.
-	if (import.meta.env.SSR) return getSessionFn();
-	if (cached !== undefined) return cached;
-	inFlight ??= getSessionFn().then(
-		(session) => {
-			cached = session;
-			inFlight = undefined;
-			return session;
-		},
-		(error: unknown) => {
-			inFlight = undefined;
-			throw error;
-		},
-	);
-	return inFlight;
-}
-
-/** Called wherever auth state changes, so the next guard re-reads the server. */
-export function clearSession() {
-	cached = undefined;
-	inFlight = undefined;
+export function clearSession(queryClient: QueryClient) {
+	cacheOwners.delete(queryClient);
+	clearAccountQueries(queryClient);
 }
 
 /**
- * The signed-in user, resolved on the client after a prerendered page
- * hydrates. Starts `null` (signed-out chrome) and swaps in once
- * `loadSession` resolves, so a prerendered page never bakes in one
- * visitor's session for everyone.
+ * Tie the cache to the signed-in user. If another tab switched accounts, the
+ * cached groups and expenses belong to someone else and must be refetched.
+ */
+export function claimAccountCache(queryClient: QueryClient, userId: string) {
+	const owner = cacheOwners.get(queryClient);
+	if (owner && owner !== userId) clearAccountQueries(queryClient, true);
+	cacheOwners.set(queryClient, userId);
+}
+
+/**
+ * The signed-in user on prerendered public pages. The query stays disabled
+ * during SSR so a static page never bakes one visitor's session into the HTML
+ * everyone else receives. It starts empty and fills in after hydration.
  */
 export function useClientUser() {
-	const [user, setUser] = useState<{ name: string; email: string } | null>(
-		null,
-	);
-
-	useEffect(() => {
-		let active = true;
-		void loadSession().then(
-			(session) => {
-				if (active) setUser(session?.user ?? null);
-			},
-			() => {
-				if (active) setUser(null);
-			},
-		);
-		return () => {
-			active = false;
-		};
-	}, []);
-
-	return user;
+	const query = useQuery({
+		...sessionQueryOptions,
+		enabled: !import.meta.env.SSR,
+	});
+	return query.data?.user ?? null;
 }

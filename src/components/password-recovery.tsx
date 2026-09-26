@@ -1,5 +1,7 @@
+import { useForm } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { z } from "zod";
 import { PublicPage, publicSignedOutActions } from "#/components/public-header";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Button } from "#/components/ui/button";
@@ -10,9 +12,15 @@ import {
 	CardHeader,
 	CardTitle,
 } from "#/components/ui/card";
-import { Field, FieldGroup, FieldLabel } from "#/components/ui/field";
+import {
+	Field,
+	FieldError,
+	FieldGroup,
+	FieldLabel,
+} from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { authClient } from "#/lib/auth-client";
+import { fieldError } from "#/lib/form-error";
 
 export function PasswordRecovery({
 	mode,
@@ -23,12 +31,46 @@ export function PasswordRecovery({
 	token?: string;
 	invalid?: boolean;
 }) {
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [confirmation, setConfirmation] = useState("");
-	const [pending, setPending] = useState(false);
 	const [done, setDone] = useState(false);
 	const [error, setError] = useState("");
+	const form = useForm({
+		defaultValues: { email: "", password: "", confirmation: "" },
+		validators: {
+			onSubmit: ({ value }) => {
+				if (mode === "reset" && value.password !== value.confirmation)
+					return "Passwords don't match";
+				return undefined;
+			},
+		},
+		onSubmit: async ({ value }) => {
+			setError("");
+			try {
+				const result =
+					mode === "request"
+						? await authClient.requestPasswordReset({
+								email: value.email.trim(),
+								redirectTo: "/reset-password",
+							})
+						: await authClient.resetPassword({
+								newPassword: value.password,
+								token,
+							});
+				if (result.error) {
+					setError(
+						mode === "request"
+							? "We couldn't process the request. Please try again later."
+							: "This link may have expired or already been used. Request a new reset link.",
+					);
+					return;
+				}
+				setDone(true);
+				if (mode === "reset")
+					window.history.replaceState(null, "", "/reset-password");
+			} catch {
+				setError("We couldn't process the request. Please try again later.");
+			}
+		},
+	});
 	const unusable = mode === "reset" && (!token || invalid);
 	return (
 		<PublicPage
@@ -70,119 +112,168 @@ export function PasswordRecovery({
 							</Alert>
 						) : (
 							<form
-								onSubmit={async (event) => {
+								onSubmit={(event) => {
 									event.preventDefault();
-									setError("");
-									if (mode === "reset" && password !== confirmation) {
-										setError("Passwords don't match");
-										return;
-									}
-									setPending(true);
-									try {
-										const result =
-											mode === "request"
-												? await authClient.requestPasswordReset({
-														email: email.trim(),
-														redirectTo: "/reset-password",
-													})
-												: await authClient.resetPassword({
-														newPassword: password,
-														token,
-													});
-										if (result.error) {
-											setError(
-												mode === "request"
-													? "We couldn't process the request. Please try again later."
-													: "This link may have expired or already been used. Request a new reset link.",
-											);
-											return;
-										}
-										setDone(true);
-										setPassword("");
-										setConfirmation("");
-										if (mode === "reset")
-											window.history.replaceState(null, "", "/reset-password");
-									} catch {
-										setError(
-											"We couldn't process the request. Please try again later.",
-										);
-									} finally {
-										setPending(false);
-									}
+									event.stopPropagation();
+									void form.handleSubmit();
 								}}
 							>
 								<FieldGroup>
 									{mode === "request" ? (
-										<Field>
-											<FieldLabel htmlFor="recovery-email">Email</FieldLabel>
-											<Input
-												id="recovery-email"
-												type="email"
-												autoComplete="email"
-												required
-												value={email}
-												onChange={(event) => setEmail(event.target.value)}
-											/>
-										</Field>
+										<form.Field
+											name="email"
+											validators={{
+												onBlur: z.email("Enter a valid email address"),
+												onSubmit: z.email("Enter a valid email address"),
+											}}
+										>
+											{(field) => {
+												const message = field.state.meta.isTouched
+													? fieldError(field.state.meta.errors)
+													: undefined;
+												return (
+													<Field data-invalid={message ? true : undefined}>
+														<FieldLabel htmlFor={field.name}>Email</FieldLabel>
+														<Input
+															id={field.name}
+															name={field.name}
+															type="email"
+															autoComplete="email"
+															value={field.state.value}
+															onBlur={field.handleBlur}
+															onChange={(event) =>
+																field.handleChange(event.target.value)
+															}
+															aria-invalid={message ? true : undefined}
+														/>
+														{message ? (
+															<FieldError>{message}</FieldError>
+														) : null}
+													</Field>
+												);
+											}}
+										</form.Field>
 									) : (
 										<>
-											<Field>
-												<FieldLabel htmlFor="new-password">
-													New password
-												</FieldLabel>
-												<Input
-													id="new-password"
-													type="password"
-													autoComplete="new-password"
-													required
-													minLength={8}
-													maxLength={128}
-													value={password}
-													onChange={(event) => setPassword(event.target.value)}
-												/>
-											</Field>
-											<Field>
-												<FieldLabel htmlFor="confirm-password">
-													Confirm password
-												</FieldLabel>
-												<Input
-													id="confirm-password"
-													type="password"
-													autoComplete="new-password"
-													required
-													minLength={8}
-													maxLength={128}
-													value={confirmation}
-													onChange={(event) =>
-														setConfirmation(event.target.value)
-													}
-												/>
-											</Field>
+											<form.Field
+												name="password"
+												validators={{
+													onBlur: z
+														.string()
+														.min(8, "Use at least 8 characters")
+														.max(128, "Use at most 128 characters"),
+													onSubmit: z
+														.string()
+														.min(8, "Use at least 8 characters")
+														.max(128, "Use at most 128 characters"),
+												}}
+											>
+												{(field) => {
+													const message = field.state.meta.isTouched
+														? fieldError(field.state.meta.errors)
+														: undefined;
+													return (
+														<Field data-invalid={message ? true : undefined}>
+															<FieldLabel htmlFor={field.name}>
+																New password
+															</FieldLabel>
+															<Input
+																id={field.name}
+																name={field.name}
+																type="password"
+																autoComplete="new-password"
+																maxLength={128}
+																value={field.state.value}
+																onBlur={field.handleBlur}
+																onChange={(event) =>
+																	field.handleChange(event.target.value)
+																}
+																aria-invalid={message ? true : undefined}
+															/>
+															{message ? (
+																<FieldError>{message}</FieldError>
+															) : null}
+														</Field>
+													);
+												}}
+											</form.Field>
+											<form.Field
+												name="confirmation"
+												validators={{
+													onChangeListenTo: ["password"],
+													onChange: ({ value, fieldApi }) => {
+														const password =
+															fieldApi.form.getFieldValue("password");
+														if (!value || value === password) return undefined;
+														return "Passwords don't match";
+													},
+												}}
+											>
+												{(field) => {
+													const message = field.state.meta.isTouched
+														? fieldError(field.state.meta.errors)
+														: undefined;
+													return (
+														<Field data-invalid={message ? true : undefined}>
+															<FieldLabel htmlFor={field.name}>
+																Confirm password
+															</FieldLabel>
+															<Input
+																id={field.name}
+																name={field.name}
+																type="password"
+																autoComplete="new-password"
+																maxLength={128}
+																value={field.state.value}
+																onBlur={field.handleBlur}
+																onChange={(event) =>
+																	field.handleChange(event.target.value)
+																}
+																aria-invalid={message ? true : undefined}
+															/>
+															{message ? (
+																<FieldError>{message}</FieldError>
+															) : null}
+														</Field>
+													);
+												}}
+											</form.Field>
 										</>
 									)}
-									{error ? (
-										<Alert variant="destructive">
-											<AlertTitle>Could not continue</AlertTitle>
-											<AlertDescription>
-												{error}
-												{mode === "reset" ? (
-													<>
-														{" "}
-														<Link to="/forgot-password">
-															Request a new link
-														</Link>
-													</>
-												) : null}
-											</AlertDescription>
-										</Alert>
-									) : null}
-									<Button disabled={pending}>
-										{pending
-											? "Please wait…"
-											: mode === "request"
-												? "Send reset link"
-												: "Update password"}
-									</Button>
+									<form.Subscribe selector={(state) => state.errorMap.onSubmit}>
+										{(formError) =>
+											error || formError ? (
+												<Alert variant="destructive">
+													<AlertTitle>Could not continue</AlertTitle>
+													<AlertDescription>
+														{error ||
+															(typeof formError === "string"
+																? formError
+																: "Check the form and try again.")}
+														{mode === "reset" ? (
+															<>
+																{" "}
+																<Link to="/forgot-password">
+																	Request a new link
+																</Link>
+															</>
+														) : null}
+													</AlertDescription>
+												</Alert>
+											) : null
+										}
+									</form.Subscribe>
+									<form.Subscribe selector={(state) => state.isSubmitting}>
+										{(pending) => (
+											<Button disabled={pending}>
+												{pending
+													? "Please wait…"
+													: mode === "request"
+														? "Send reset link"
+														: "Update password"}
+											</Button>
+										)}
+									</form.Subscribe>
 								</FieldGroup>
 							</form>
 						)}

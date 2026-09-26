@@ -57,8 +57,16 @@ async function fixture(failedKind?: EmailKind) {
 	return { auth, messages, database, post };
 }
 
+async function requestVerification(f: Awaited<ReturnType<typeof fixture>>) {
+	return f.post("send-verification-email", {
+		email: "person@example.com",
+		callbackURL: "/verify-email",
+	});
+}
+
 test("auth sends verification, verifies account, resets password once, and revokes sessions", async () => {
 	const f = await fixture();
+	// Signup alone sends the link, so API clients need no extra request.
 	assert.equal(f.messages.length, 1);
 	assert.equal(f.messages[0].props.kind, "verification");
 	assert.equal(f.messages[0].to, "person@example.com");
@@ -115,6 +123,24 @@ test("auth sends verification, verifies account, resets password once, and revok
 		).status,
 		200,
 	);
+});
+
+test("unverified email is revealed only after the correct password", async () => {
+	const f = await fixture();
+	const wrong = await f.post("sign-in/email", {
+		email: "person@example.com",
+		password: "Incorrect123!",
+	});
+	assert.equal(wrong.status, 401);
+	assert.notEqual((await wrong.json()).code, "EMAIL_NOT_VERIFIED");
+	const correct = await f.post("sign-in/email", {
+		email: "person@example.com",
+		password: "Original123!",
+	});
+	assert.equal(correct.status, 403);
+	assert.equal((await correct.json()).code, "EMAIL_NOT_VERIFIED");
+	// Only the signup email; a sign-in attempt sends nothing further.
+	assert.equal(f.messages.length, 1);
 });
 
 test("expired reset links are rejected and unknown accounts receive the same generic response", async () => {
@@ -181,6 +207,7 @@ test("confirmation failure does not prevent password reset or session revocation
 
 test("link emails carry the deadline of the token they were sent with", async () => {
 	const f = await fixture();
+	await requestVerification(f);
 	await f.post("request-password-reset", {
 		email: "person@example.com",
 		redirectTo: "/reset-password",

@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { AuthForm } from "#/components/auth-form";
+import { siteQueryOptions } from "#/lib/queries";
 export const Route = createFileRoute("/signup")({
 	validateSearch: z.object({ redirect: z.string().optional() }),
 	head: () => ({ meta: [{ name: "robots", content: "noindex" }] }),
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(siteQueryOptions),
 	component: () => <AuthForm mode="signup" />,
 });

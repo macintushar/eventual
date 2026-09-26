@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Users } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -39,14 +40,14 @@ import { StepDialog } from "#/components/ui/step-dialog";
 import { type Step, useStepper } from "#/components/ui/stepper";
 import { Textarea } from "#/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
+import { useAppMutation } from "#/lib/app-mutation";
 import { currencyDecimals, currencySymbol } from "#/lib/currencies";
 import { atNoon, formatLongDate } from "#/lib/dates";
 import { formatMinor, fromMinor, parseMinor } from "#/lib/money";
 import { cn } from "#/lib/utils";
 import { computeShares, type SplitMethod } from "#/server/domain/split";
-import { mutateFn } from "#/server/fn/app";
 
-export type ComposerMember = { userId: string; name: string };
+export type ComposerMember = { userId: string; name: string; weight: number };
 export type ComposerGroup = {
 	id: string;
 	name: string;
@@ -66,14 +67,14 @@ export type ExpenseDraft = {
 };
 
 const methodHelp: Record<SplitMethod, string> = {
-	even: "Everyone selected pays the same, rounded to the currency's smallest unit.",
+	even: "Uses each selected member's group weight. Weight 2 pays twice as much as weight 1.",
 	exact: "Type each person's exact amount. They must add up to the total.",
-	shares: "Give each person a weight — 2 shares pays twice as much as 1.",
+	shares: "Set a ratio for this expense — 2 shares pays twice as much as 1.",
 	percent: "Percentages of the total. They must add up to 100%.",
 };
 
 const methodLabel: Record<SplitMethod, string> = {
-	even: "Split evenly",
+	even: "By group weight",
 	exact: "Exact amounts",
 	shares: "By shares",
 	percent: "By percentage",
@@ -179,6 +180,7 @@ export function ExpenseComposer({
 	);
 
 	const [groupId, setGroupId] = useState(defaultGroupId ?? groups[0]?.id ?? "");
+	const queryClient = useQueryClient();
 	const group = groups.find((row) => row.id === groupId);
 	const members = useMemo(() => group?.members ?? [], [group]);
 
@@ -216,7 +218,11 @@ export function ExpenseComposer({
 			]) ?? [],
 		),
 	);
-	const [saving, setSaving] = useState(false);
+	const save = useAppMutation();
+	const [splitChanged, setSplitChanged] = useState(false);
+	const [reviewedPreview, setReviewedPreview] = useState<
+		ReturnType<typeof computeShares>
+	>([]);
 
 	/*
 	 * Payer and participants are member ids, so they cannot outlive a change of
@@ -227,6 +233,7 @@ export function ExpenseComposer({
 	const [scopedTo, setScopedTo] = useState(groupId);
 	if (scopedTo !== groupId) {
 		setScopedTo(groupId);
+		setSplitChanged(false);
 		setPayer(defaultPayer(members, currentUserId));
 		setSelected(new Set(members.map((member) => member.userId)));
 		setInputs(
@@ -239,6 +246,7 @@ export function ExpenseComposer({
 
 	const changeMethod = (next: SplitMethod) => {
 		if (next === method) return;
+		setSplitChanged(false);
 		setMethod(next);
 		if (next !== "even") setInputs(defaultInputs(next, [...selected].sort()));
 	};
@@ -252,7 +260,11 @@ export function ExpenseComposer({
 	} else {
 		try {
 			totalMinor = amountMinor;
-			const participants: { userId: string; input: number | null }[] = [];
+			const participants: {
+				userId: string;
+				input: number | null;
+				weight: number;
+			}[] = [];
 			for (const member of members) {
 				if (!selected.has(member.userId)) continue;
 				const input = splitInput(method, inputs[member.userId] ?? "", currency);
@@ -260,7 +272,11 @@ export function ExpenseComposer({
 					invalid = `Enter a valid split value for ${currency}`;
 					break;
 				}
-				participants.push({ userId: member.userId, input });
+				participants.push({
+					userId: member.userId,
+					input,
+					weight: member.weight,
+				});
 			}
 			if (!invalid)
 				preview = computeShares(totalMinor, method, participants, currency);
@@ -313,39 +329,54 @@ export function ExpenseComposer({
 	})();
 
 	const submit = async () => {
-		setSaving(true);
-		try {
-			const base = {
-				description,
-				notes: notes || null,
-				amountMinor: totalMinor,
-				currency,
-				paidByUserId: payer,
-				splitMethod: method,
-				date,
-				participants: preview.map((share) => ({
-					userId: share.userId,
-					input: share.splitInput,
-				})),
+		const base = {
+			description,
+			notes: notes || null,
+			amountMinor: totalMinor,
+			currency,
+			paidByUserId: payer,
+			splitMethod: method,
+			date,
+			participants: reviewedPreview.map((share) => ({
+				userId: share.userId,
+				input: share.splitInput,
+			})),
+			reviewedShares: reviewedPreview.map((share) => ({
+				userId: share.userId,
+				amountMinor: share.amountMinor,
+			})),
+		};
+		const outcome = await save.execute(
+			initial
+				? {
+						action: "expense.update",
+						input: { ...base, expenseId: initial.id },
+					}
+				: { action: "expense.create", input: { ...base, groupId } },
+		);
+		if (!outcome.ok) {
+			const error = outcome.error as {
+				status?: number;
+				details?: { details?: { reason?: string } };
 			};
-			await mutateFn({
-				data: initial
-					? {
-							action: "expense.update",
-							input: { ...base, expenseId: initial.id },
-						}
-					: { action: "expense.create", input: { ...base, groupId } },
-			});
-			toast.success(initial ? "Expense updated" : "Expense added");
-			onOpenChange(false);
-			await onSaved(groupId);
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Could not save expense",
-			);
-		} finally {
-			setSaving(false);
+			if (
+				error?.status === 409 &&
+				error.details?.details?.reason === "split_changed"
+			) {
+				await Promise.all([
+					queryClient.invalidateQueries({ queryKey: ["composer"] }),
+					queryClient.invalidateQueries({
+						queryKey: ["group", groupId, "page"],
+					}),
+				]);
+				setSplitChanged(true);
+				stepper.goTo(steps.length - 2);
+			}
+			return;
 		}
+		toast.success(initial ? "Expense updated" : "Expense added");
+		onOpenChange(false);
+		await onSaved(groupId);
 	};
 
 	if (!initial && groups.length === 0)
@@ -383,10 +414,14 @@ export function ExpenseComposer({
 			index={stepper.index}
 			onSelectStep={stepper.goTo}
 			onBack={stepper.back}
-			onNext={() => (stepper.isLast ? submit() : stepper.next())}
+			onNext={() => {
+				if (stepper.isLast) return submit();
+				if (stepper.id === "split") setReviewedPreview(preview);
+				stepper.next();
+			}}
 			nextLabel={
 				stepper.isLast
-					? saving
+					? save.isPending
 						? "Saving…"
 						: initial
 							? "Save changes"
@@ -397,7 +432,7 @@ export function ExpenseComposer({
 			// The split step says the same thing in its own status panel, a few
 			// pixels above, so it would only be said twice.
 			nextHint={stepper.id === "split" ? undefined : blocker}
-			pending={saving}
+			pending={save.isPending}
 		>
 			{stepper.id === "group" ? (
 				<FieldGroup>
@@ -558,12 +593,20 @@ export function ExpenseComposer({
 						className="grid w-full grid-cols-2 sm:grid-cols-4"
 						aria-label="Split method"
 					>
-						<ToggleGroupItem value="even">Even</ToggleGroupItem>
+						<ToggleGroupItem value="even">Group weights</ToggleGroupItem>
 						<ToggleGroupItem value="exact">Exact</ToggleGroupItem>
 						<ToggleGroupItem value="shares">Shares</ToggleGroupItem>
 						<ToggleGroupItem value="percent">Percent</ToggleGroupItem>
 					</ToggleGroup>
 					<p className="text-sm text-muted-foreground">{methodHelp[method]}</p>
+					{splitChanged ? (
+						<Alert role="alert">
+							<AlertTitle>Group weights changed</AlertTitle>
+							<AlertDescription>
+								Check the updated amounts, then continue to review.
+							</AlertDescription>
+						</Alert>
+					) : null}
 
 					<FieldSet>
 						<FieldLegend className="sr-only">Participants</FieldLegend>
@@ -609,6 +652,11 @@ export function ExpenseComposer({
 													{member.name}
 												</FieldLabel>
 											</ItemTitle>
+											{method === "even" ? (
+												<p className="text-xs text-muted-foreground">
+													Weight {member.weight}
+												</p>
+											) : null}
 										</ItemContent>
 										{method !== "even" ? (
 											<ItemActions key="input">
@@ -712,7 +760,7 @@ export function ExpenseComposer({
 					<Separator />
 
 					<ItemGroup>
-						{preview.map((share) => (
+						{reviewedPreview.map((share) => (
 							<Item key={share.userId} size="sm" className="flex-nowrap">
 								<ItemMedia>
 									<MemberAvatar

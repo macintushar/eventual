@@ -1,27 +1,13 @@
-import { useRouter } from "@tanstack/react-router";
-import { ArrowUpRight, Camera, Trash2 } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { useForm } from "@tanstack/react-form";
+import { ArrowUpRight, Camera } from "lucide-react";
 import { toast } from "sonner";
 
 import { BrandLogo } from "#/components/brand-logo";
 import { EmailVerification } from "#/components/email-verification";
 import { MemberAvatar } from "#/components/member-avatar";
+import { SettingsRow, SettingsSection } from "#/components/settings-section";
 import { Button } from "#/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "#/components/ui/card";
-import {
-	Field,
-	FieldDescription,
-	FieldError,
-	FieldGroup,
-	FieldLabel,
-	FieldSeparator,
-} from "#/components/ui/field";
+import { Field, FieldError } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import {
 	InputGroup,
@@ -30,8 +16,9 @@ import {
 	InputGroupText,
 } from "#/components/ui/input-group";
 import { Spinner } from "#/components/ui/spinner";
-import { clearSession } from "#/lib/session";
-import { updateProfileFn } from "#/server/fn/profile";
+import { Switch } from "#/components/ui/switch";
+import { useUpdateProfile } from "#/lib/app-mutation";
+import { fieldError } from "#/lib/form-error";
 import { upiVpaSchema, wiseTagSchema } from "#/server/schemas";
 
 type ProfileUser = {
@@ -41,280 +28,351 @@ type ProfileUser = {
 	image?: string | null;
 	upiVpa?: string | null;
 	wiseTag?: string | null;
+	emailReminders?: boolean | null;
 };
 
-type ProfilePatch = Parameters<typeof updateProfileFn>[0]["data"];
-
-/**
- * Saves one card's fields, then drops the cached session so the `/app` guard
- * re-reads the user — otherwise the header and account menu keep the old name.
- */
-function useSaveProfile() {
-	const router = useRouter();
-	const [saving, setSaving] = useState(false);
-
-	const save = async (data: ProfilePatch, success: string) => {
-		setSaving(true);
-		try {
-			await updateProfileFn({ data });
-			clearSession();
-			await router.invalidate();
-			toast.success(success);
-			return true;
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Could not save your profile",
-			);
-			return false;
-		} finally {
-			setSaving(false);
-		}
-	};
-
-	return { saving, save };
-}
-
-/** The first issue's message, or an empty string when the value parses. */
-function issue(
+/** Blank is allowed; a typed value has to match the handle's shape. */
+function optionalIssue(
 	schema: typeof upiVpaSchema | typeof wiseTagSchema,
 	value: string,
 ) {
-	if (!value.trim()) return "";
+	if (!value.trim()) return undefined;
 	const result = schema.safeParse(value);
-	return result.success ? "" : (result.error.issues[0]?.message ?? "Invalid");
+	return result.success
+		? undefined
+		: (result.error.issues[0]?.message ?? "Invalid");
 }
 
-const normalUpi = (value: string) => value.trim().toLowerCase();
-const normalWise = (value: string) => value.trim().replace(/^@/, "");
-
 /**
- * One form for everything about you: the fields on the left, the picture on
- * the right. On a phone the picture moves above the fields.
+ * One form for everything about you, split into sections by what the setting
+ * is for — who you are, how people pay you, what we email you — with a single
+ * save underneath them.
  */
 export function ProfileSettings({ user }: { user: ProfileUser }) {
-	const { saving, save } = useSaveProfile();
+	const save = useUpdateProfile();
 	const savedUpi = user.upiVpa ?? "";
 	const savedWise = user.wiseTag ?? "";
-	const [name, setName] = useState(user.name);
-	const [upi, setUpi] = useState(savedUpi);
-	const [wise, setWise] = useState(savedWise);
-	// Errors show once a field is left or submitted, not while it's typed.
-	const [touched, setTouched] = useState({
-		name: false,
-		upi: false,
-		wise: false,
+	const form = useForm({
+		defaultValues: {
+			name: user.name,
+			upi: savedUpi,
+			wise: savedWise,
+			emailReminders: user.emailReminders ?? true,
+		},
+		onSubmit: async ({ value, formApi }) => {
+			try {
+				const saved = await save.mutateAsync({
+					name: value.name.trim(),
+					upiVpa: value.upi,
+					wiseTag: value.wise,
+					emailReminders: value.emailReminders,
+				});
+				formApi.reset({
+					name: saved.name,
+					upi: saved.upiVpa ?? "",
+					wise: saved.wiseTag ?? "",
+					emailReminders: saved.emailReminders ?? true,
+				});
+				toast.success("Profile saved");
+			} catch (error) {
+				toast.error(
+					error instanceof Error
+						? error.message
+						: "Could not save your profile",
+				);
+			}
+		},
 	});
 
-	const nameError = name.trim() ? "" : "Enter your name";
-	const upiError = issue(upiVpaSchema, upi);
-	const wiseError = issue(wiseTagSchema, wise);
-	const showNameError = touched.name && nameError;
-	const showUpiError = touched.upi && upiError;
-	const showWiseError = touched.wise && wiseError;
-	const dirty =
-		name.trim() !== user.name ||
-		normalUpi(upi) !== savedUpi ||
-		normalWise(wise) !== savedWise;
-
-	const onSubmit = async (event: FormEvent) => {
-		event.preventDefault();
-		setTouched({ name: true, upi: true, wise: true });
-		if (nameError || upiError || wiseError || !dirty) return;
-		const ok = await save(
-			{ name: name.trim(), upiVpa: upi, wiseTag: wise },
-			"Profile saved",
-		);
-		if (ok) {
-			setName(name.trim());
-			setUpi(normalUpi(upi));
-			setWise(normalWise(wise));
-			setTouched({ name: false, upi: false, wise: false });
-		}
+	const removePhoto = () => {
+		void save
+			.mutateAsync({ image: null })
+			.then(() => toast.success("Photo removed"))
+			.catch((error: unknown) => {
+				toast.error(
+					error instanceof Error
+						? error.message
+						: "Could not remove your photo",
+				);
+			});
 	};
 
 	return (
-		<Card className="island-shell">
-			<CardHeader>
-				<CardTitle>Profile</CardTitle>
-				<CardDescription>
-					How you appear on expenses and in every group you're in.
-				</CardDescription>
-			</CardHeader>
-			<CardContent className="grid gap-8 sm:grid-cols-[minmax(0,1fr)_auto]">
-				<ProfilePicture
-					user={user}
-					saving={saving}
-					onRemove={() => save({ image: null }, "Photo removed")}
-				/>
-
-				<form
-					className="flex min-w-0 flex-col gap-6 sm:order-first"
-					onSubmit={onSubmit}
-					noValidate
+		<form
+			className="flex flex-col gap-8 sm:gap-10"
+			noValidate
+			onSubmit={(event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				void form.handleSubmit();
+			}}
+		>
+			<SettingsSection
+				title="Profile"
+				description="How you appear on expenses and in every group you're in."
+			>
+				<SettingsRow
+					title="Photo"
+					description="Shown beside your name on expenses and balances."
 				>
-					<FieldGroup className="gap-5">
-						<Field data-invalid={showNameError ? true : undefined}>
-							<FieldLabel htmlFor="profile-name">Name</FieldLabel>
-							<Input
-								id="profile-name"
-								autoComplete="name"
-								maxLength={100}
-								value={name}
-								aria-invalid={showNameError ? true : undefined}
-								onChange={(event) => setName(event.target.value)}
-								onBlur={() => setTouched((old) => ({ ...old, name: true }))}
-							/>
-							{showNameError ? <FieldError>{nameError}</FieldError> : null}
-						</Field>
-
-						<EmailVerification
-							email={user.email}
-							verified={user.emailVerified}
-						/>
-
-						<FieldSeparator />
-
-						<Field data-invalid={showUpiError ? true : undefined}>
-							<FieldLabel
-								htmlFor="profile-upi"
-								asChild
-								className="hover:underline"
-							>
-								<a
-									href="https://www.npci.org.in/what-we-do/upi"
-									target="_blank"
-									rel="noreferrer"
-								>
-									<BrandLogo brand="upi" className="h-3.5 w-7" />
-									UPI ID
-									<ArrowUpRight className="size-3.5 text-muted-foreground" />
-								</a>
-							</FieldLabel>
-							<InputGroup>
-								<InputGroupInput
-									id="profile-upi"
-									inputMode="email"
-									autoCapitalize="none"
-									autoCorrect="off"
-									spellCheck={false}
-									placeholder="name@bank"
-									value={upi}
-									aria-invalid={showUpiError ? true : undefined}
-									onChange={(event) => setUpi(event.target.value)}
-									onBlur={() => setTouched((old) => ({ ...old, upi: true }))}
-								/>
-							</InputGroup>
-							{showUpiError ? (
-								<FieldError>{upiError}</FieldError>
-							) : (
-								<FieldDescription>
-									So people can pay you back from GPay, PhonePe, Paytm or your
-									bank's app.
-								</FieldDescription>
-							)}
-						</Field>
-
-						<Field data-invalid={showWiseError ? true : undefined}>
-							<FieldLabel
-								htmlFor="profile-wise"
-								asChild
-								className="hover:underline"
-							>
-								<a href="https://wise.com" target="_blank" rel="noreferrer">
-									<BrandLogo brand="wise" />
-									Wisetag
-									<ArrowUpRight className="size-3.5 text-muted-foreground" />
-								</a>
-							</FieldLabel>
-							<InputGroup>
-								<InputGroupAddon>
-									<InputGroupText>@</InputGroupText>
-								</InputGroupAddon>
-								<InputGroupInput
-									id="profile-wise"
-									autoCapitalize="none"
-									autoCorrect="off"
-									spellCheck={false}
-									placeholder="yourname"
-									value={wise}
-									aria-invalid={showWiseError ? true : undefined}
-									onChange={(event) =>
-										setWise(event.target.value.replace(/^@/, ""))
-									}
-									onBlur={() => setTouched((old) => ({ ...old, wise: true }))}
-								/>
-							</InputGroup>
-							{showWiseError ? (
-								<FieldError>{wiseError}</FieldError>
-							) : (
-								<FieldDescription>
-									Find it under your profile in the Wise app. Leave either blank
-									to remove it.
-								</FieldDescription>
-							)}
-						</Field>
-					</FieldGroup>
-
+					<MemberAvatar
+						name={user.name}
+						seed={user.email}
+						image={user.image}
+						className="size-12 text-sm"
+					/>
 					<Button
-						type="submit"
-						className="self-start"
-						disabled={saving || !dirty}
+						type="button"
+						variant="outline"
+						size="sm"
+						onClick={() => toast("Photo uploads are coming soon")}
 					>
-						{saving ? <Spinner data-icon="inline-start" /> : null}
-						{saving ? "Saving…" : "Save changes"}
+						<Camera data-icon="inline-start" />
+						{user.image ? "Change" : "Upload"}
 					</Button>
-				</form>
-			</CardContent>
-		</Card>
+					{user.image ? (
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							className="text-destructive"
+							disabled={save.isPending}
+							onClick={removePhoto}
+						>
+							Remove
+						</Button>
+					) : null}
+				</SettingsRow>
+
+				<form.Field
+					name="name"
+					validators={{
+						onBlur: ({ value }) =>
+							value.trim() ? undefined : "Enter your name",
+						onSubmit: ({ value }) =>
+							value.trim() ? undefined : "Enter your name",
+					}}
+				>
+					{(field) => {
+						const message = field.state.meta.isTouched
+							? fieldError(field.state.meta.errors)
+							: undefined;
+						return (
+							<SettingsRow
+								title="Name"
+								htmlFor={field.name}
+								description="Your full name or what friends call you."
+							>
+								<Field
+									data-invalid={message ? true : undefined}
+									className="gap-1.5 sm:w-72"
+								>
+									<Input
+										id={field.name}
+										name={field.name}
+										autoComplete="name"
+										maxLength={100}
+										value={field.state.value}
+										aria-invalid={message ? true : undefined}
+										onBlur={field.handleBlur}
+										onChange={(event) => field.handleChange(event.target.value)}
+									/>
+									{message ? <FieldError>{message}</FieldError> : null}
+								</Field>
+							</SettingsRow>
+						);
+					}}
+				</form.Field>
+
+				<EmailVerification email={user.email} verified={user.emailVerified} />
+			</SettingsSection>
+
+			<SettingsSection
+				title="Payment details"
+				description="Shown to people in your groups so they can pay you back. Leave a field blank to remove it."
+			>
+				<form.Field
+					name="upi"
+					validators={{
+						onBlur: ({ value }) => optionalIssue(upiVpaSchema, value),
+						onSubmit: ({ value }) => optionalIssue(upiVpaSchema, value),
+					}}
+				>
+					{(field) => {
+						const message = field.state.meta.isTouched
+							? fieldError(field.state.meta.errors)
+							: undefined;
+						return (
+							<SettingsRow
+								htmlFor={field.name}
+								title={
+									<>
+										<BrandLogo brand="upi" className="h-3.5 w-7" />
+										UPI ID
+									</>
+								}
+								description={
+									<>
+										For GPay, PhonePe, Paytm or your bank's app.{" "}
+										<LearnMore href="https://www.npci.org.in/what-we-do/upi">
+											About UPI
+										</LearnMore>
+									</>
+								}
+							>
+								<Field
+									data-invalid={message ? true : undefined}
+									className="gap-1.5 sm:w-72"
+								>
+									<Input
+										id={field.name}
+										name={field.name}
+										inputMode="email"
+										autoCapitalize="none"
+										autoCorrect="off"
+										spellCheck={false}
+										placeholder="name@bank"
+										value={field.state.value}
+										aria-invalid={message ? true : undefined}
+										onBlur={field.handleBlur}
+										onChange={(event) => field.handleChange(event.target.value)}
+									/>
+									{message ? <FieldError>{message}</FieldError> : null}
+								</Field>
+							</SettingsRow>
+						);
+					}}
+				</form.Field>
+
+				<form.Field
+					name="wise"
+					validators={{
+						onBlur: ({ value }) => optionalIssue(wiseTagSchema, value),
+						onSubmit: ({ value }) => optionalIssue(wiseTagSchema, value),
+					}}
+				>
+					{(field) => {
+						const message = field.state.meta.isTouched
+							? fieldError(field.state.meta.errors)
+							: undefined;
+						return (
+							<SettingsRow
+								htmlFor={field.name}
+								title={
+									<>
+										<BrandLogo brand="wise" />
+										Wisetag
+									</>
+								}
+								description={
+									<>
+										Find it under your profile in the Wise app.{" "}
+										<LearnMore href="https://wise.com">About Wise</LearnMore>
+									</>
+								}
+							>
+								<Field
+									data-invalid={message ? true : undefined}
+									className="gap-1.5 sm:w-72"
+								>
+									<InputGroup>
+										<InputGroupAddon>
+											<InputGroupText>@</InputGroupText>
+										</InputGroupAddon>
+										<InputGroupInput
+											id={field.name}
+											name={field.name}
+											autoCapitalize="none"
+											autoCorrect="off"
+											spellCheck={false}
+											placeholder="yourname"
+											value={field.state.value}
+											aria-invalid={message ? true : undefined}
+											onBlur={field.handleBlur}
+											onChange={(event) =>
+												field.handleChange(event.target.value.replace(/^@/, ""))
+											}
+										/>
+									</InputGroup>
+									{message ? <FieldError>{message}</FieldError> : null}
+								</Field>
+							</SettingsRow>
+						);
+					}}
+				</form.Field>
+			</SettingsSection>
+
+			<SettingsSection title="Notifications">
+				<form.Field name="emailReminders">
+					{(field) => (
+						<SettingsRow
+							title="Email reminders"
+							htmlFor={field.name}
+							description="Let group members send you scheduled reminders about what you owe."
+						>
+							<Switch
+								id={field.name}
+								checked={field.state.value}
+								onCheckedChange={(checked) => field.handleChange(checked)}
+							/>
+						</SettingsRow>
+					)}
+				</form.Field>
+			</SettingsSection>
+
+			{/*
+			 * One save for the three sections above. It only appears once
+			 * something has changed, and pins itself above the dock so the button
+			 * is never a scroll away from the field you just edited.
+			 */}
+			<form.Subscribe
+				selector={(state) => ({
+					isSubmitting: state.isSubmitting,
+					isDirty: state.isDirty,
+					canSubmit: state.canSubmit,
+				})}
+			>
+				{({ isSubmitting, isDirty, canSubmit }) =>
+					isDirty ? (
+						<div className="island-shell sticky bottom-[calc(var(--dock-h)+var(--safe-bottom)+0.75rem)] z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl py-3 ps-5 pe-3">
+							<p className="text-sm text-muted-foreground">
+								You have unsaved changes.
+							</p>
+							<div className="flex items-center gap-2">
+								<Button
+									type="button"
+									variant="ghost"
+									disabled={isSubmitting}
+									onClick={() => form.reset()}
+								>
+									Discard
+								</Button>
+								<Button
+									type="submit"
+									disabled={isSubmitting || save.isPending || !canSubmit}
+								>
+									{isSubmitting ? <Spinner data-icon="inline-start" /> : null}
+									{isSubmitting ? "Saving…" : "Save changes"}
+								</Button>
+							</div>
+						</div>
+					) : null
+				}
+			</form.Subscribe>
+		</form>
 	);
 }
 
-/**
- * The picture with its actions laid over it. A cursor reveals them on hover
- * and a keyboard on focus; a touch screen has no hover, so there they stay
- * up over a lighter scrim.
- */
-function ProfilePicture({
-	user,
-	saving,
-	onRemove,
-}: {
-	user: ProfileUser;
-	saving: boolean;
-	onRemove: () => void;
-}) {
+function LearnMore({ href, children }: { href: string; children: string }) {
 	return (
-		<div className="group/picture relative size-28 shrink-0 self-start justify-self-center rounded-full sm:size-32 sm:justify-self-end">
-			<MemberAvatar
-				name={user.name}
-				seed={user.email}
-				image={user.image}
-				className="size-full text-2xl sm:size-full"
-			/>
-			<div className="absolute inset-0 flex items-center justify-center gap-1.5 rounded-full bg-black/50 opacity-0 transition-opacity duration-150 group-focus-within/picture:opacity-100 group-hover/picture:opacity-100 [@media(hover:none)]:bg-black/25 [@media(hover:none)]:opacity-100">
-				<Button
-					type="button"
-					size="icon-sm"
-					variant="secondary"
-					aria-label={user.image ? "Change photo" : "Upload photo"}
-					onClick={() => toast("Photo uploads are coming soon")}
-				>
-					<Camera />
-				</Button>
-				{user.image ? (
-					<Button
-						type="button"
-						size="icon-sm"
-						variant="secondary"
-						className="text-destructive"
-						aria-label="Remove photo"
-						disabled={saving}
-						onClick={onRemove}
-					>
-						<Trash2 />
-					</Button>
-				) : null}
-			</div>
-		</div>
+		<a
+			href={href}
+			target="_blank"
+			rel="noreferrer"
+			className="inline-flex items-center gap-0.5 font-medium text-foreground underline"
+		>
+			{children}
+			<ArrowUpRight className="size-3.5" aria-hidden="true" />
+		</a>
 	);
 }

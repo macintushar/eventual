@@ -30,6 +30,18 @@ export const publicSignedInActions: PublicHeaderAction[] = [
 ];
 
 /**
+ * Section links then the session CTA — one header for every content page
+ * (home, help, integrations, legal) so the site navigation never shifts.
+ */
+export function publicSiteActions(signedIn: boolean): PublicHeaderAction[] {
+	return [
+		{ to: "/help", label: "Help", desktopOnly: true },
+		{ to: "/docs", label: "Integrations", desktopOnly: true },
+		...(signedIn ? publicSignedInActions : publicSignedOutActions),
+	];
+}
+
+/**
  * Shared masthead for every public page. Wordmark on the left, theme toggle
  * then the page's CTAs on the right — same height and spacing everywhere, so
  * only the labels and button variants change.
@@ -83,6 +95,26 @@ export function PublicHeader({
  * optional footer, and the dock. Auth, invite and recovery screens use the
  * same shell as the landing page so the top of the product never jumps.
  */
+/** Tagline on the left; page links, then Privacy and Terms, on the right. */
+export function PublicFooter({
+	tagline,
+	children,
+}: {
+	tagline: string;
+	children?: ReactNode;
+}) {
+	return (
+		<div className="flex flex-wrap items-center justify-between gap-3">
+			<span>{tagline}</span>
+			<nav className="flex flex-wrap gap-4">
+				{children}
+				<Link to="/privacy">Privacy</Link>
+				<Link to="/terms">Terms</Link>
+			</nav>
+		</div>
+	);
+}
+
 export function PublicPage({
 	user,
 	actions,

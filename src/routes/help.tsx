@@ -1,11 +1,10 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import {
+	PublicFooter,
 	PublicPage,
-	publicSignedInActions,
-	publicSignedOutActions,
+	publicSiteActions,
 } from "#/components/public-header";
 import { useClientUser } from "#/lib/session";
-import { SITE_URL } from "#/lib/site";
 
 export const Route = createFileRoute("/help")({
 	head: () => ({
@@ -17,12 +16,8 @@ export const Route = createFileRoute("/help")({
 					"How to start a group, split a bill, and settle up in Eventual — plus answers on invites, locked expenses and repayments.",
 			},
 		],
-		links: [
-			{
-				rel: "canonical",
-				href: `${SITE_URL}/help`,
-			},
-		],
+		// No canonical here: HeadContent doesn't dedupe links, so a layout
+		// canonical would ship alongside every article's own.
 	}),
 	component: HelpLayout,
 });
@@ -33,12 +28,11 @@ function HelpLayout() {
 	return (
 		<PublicPage
 			user={user}
-			actions={user ? publicSignedInActions : publicSignedOutActions}
+			actions={publicSiteActions(Boolean(user))}
 			footer={
-				<div className="flex flex-wrap items-center justify-between gap-3">
-					<span>Eventual · expenses without the spreadsheet.</span>
+				<PublicFooter tagline="Eventual · expenses without the spreadsheet.">
 					<Link to="/docs">Integrations</Link>
-				</div>
+				</PublicFooter>
 			}
 			mainClassName="py-8 sm:py-10"
 		>

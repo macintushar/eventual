@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useRouter } from "@tanstack/react-router";
 import { CircleHelp, KeyRound, LogOut, Plug, UserRound } from "lucide-react";
 import {
@@ -234,6 +235,7 @@ export function AppShell({
 	children: ReactNode;
 }) {
 	const router = useRouter();
+	const queryClient = useQueryClient();
 	const { hidden, scrolled } = useHeaderMotion();
 
 	const signOut = async () => {
@@ -249,7 +251,7 @@ export function AppShell({
 			});
 			return false;
 		}
-		clearSession();
+		clearSession(queryClient);
 		await router.navigate({ to: "/" });
 		return true;
 	};

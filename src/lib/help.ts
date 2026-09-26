@@ -1,3 +1,6 @@
+/** Bump whenever the help center or a guide's wording changes. */
+export const HELP_UPDATED = { iso: "2026-09-27", label: "27 September 2026" };
+
 export type HelpArticle = {
 	slug: "create-a-group" | "add-an-expense";
 	title: string;
@@ -11,7 +14,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
 		slug: "create-a-group",
 		title: "How do I create a group?",
 		kicker: "Groups",
-		lede: "A group is a shared tab — a trip, a flat, a run of lunches. Name it, invite people if you like, then log costs as they happen.",
+		lede: "A group is one shared set of expenses — a trip, a flat, a run of lunches. Name it, invite people if you like, then log costs as they happen.",
 		steps: [
 			{
 				title: "Open New group",
@@ -43,7 +46,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
 		slug: "add-an-expense",
 		title: "How do I add an expense?",
 		kicker: "Expenses",
-		lede: "Open a group and log what was paid. Eventual handles the rounding, so shares always add up exactly — no leftover cents.",
+		lede: "Open a group and log what was paid. Eventual handles the rounding, so shares always add up exactly, down to the last paisa.",
 		steps: [
 			{
 				title: "Start from the group",
@@ -59,9 +62,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
 			},
 			{
 				title: "Choose the split",
-				body: "Even is the default. Exact, shares and percent let you weight the bill. Untick anyone who should sit this one out.",
+				body: "Group weights is the default: each selected person's share follows their weight in the group's Members tab. With every weight at 1, the split is equal. Use Exact for amounts, Shares for a one-off ratio, or Percent for percentages. Untick anyone who should sit this one out.",
 				image: "/help/expense-split.webp",
-				alt: "The Split step with Even selected and Tushar assigned ₹2,400.",
+				alt: "The Split step showing Tushar assigned ₹2,400.",
 			},
 			{
 				title: "Review, then add it",

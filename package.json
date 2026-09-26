@@ -8,7 +8,7 @@
   "scripts": {
     "email:dev": "email dev --dir src/emails --port 3002",
     "dev": "vite dev --port 3000",
-    "generate-routes": "tsr generate",
+    "generate-routes": "bun scripts/generate-routes.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "format": "biome format",
@@ -20,7 +20,8 @@
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
-    "shortcut:build": "tsx scripts/build-shortcut.ts"
+    "shortcut:build": "tsx scripts/build-shortcut.ts",
+    "api:generate": "tsx scripts/generate-api-client.ts && biome check --write src/lib/api-client.gen.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -36,8 +37,11 @@
     "@tanstack/match-sorter-utils": "latest",
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-form": "latest",
+    "@tanstack/react-query": "^5.103.2",
+    "@tanstack/react-query-devtools": "^5.103.2",
     "@tanstack/react-router": "latest",
     "@tanstack/react-router-devtools": "latest",
+    "@tanstack/react-router-ssr-query": "^1.167.3",
     "@tanstack/react-start": "latest",
     "@tanstack/react-table": "latest",
     "better-auth": "1.5.3",
@@ -78,11 +82,5 @@
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "vite": "^8.0.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "lightningcss"
-    ]
   }
 }

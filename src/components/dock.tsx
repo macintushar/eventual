@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import {
 	Link,
 	useLocation,
@@ -34,7 +35,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-
 import { useComposer } from "#/components/composer";
 import { MemberAvatar } from "#/components/member-avatar";
 import { Button } from "#/components/ui/button";
@@ -44,7 +44,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
-import { loadSession } from "#/lib/session";
+import { sessionQueryOptions } from "#/lib/queries";
 import { cn } from "#/lib/utils";
 
 const ICON = "size-[1.375rem]";
@@ -120,7 +120,9 @@ function DockSlot({
 
 	const distance = useTransform(pointerX ?? fallbackX, (x) => {
 		const bounds = ref.current?.getBoundingClientRect();
-		return bounds ? x - bounds.left - bounds.width / 2 : Number.POSITIVE_INFINITY;
+		return bounds
+			? x - bounds.left - bounds.width / 2
+			: Number.POSITIVE_INFINITY;
 	});
 	const size = useSpring(
 		useTransform(distance, [-REACH, 0, REACH], [SLOT, SLOT_PEAK, SLOT]),
@@ -162,7 +164,10 @@ function DockSlot({
 function DockGlyph({ children }: { children: ReactNode }) {
 	const scale = useContext(SlotScale);
 	return (
-		<motion.span className="grid place-items-center" style={{ scale: scale ?? 1 }}>
+		<motion.span
+			className="grid place-items-center"
+			style={{ scale: scale ?? 1 }}
+		>
 			{children}
 		</motion.span>
 	);
@@ -481,27 +486,13 @@ export function PublicDock({
 } = {}) {
 	const router = useRouter();
 	const { pathname } = useLocation();
-	const [user, setUser] = useState(initialUser ?? null);
 	const [profileOpen, setProfileOpen] = useState(false);
-
-	useEffect(() => {
-		if (initialUser !== undefined) {
-			setUser(initialUser);
-			return;
-		}
-		let active = true;
-		void loadSession().then(
-			(session) => {
-				if (active) setUser(session?.user ?? null);
-			},
-			() => {
-				if (active) setUser(null);
-			},
-		);
-		return () => {
-			active = false;
-		};
-	}, [initialUser]);
+	const session = useQuery({
+		...sessionQueryOptions,
+		enabled: initialUser === undefined && !import.meta.env.SSR,
+	});
+	const user =
+		initialUser !== undefined ? initialUser : (session.data?.user ?? null);
 
 	const accountActive = profileActive(pathname, Boolean(user));
 

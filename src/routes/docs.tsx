@@ -1,5 +1,5 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
 import {
 	Bot,
 	Download,
@@ -15,7 +15,11 @@ import { useState } from "react";
 import { type Brand, BrandLogo } from "#/components/brand-logo";
 import { CodeBlock } from "#/components/code-block";
 import { OptionCombobox } from "#/components/option-combobox";
-import { PublicPage, publicSignedOutActions } from "#/components/public-header";
+import {
+	PublicFooter,
+	PublicPage,
+	publicSiteActions,
+} from "#/components/public-header";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -24,21 +28,15 @@ import {
 	CardContent,
 	CardDescription,
 	CardHeader,
-	CardTitle,
 } from "#/components/ui/card";
 import { Separator } from "#/components/ui/separator";
-import { env } from "#/env";
+import { siteQueryOptions } from "#/lib/queries";
 import { useClientUser } from "#/lib/session";
 import { SITE_URL } from "#/lib/site";
 
-const getOriginFn = createServerFn({ method: "GET" }).handler(
-	() => new URL(env.BETTER_AUTH_URL).origin,
-);
-
 export const Route = createFileRoute("/docs")({
-	loader: async () => ({
-		origin: await getOriginFn(),
-	}),
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(siteQueryOptions),
 	head: () => ({
 		meta: [
 			{ title: "Integrations · Eventual" },
@@ -284,7 +282,7 @@ function clients(mcp: string): Client[] {
 }
 
 function DocsPage() {
-	const { origin } = Route.useLoaderData();
+	const { origin } = useSuspenseQuery(siteQueryOptions).data;
 	const mcp = `${origin}/mcp`;
 	const list = clients(mcp);
 	const [clientId, setClientId] = useState(list[0].id);
@@ -300,25 +298,12 @@ function DocsPage() {
 	return (
 		<PublicPage
 			user={user}
-			actions={
-				user
-					? [
-							{ to: "/help", label: "Help", desktopOnly: true },
-							{ to: "/app", label: "Open app", desktopOnly: true },
-							{
-								to: "/app/settings/api-keys",
-								label: "Get an API key",
-								shortLabel: "API key",
-								variant: "default",
-								icon: <KeyRound data-icon="inline-start" />,
-							},
-						]
-					: [
-							{ to: "/help", label: "Help", desktopOnly: true },
-							...publicSignedOutActions,
-						]
+			actions={publicSiteActions(Boolean(user))}
+			footer={
+				<PublicFooter tagline="Eventual · expenses without the spreadsheet.">
+					<Link to="/help">Help</Link>
+				</PublicFooter>
 			}
-			footer="Eventual · expenses without the spreadsheet."
 			mainClassName="gap-8 py-8 sm:gap-10 sm:py-10"
 		>
 			<section className="rise-in max-w-2xl">
@@ -350,9 +335,9 @@ function DocsPage() {
 						    squeezing it into two lines on a phone. */}
 					<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
 						<BrandLogo brand="shortcuts" className="size-7 shrink-0" />
-						<CardTitle className="display-title text-2xl font-bold">
+						<h2 className="display-title text-2xl leading-none font-bold">
 							Apple Shortcut
-						</CardTitle>
+						</h2>
 						<Badge variant="secondary">iPhone · iPad · Mac · Watch</Badge>
 					</div>
 					<CardDescription>
@@ -443,9 +428,9 @@ function DocsPage() {
 				<CardHeader>
 					<div className="flex items-center gap-2">
 						<Bot className="size-5 text-primary" aria-hidden="true" />
-						<CardTitle className="display-title text-2xl font-bold">
+						<h2 className="display-title text-2xl leading-none font-bold">
 							AI assistants (MCP)
-						</CardTitle>
+						</h2>
 					</div>
 					<CardDescription>
 						Connect any assistant that supports MCP. Then just say "Mac paid

@@ -1,4 +1,5 @@
-import { useNavigate, useParams, useRouter } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import {
 	createContext,
 	type ReactNode,
@@ -8,16 +9,12 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { toast } from "sonner";
-
-import {
-	type ComposerGroup,
-	ExpenseComposer,
-} from "#/components/expense-composer";
+import { ExpenseComposer } from "#/components/expense-composer";
 import { GroupComposer } from "#/components/group-composer";
+import { Button } from "#/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "#/components/ui/dialog";
 import { Spinner } from "#/components/ui/spinner";
-import { getComposerFn } from "#/server/fn/app";
+import { composerQueryOptions } from "#/lib/queries";
 
 type Composer = {
 	/** Start a group. */
@@ -64,7 +61,6 @@ export function ComposerProvider({
 	currentUserId: string;
 	children: ReactNode;
 }) {
-	const router = useRouter();
 	const navigate = useNavigate();
 	const { groupId: routeGroupId } = useParams({ strict: false }) as {
 		groupId?: string;
@@ -73,8 +69,11 @@ export function ComposerProvider({
 	const [open, setOpen] = useState<Open>({ kind: "none" });
 	const [shown, setShown] = useState(false);
 	const [token, setToken] = useState(0);
-	const [groups, setGroups] = useState<ComposerGroup[] | null>(null);
 	const tokenRef = useRef(0);
+	const groupsQuery = useQuery({
+		...composerQueryOptions,
+		enabled: open.kind === "expense",
+	});
 
 	const close = useCallback(() => setShown(false), []);
 
@@ -88,30 +87,9 @@ export function ComposerProvider({
 			},
 			expense: (options) => {
 				tokenRef.current += 1;
-				const requestToken = tokenRef.current;
-				setToken(requestToken);
-				setGroups(null);
+				setToken(tokenRef.current);
 				setOpen({ kind: "expense", groupId: options?.groupId ?? routeGroupId });
 				setShown(true);
-				// The dock reaches this from any page, so the composer cannot assume a
-				// group loader has run — it fetches the groups it offers itself. If the
-				// user opens a different composer before this resolves, the token has
-				// since moved on, so ignore the stale result instead of clobbering
-				// whatever is open now.
-				getComposerFn().then(
-					(data) => {
-						if (tokenRef.current === requestToken) setGroups(data.groups);
-					},
-					(error: unknown) => {
-						if (tokenRef.current !== requestToken) return;
-						toast.error(
-							error instanceof Error
-								? error.message
-								: "Could not load your groups",
-						);
-						setShown(false);
-					},
-				);
 			},
 		}),
 		[routeGroupId],
@@ -129,26 +107,44 @@ export function ComposerProvider({
 						if (!next) close();
 					}}
 					onCreated={async (groupId) => {
-						await router.invalidate();
 						await navigate({ to: "/app/groups/$groupId", params: { groupId } });
 					}}
 				/>
 			) : null}
 
 			{open.kind === "expense" ? (
-				groups ? (
+				groupsQuery.isError ? (
+					<Dialog open={shown} onOpenChange={close}>
+						<DialogContent className="gap-3 sm:max-w-xl">
+							<DialogTitle>Couldn't load your groups</DialogTitle>
+							<p className="text-sm text-muted-foreground">
+								{groupsQuery.error instanceof Error
+									? groupsQuery.error.message
+									: "Try again in a moment."}
+							</p>
+							<Button
+								variant="outline"
+								disabled={groupsQuery.isFetching}
+								onClick={() => {
+									void groupsQuery.refetch();
+								}}
+							>
+								{groupsQuery.isFetching ? "Trying…" : "Try again"}
+							</Button>
+						</DialogContent>
+					</Dialog>
+				) : groupsQuery.data ? (
 					<ExpenseComposer
 						key={`expense-${token}`}
 						open={shown}
 						onOpenChange={(next) => {
 							if (!next) close();
 						}}
-						groups={groups}
+						groups={groupsQuery.data.groups}
 						currentUserId={currentUserId}
 						defaultGroupId={open.groupId}
 						onCreateGroup={composer.group}
 						onSaved={async (groupId) => {
-							await router.invalidate();
 							if (groupId !== routeGroupId)
 								await navigate({
 									to: "/app/groups/$groupId",

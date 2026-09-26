@@ -7,7 +7,12 @@ import {
 	type Brand,
 	BrandLogo,
 } from "#/components/brand-logo";
-import { PublicPage, publicSignedOutActions } from "#/components/public-header";
+import { SOURCE_URL } from "#/components/legal-page";
+import {
+	PublicFooter,
+	PublicPage,
+	publicSiteActions,
+} from "#/components/public-header";
 import { Alert, AlertDescription } from "#/components/ui/alert";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -25,7 +30,7 @@ import {
 	ItemGroup,
 	ItemTitle,
 } from "#/components/ui/item";
-import { loadSession } from "#/lib/session";
+import { useClientUser } from "#/lib/session";
 import { SITE_URL } from "#/lib/site";
 import { cn } from "#/lib/utils";
 
@@ -77,19 +82,39 @@ export const Route = createFileRoute("/")({
 				type: "application/ld+json",
 				children: JSON.stringify({
 					"@context": "https://schema.org",
-					"@type": "WebApplication",
-					name: "Eventual",
-					description:
-						"Split group expenses in rupees. Log what everyone paid on trips, flats and nights out, split evenly or any way you like, and settle up exactly.",
-					url: SITE_URL,
-					applicationCategory: "FinanceApplication",
-					operatingSystem: "Web",
-					browserRequirements: "Requires JavaScript",
-					offers: {
-						"@type": "Offer",
-						price: "0",
-						priceCurrency: "INR",
-					},
+					"@graph": [
+						{
+							"@type": "Organization",
+							"@id": `${SITE_URL}/#organization`,
+							name: "Eventual",
+							url: SITE_URL,
+							logo: `${SITE_URL}/logo.svg`,
+							sameAs: [SOURCE_URL],
+						},
+						{
+							"@type": "WebSite",
+							"@id": `${SITE_URL}/#website`,
+							name: "Eventual",
+							url: SITE_URL,
+							publisher: { "@id": `${SITE_URL}/#organization` },
+						},
+						{
+							"@type": "WebApplication",
+							name: "Eventual",
+							description:
+								"Split group expenses in rupees. Log what everyone paid on trips, flats and nights out, split evenly or any way you like, and settle up exactly.",
+							url: SITE_URL,
+							applicationCategory: "FinanceApplication",
+							operatingSystem: "Web",
+							browserRequirements: "Requires JavaScript",
+							publisher: { "@id": `${SITE_URL}/#organization` },
+							offers: {
+								"@type": "Offer",
+								price: "0",
+								priceCurrency: "INR",
+							},
+						},
+					],
 				}),
 			},
 		],
@@ -148,34 +173,29 @@ const sampleRows = [
 function Home() {
 	const navigate = Route.useNavigate();
 
+	const user = useClientUser();
 	useEffect(() => {
-		let active = true;
-		void loadSession().then((session) => {
-			if (active && session) void navigate({ to: "/app" });
-		});
-		return () => {
-			active = false;
-		};
-	}, [navigate]);
+		if (user) void navigate({ to: "/app" });
+	}, [navigate, user]);
 
 	return (
 		<PublicPage
-			actions={[
-				{ to: "/help", label: "Help", desktopOnly: true },
-				{ to: "/docs", label: "Integrations", desktopOnly: true },
-				...publicSignedOutActions,
-			]}
-			footer="Eventual · split it fairly, settle it once."
+			actions={publicSiteActions(false)}
+			footer={
+				<PublicFooter tagline="Eventual · split it fairly, settle it once." />
+			}
 		>
 			<section className="grid items-center gap-8 py-8 sm:gap-12 sm:py-12 lg:grid-cols-[1.1fr_.9fr] lg:py-20">
 				<div className="rise-in">
-					<p className="island-kicker">For trips, flats and every chai run</p>
+					<p className="island-kicker">
+						Split expenses for trips, flats and every chai run
+					</p>
 					<h1 className="display-title mt-4 text-[2.5rem] leading-[1.05] font-bold sm:text-5xl md:text-6xl">
 						Settle up without the group-chat maths.
 					</h1>
 					<p className="mt-5 max-w-xl text-base text-muted-foreground sm:mt-6 sm:text-lg">
-						Log what everyone paid. Eventual splits it and tells each person
-						exactly who to pay and how much, down to the last paisa.
+						Log what everyone paid. Eventual splits the bill and tells each
+						person exactly who to pay and how much, down to the last paisa.
 					</p>
 					<div className="mt-7 flex flex-wrap gap-3">
 						<Button size="lg" asChild>

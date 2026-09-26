@@ -14,6 +14,7 @@ export const splitMethodSchema = z.enum(["even", "exact", "shares", "percent"]);
 export const participantSchema = z.object({
 	userId: idSchema,
 	input: z.number().int().nullable(),
+	weight: z.number().int().safe().positive().optional(),
 });
 export const createGroupSchema = z.object({
 	name: z.string().trim().min(1).max(100),
@@ -36,17 +37,29 @@ export const createExpenseSchema = z.object({
 	groupId: idSchema,
 	description: z.string().trim().min(1).max(200),
 	notes: z.string().trim().max(2000).nullable().optional(),
+	category: z.string().trim().min(1).max(100).nullable().optional(),
 	amountMinor: z.number().int().safe().positive(),
 	currency: currencySchema.default("INR"),
 	paidByUserId: idSchema,
 	splitMethod: splitMethodSchema,
 	date: z.coerce.date(),
 	participants: z.array(participantSchema).min(1),
+	/** Optional guard for clients that show a split before submitting it. */
+	reviewedShares: z
+		.array(
+			z.object({
+				userId: idSchema,
+				amountMinor: z.number().int().safe().nonnegative(),
+			}),
+		)
+		.min(1)
+		.optional(),
 });
 export const updateExpenseSchema = createExpenseSchema
 	.omit({ groupId: true })
 	.extend({ expenseId: idSchema, currency: currencySchema });
 export const previewExpenseSchema = createExpenseSchema.pick({
+	category: true,
 	amountMinor: true,
 	currency: true,
 	splitMethod: true,
@@ -139,4 +152,5 @@ export const updateProfileSchema = z.object({
 	wiseTag: clearable(wiseTagSchema).optional(),
 	/** Photos can only be removed until uploads exist. */
 	image: z.null().optional(),
+	emailReminders: z.boolean().optional(),
 });

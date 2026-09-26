@@ -1,5 +1,6 @@
+import { useForm, useStore } from "@tanstack/react-form";
 import { Plus, Trash2, UserPlus } from "lucide-react";
-import { useId, useState } from "react";
+import { useId } from "react";
 import { toast } from "sonner";
 
 import { Button } from "#/components/ui/button";
@@ -29,7 +30,7 @@ import { Separator } from "#/components/ui/separator";
 import { StepDialog } from "#/components/ui/step-dialog";
 import { type Step, useStepper } from "#/components/ui/stepper";
 import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
-import { mutateFn } from "#/server/fn/app";
+import { useAppMutation } from "#/lib/app-mutation";
 
 const STEPS: Step[] = [
 	{ id: "name", title: "Name", description: "What this shared tab is called." },
@@ -69,10 +70,71 @@ export function GroupComposer({
 }) {
 	const fieldId = useId();
 	const stepper = useStepper(STEPS);
-	const [name, setName] = useState("");
-	const [email, setEmail] = useState("");
-	const [invitees, setInvitees] = useState<Invitee[]>([]);
-	const [saving, setSaving] = useState(false);
+	const mutation = useAppMutation();
+	const form = useForm({
+		defaultValues: {
+			name: "",
+			email: "",
+			invitees: [] as Invitee[],
+		},
+		onSubmit: async ({ value }) => {
+			try {
+				const group = await mutation.mutateAsync({
+					action: "group.create",
+					input: { name: value.name.trim() },
+				});
+				if (
+					!group ||
+					typeof group !== "object" ||
+					!("id" in group) ||
+					typeof group.id !== "string"
+				)
+					throw new Error("Group was not created");
+
+				/*
+				 * The group exists from here on, so a failed invitation must not read as
+				 * a failed creation. They are reported separately and the flow still
+				 * lands you in the group, where the members tab can retry them.
+				 */
+				const failed: string[] = [];
+				for (const invitee of value.invitees) {
+					try {
+						await mutation.mutateAsync({
+							action: "invitation.create",
+							input: {
+								groupId: group.id,
+								email: invitee.email,
+								role: invitee.role,
+							},
+						});
+					} catch {
+						failed.push(invitee.email);
+					}
+				}
+
+				toast.success(
+					value.invitees.length
+						? `Group created · ${value.invitees.length - failed.length} of ${value.invitees.length} invited`
+						: "Group created",
+				);
+				if (failed.length)
+					toast.error(`Could not invite ${failed.join(", ")}`, {
+						description: "Try again from the group's Members tab.",
+					});
+
+				onOpenChange(false);
+				await onCreated(group.id);
+			} catch (error) {
+				toast.error(
+					error instanceof Error ? error.message : "Could not create group",
+				);
+			}
+		},
+	});
+	const name = useStore(form.store, (state) => state.values.name);
+	const email = useStore(form.store, (state) => state.values.email);
+	const invitees = useStore(form.store, (state) => state.values.invitees);
+	const saving = useStore(form.store, (state) => state.isSubmitting);
 
 	const trimmed = email.trim().toLowerCase();
 	const duplicate = invitees.some((row) => row.email === trimmed);
@@ -80,64 +142,15 @@ export function GroupComposer({
 
 	const addInvitee = () => {
 		if (!canAdd) return;
-		setInvitees((old) => [...old, { email: trimmed, role: "member" }]);
-		setEmail("");
+		form.setFieldValue("invitees", [
+			...form.getFieldValue("invitees"),
+			{ email: trimmed, role: "member" },
+		]);
+		form.setFieldValue("email", "");
 	};
 
 	const blocker =
 		stepper.id === "name" && !name.trim() ? "Give the group a name." : "";
-
-	const submit = async () => {
-		setSaving(true);
-		try {
-			const group = await mutateFn({
-				data: { action: "group.create", input: { name: name.trim() } },
-			});
-			if (!group || !("id" in group)) throw new Error("Group was not created");
-
-			/*
-			 * The group exists from here on, so a failed invitation must not read as
-			 * a failed creation. They are reported separately and the flow still
-			 * lands you in the group, where the members tab can retry them.
-			 */
-			const failed: string[] = [];
-			for (const invitee of invitees) {
-				try {
-					await mutateFn({
-						data: {
-							action: "invitation.create",
-							input: {
-								groupId: group.id,
-								email: invitee.email,
-								role: invitee.role,
-							},
-						},
-					});
-				} catch {
-					failed.push(invitee.email);
-				}
-			}
-
-			toast.success(
-				invitees.length
-					? `Group created · ${invitees.length - failed.length} of ${invitees.length} invited`
-					: "Group created",
-			);
-			if (failed.length)
-				toast.error(`Could not invite ${failed.join(", ")}`, {
-					description: "Try again from the group's Members tab.",
-				});
-
-			onOpenChange(false);
-			await onCreated(group.id);
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Could not create group",
-			);
-		} finally {
-			setSaving(false);
-		}
-	};
 
 	return (
 		<StepDialog
@@ -149,7 +162,10 @@ export function GroupComposer({
 			index={stepper.index}
 			onSelectStep={stepper.goTo}
 			onBack={stepper.back}
-			onNext={() => (stepper.isLast ? submit() : stepper.next())}
+			onNext={() => {
+				if (stepper.isLast) void form.handleSubmit();
+				else stepper.next();
+			}}
 			nextLabel={
 				stepper.isLast ? (saving ? "Creating…" : "Create group") : "Continue"
 			}
@@ -166,7 +182,9 @@ export function GroupComposer({
 							value={name}
 							maxLength={100}
 							placeholder="Goa weekend"
-							onChange={(event) => setName(event.target.value)}
+							onChange={(event) =>
+								form.setFieldValue("name", event.target.value)
+							}
 						/>
 						<FieldDescription>
 							A group holds its own expenses, balances and members.
@@ -181,7 +199,7 @@ export function GroupComposer({
 							rovingFocus={false}
 							value={suggestions.includes(name) ? name : ""}
 							onValueChange={(value) => {
-								if (value) setName(value);
+								if (value) form.setFieldValue("name", value);
 							}}
 							className="flex flex-wrap"
 							aria-label="Suggested group names"
@@ -211,7 +229,9 @@ export function GroupComposer({
 								placeholder="friend@example.com"
 								aria-invalid={Boolean(trimmed) && !canAdd}
 								value={email}
-								onChange={(event) => setEmail(event.target.value)}
+								onChange={(event) =>
+									form.setFieldValue("email", event.target.value)
+								}
 								onKeyDown={(event) => {
 									if (event.key !== "Enter") return;
 									// Enter inside a dialog otherwise reaches the footer's
@@ -266,12 +286,15 @@ export function GroupComposer({
 												aria-label={`Role for ${invitee.email}`}
 												onValueChange={(value) => {
 													if (!value) return;
-													setInvitees((old) =>
-														old.map((row) =>
-															row.email === invitee.email
-																? { ...row, role: value as Invitee["role"] }
-																: row,
-														),
+													form.setFieldValue(
+														"invitees",
+														form
+															.getFieldValue("invitees")
+															.map((row) =>
+																row.email === invitee.email
+																	? { ...row, role: value as Invitee["role"] }
+																	: row,
+															),
 													);
 												}}
 											>
@@ -284,8 +307,11 @@ export function GroupComposer({
 												size="icon-sm"
 												aria-label={`Remove ${invitee.email}`}
 												onClick={() =>
-													setInvitees((old) =>
-														old.filter((row) => row.email !== invitee.email),
+													form.setFieldValue(
+														"invitees",
+														form
+															.getFieldValue("invitees")
+															.filter((row) => row.email !== invitee.email),
 													)
 												}
 											>
