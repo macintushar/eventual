@@ -186,7 +186,7 @@ const categories: FaqCategory[] = [
 				id: "splits",
 				question: "How do splits work?",
 				answer:
-					"Even splits everyone selected the same amount, rounded to the currency's smallest unit so the shares add up exactly. Exact takes amounts, shares takes ratios and percent takes percentages. Untick anyone who shouldn't pay a share.",
+					"Group weights is the default split. Each selected member pays in proportion to their weight in the Members tab; when all weights are 1, the split is equal. Exact takes amounts, shares takes one-off ratios and percent takes percentages. Shares are rounded to the currency's smallest unit so they add up exactly. Untick anyone who shouldn't pay a share.",
 			},
 			{
 				id: "locked",
@@ -217,7 +217,7 @@ const categories: FaqCategory[] = [
 				id: "shortcut",
 				question: "How do I log an expense from my iPhone?",
 				answer:
-					"The Apple Shortcut logs an even split in three taps: pick the group, who paid, and the amount. You can fine-tune the split later in the app. Get it from Integrations.",
+					"The Apple Shortcut logs a split using group member weights in three taps: pick the group, who paid, and the amount. You can fine-tune the split later in the app. Get it from Integrations.",
 			},
 			{
 				id: "mcp",

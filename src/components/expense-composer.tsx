@@ -45,7 +45,7 @@ import { formatMinor, fromMinor, parseMinor } from "#/lib/money";
 import { cn } from "#/lib/utils";
 import { computeShares, type SplitMethod } from "#/server/domain/split";
 
-export type ComposerMember = { userId: string; name: string };
+export type ComposerMember = { userId: string; name: string; weight: number };
 export type ComposerGroup = {
 	id: string;
 	name: string;
@@ -65,14 +65,14 @@ export type ExpenseDraft = {
 };
 
 const methodHelp: Record<SplitMethod, string> = {
-	even: "Everyone selected pays the same, rounded to the currency's smallest unit.",
+	even: "Uses each selected member's group weight. Weight 2 pays twice as much as weight 1.",
 	exact: "Type each person's exact amount. They must add up to the total.",
-	shares: "Give each person a weight — 2 shares pays twice as much as 1.",
+	shares: "Set a ratio for this expense — 2 shares pays twice as much as 1.",
 	percent: "Percentages of the total. They must add up to 100%.",
 };
 
 const methodLabel: Record<SplitMethod, string> = {
-	even: "Split evenly",
+	even: "By group weight",
 	exact: "Exact amounts",
 	shares: "By shares",
 	percent: "By percentage",
@@ -251,7 +251,11 @@ export function ExpenseComposer({
 	} else {
 		try {
 			totalMinor = amountMinor;
-			const participants: { userId: string; input: number | null }[] = [];
+			const participants: {
+				userId: string;
+				input: number | null;
+				weight: number;
+			}[] = [];
 			for (const member of members) {
 				if (!selected.has(member.userId)) continue;
 				const input = splitInput(method, inputs[member.userId] ?? "", currency);
@@ -259,7 +263,11 @@ export function ExpenseComposer({
 					invalid = `Enter a valid split value for ${currency}`;
 					break;
 				}
-				participants.push({ userId: member.userId, input });
+				participants.push({
+					userId: member.userId,
+					input,
+					weight: member.weight,
+				});
 			}
 			if (!invalid)
 				preview = computeShares(totalMinor, method, participants, currency);
@@ -549,7 +557,7 @@ export function ExpenseComposer({
 						className="grid w-full grid-cols-2 sm:grid-cols-4"
 						aria-label="Split method"
 					>
-						<ToggleGroupItem value="even">Even</ToggleGroupItem>
+						<ToggleGroupItem value="even">Group weights</ToggleGroupItem>
 						<ToggleGroupItem value="exact">Exact</ToggleGroupItem>
 						<ToggleGroupItem value="shares">Shares</ToggleGroupItem>
 						<ToggleGroupItem value="percent">Percent</ToggleGroupItem>
@@ -600,6 +608,11 @@ export function ExpenseComposer({
 													{member.name}
 												</FieldLabel>
 											</ItemTitle>
+											{method === "even" ? (
+												<p className="text-xs text-muted-foreground">
+													Weight {member.weight}
+												</p>
+											) : null}
 										</ItemContent>
 										{method !== "even" ? (
 											<ItemActions key="input">

@@ -6,7 +6,13 @@ import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import * as schema from "#/db/schema";
 import type { Ctx } from "#/server/context";
-import { createGroup, listGroupsWithMembers } from "#/server/services/app";
+import {
+	createExpense,
+	createGroup,
+	listGroupsWithMembers,
+	previewGroupExpense,
+	updateMemberWeight,
+} from "#/server/services/app";
 import {
 	archiveGroup,
 	duplicateGroup,
@@ -174,6 +180,80 @@ test("createGroup still works and appears for the composer", async () => {
 		assert.equal(group.name, "Another");
 		assert.equal(group.myRole, "owner");
 		assert.equal((await listGroupsWithMembers(f.ctx)).length, 2);
+	} finally {
+		f.client.close();
+	}
+});
+
+test("new expenses use the member weights shown in the composer", async () => {
+	const f = await fixture();
+	try {
+		const [group] = await listGroupsWithMembers(f.ctx);
+		assert.deepEqual(group?.members, [
+			{ userId: "A", name: "A", weight: 2 },
+			{ userId: "B", name: "B", weight: 3 },
+		]);
+		const participants = [
+			{ userId: "A", input: null, weight: 99 },
+			{ userId: "B", input: null, weight: 1 },
+		];
+		const shares = (rows: { userId: string; amountMinor: number }[]) =>
+			rows.map(({ userId, amountMinor }) => ({ userId, amountMinor }));
+		const preview = await previewGroupExpense(f.ctx, {
+			groupId: "G",
+			amountMinor: 10001,
+			currency: "INR",
+			splitMethod: "even",
+			participants,
+		});
+		assert.deepEqual(shares(preview), [
+			{ userId: "A", amountMinor: 4000 },
+			{ userId: "B", amountMinor: 6001 },
+		]);
+		const expense = await createExpense(f.ctx, {
+			groupId: "G",
+			description: "Weighted dinner",
+			amountMinor: 10001,
+			currency: "INR",
+			paidByUserId: "A",
+			splitMethod: "even",
+			date: new Date(),
+			participants,
+		});
+		assert.deepEqual(shares(expense.shares), shares(preview));
+
+		await updateMemberWeight(f.ctx, {
+			groupId: "G",
+			userId: "B",
+			weight: 1,
+		});
+		const nextPreview = await previewGroupExpense(f.ctx, {
+			groupId: "G",
+			amountMinor: 10001,
+			currency: "INR",
+			splitMethod: "even",
+			participants,
+		});
+		assert.deepEqual(shares(nextPreview), [
+			{ userId: "A", amountMinor: 6667 },
+			{ userId: "B", amountMinor: 3334 },
+		]);
+		const nextExpense = await createExpense(f.ctx, {
+			groupId: "G",
+			description: "Another weighted dinner",
+			amountMinor: 10001,
+			currency: "INR",
+			paidByUserId: "A",
+			splitMethod: "even",
+			date: new Date(),
+			participants,
+		});
+		assert.deepEqual(shares(nextExpense.shares), shares(nextPreview));
+		const originalShares = await f.db.query.expenseShare.findMany({
+			where: eq(schema.expenseShare.expenseId, expense.id),
+			orderBy: schema.expenseShare.userId,
+		});
+		assert.deepEqual(shares(originalShares), shares(preview));
 	} finally {
 		f.client.close();
 	}

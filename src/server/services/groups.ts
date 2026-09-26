@@ -94,6 +94,7 @@ export async function listGroupsWithMembers(ctx: Ctx) {
 			organizationId: member.organizationId,
 			userId: user.id,
 			name: user.name,
+			weight: member.weight,
 		})
 		.from(member)
 		.innerJoin(user, eq(member.userId, user.id))
@@ -102,13 +103,13 @@ export async function listGroupsWithMembers(ctx: Ctx) {
 	const byGroup = new Map(
 		groupIds.map((groupId) => [
 			groupId,
-			[] as { userId: string; name: string }[],
+			[] as { userId: string; name: string; weight: number }[],
 		]),
 	);
 	for (const row of memberRows)
 		byGroup
 			.get(row.organizationId)
-			?.push({ userId: row.userId, name: row.name });
+			?.push({ userId: row.userId, name: row.name, weight: row.weight });
 	return rows.map((row) => ({ ...row, members: byGroup.get(row.id) ?? [] }));
 }
 

@@ -60,7 +60,7 @@ Vercel project variables are not automatically available in your local shell. Do
 
 - Money is stored as integer minor units with its original ISO currency code. INR and USD use 100 minor units per major unit; JPY uses 1 and KWD uses 1,000. No exchange conversion or cross-currency netting happens in the backend.
 - Supported currencies and precision live in `src/lib/currencies.ts`: INR, USD, EUR, GBP, AED, AUD, CAD, CHF, CNY, HKD, JPY, KRW, KWD, MYR, NPR, NZD, SAR, SGD, THB and VND. Every currency has an explicit display symbol, including ₹, US$, CA$, £ and €.
-- Even splits distribute remainder minor units by ascending user ID.
+- Even splits use member weights and distribute remainder minor units by largest remainder, then ascending user ID.
 - Shares and percentages use largest-remainder allocation with user-ID tie breaking.
 - Exact inputs must equal the expense total; percentages must equal 10,000 basis points.
 - Any paid share locks every editable field and deletion. Clearing the final paid flag unlocks it.
@@ -190,7 +190,7 @@ Recommended PostHog insights:
 
 ## Apple Shortcut
 
-`public/eventual.shortcut` asks for a group, then who paid, then an amount, and logs an even split between all group members dated today. On import, Shortcuts asks for an API key and the app URL. It calls:
+`public/eventual.shortcut` asks for a group, then who paid, then an amount, and logs a split using all group members' weights dated today. On import, Shortcuts asks for an API key and the app URL. It calls:
 
 ```bash
 $CURL "$BASE/api/shortcut/groups"                      # { "Group name": "GROUP_ID" }
