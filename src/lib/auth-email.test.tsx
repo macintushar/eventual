@@ -66,8 +66,7 @@ async function requestVerification(f: Awaited<ReturnType<typeof fixture>>) {
 
 test("auth sends verification, verifies account, resets password once, and revokes sessions", async () => {
 	const f = await fixture();
-	assert.equal(f.messages.length, 0);
-	assert.equal((await requestVerification(f)).status, 200);
+	// Signup alone sends the link, so API clients need no extra request.
 	assert.equal(f.messages.length, 1);
 	assert.equal(f.messages[0].props.kind, "verification");
 	assert.equal(f.messages[0].to, "person@example.com");
@@ -140,7 +139,8 @@ test("unverified email is revealed only after the correct password", async () =>
 	});
 	assert.equal(correct.status, 403);
 	assert.equal((await correct.json()).code, "EMAIL_NOT_VERIFIED");
-	assert.equal(f.messages.length, 0);
+	// Only the signup email; a sign-in attempt sends nothing further.
+	assert.equal(f.messages.length, 1);
 });
 
 test("expired reset links are rejected and unknown accounts receive the same generic response", async () => {

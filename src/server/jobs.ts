@@ -5,6 +5,9 @@ import { job } from "#/db/schema";
 
 export const MAX_JOB_ATTEMPTS = 5;
 export const JOB_LEASE_MS = 5 * 60_000;
+// The cron fires once a day, so each run drains everything due rather than a
+// fixed batch; the budget keeps it well inside the function's max duration.
+export const JOB_RUN_BUDGET_MS = 50_000;
 export type ClaimedJob = typeof job.$inferSelect;
 export type JobHandler = (db: Database, claimed: ClaimedJob) => Promise<void>;
 
@@ -111,11 +114,18 @@ async function dispatchJob(db: Database, claimed: ClaimedJob) {
 
 export async function runJobs(
 	db: Database,
-	options: { limit?: number; handler?: JobHandler; now?: Date } = {},
+	options: {
+		limit?: number;
+		deadline?: number;
+		handler?: JobHandler;
+		now?: Date;
+	} = {},
 ) {
 	let completed = 0;
 	let failed = 0;
-	for (let i = 0; i < Math.min(options.limit ?? 25, 100); i++) {
+	const limit = options.limit ?? 25;
+	const deadline = options.deadline ?? Number.POSITIVE_INFINITY;
+	for (let i = 0; i < limit && Date.now() < deadline; i++) {
 		const claimed = await claimJob(db, options.now ?? new Date());
 		if (!claimed) break;
 		try {
@@ -142,7 +152,11 @@ export async function runJobsRequest(request: Request) {
 	if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
 		return Response.json({ error: "Unauthorized" }, { status: 401 });
 	const { db } = await import("#/db");
-	return Response.json(await runJobs(db), {
+	const result = await runJobs(db, {
+		limit: Number.POSITIVE_INFINITY,
+		deadline: Date.now() + JOB_RUN_BUDGET_MS,
+	});
+	return Response.json(result, {
 		headers: { "Cache-Control": "no-store" },
 	});
 }

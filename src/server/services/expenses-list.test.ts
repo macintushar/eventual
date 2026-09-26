@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createClient } from "@libsql/client";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import * as schema from "#/db/schema";
@@ -76,6 +77,35 @@ test("expense pages sort the complete matching set", async () => {
 			["E30", "E31", "E32", "E33", "E34"],
 		);
 		assert.equal(second.nextOffset, null);
+
+		// A newer expense added between pages must not push a first-page row
+		// onto the second page when the client pins it to the first page's asOf.
+		await db.insert(schema.expense).values({
+			id: "E-new",
+			organizationId: "G",
+			description: "Expense 00 new",
+			category: "Food",
+			amountMinor: 1,
+			currency: "INR",
+			paidByUserId: "A",
+			splitMethod: "even" as const,
+			date: now,
+			createdByUserId: "A",
+			createdAt: new Date(first.asOf + 60_000),
+			updatedAt: now,
+		});
+		const pinned = await listExpenses(ctx, {
+			groupId: "G",
+			offset: 30,
+			asOf: first.asOf,
+			sortBy: "description",
+			sortDirection: "asc",
+		});
+		assert.deepEqual(
+			pinned.items.map((row) => row.id),
+			second.items.map((row) => row.id),
+		);
+		await db.delete(schema.expense).where(eq(schema.expense.id, "E-new"));
 
 		const byPayer = await listExpenses(ctx, {
 			groupId: "G",

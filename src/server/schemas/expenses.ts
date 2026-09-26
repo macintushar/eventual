@@ -29,6 +29,8 @@ export const listExpensesSchema = expenseFiltersSchema.extend({
 	cursor: z.string().max(2000).optional(),
 	limit: z.coerce.number().int().min(1).max(100).default(30),
 	offset: z.coerce.number().int().min(0).max(1_000_000).optional(),
+	/** Epoch ms from the first page's `asOf`, so later pages ignore newer expenses. */
+	asOf: z.coerce.number().int().positive().optional(),
 	sortBy: expenseSortBySchema.optional(),
 	sortDirection: z.enum(["asc", "desc"]).optional(),
 });

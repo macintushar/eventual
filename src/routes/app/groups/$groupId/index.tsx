@@ -275,6 +275,9 @@ function ExpensesTab({
 		id: "date",
 		desc: true,
 	});
+	// The first page's snapshot time, so later pages don't shift as others add
+	// expenses. Page one always reads fresh and sets a new snapshot.
+	const [asOf, setAsOf] = useState<number>();
 	const searching = submitted.length > 0;
 	const expenseQuery = useQuery({
 		...expensePageQueryOptions(
@@ -283,12 +286,18 @@ function ExpensesTab({
 			sort.id,
 			sort.desc ? "desc" : "asc",
 			page * expensePageSize,
+			page === 0 ? undefined : asOf,
 		),
 		initialData:
 			!searching && page === 0 && sort.id === "date" && sort.desc
 				? data.expenses
 				: undefined,
 	});
+
+	const firstPageAsOf = page === 0 ? expenseQuery.data?.asOf : undefined;
+	useEffect(() => {
+		if (firstPageAsOf) setAsOf(firstPageAsOf);
+	}, [firstPageAsOf]);
 
 	useEffect(() => {
 		if (!expenseQuery.isError) return;

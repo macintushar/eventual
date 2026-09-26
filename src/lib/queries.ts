@@ -54,13 +54,14 @@ export const expensePageQueryOptions = (
 	sortBy: ExpenseSortBy,
 	sortDirection: "asc" | "desc",
 	offset: number,
+	asOf?: number,
 ) =>
 	queryOptions({
 		queryKey: [
 			"group",
 			groupId,
 			"expenses",
-			{ search, sortBy, sortDirection, offset },
+			{ search, sortBy, sortDirection, offset, asOf },
 		] as const,
 		queryFn: ({ signal }) =>
 			searchExpensesFn({
@@ -69,6 +70,7 @@ export const expensePageQueryOptions = (
 					search: search || undefined,
 					limit: expensePageSize,
 					offset,
+					asOf,
 					sortBy,
 					sortDirection,
 				},

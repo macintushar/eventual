@@ -1,6 +1,13 @@
 import { z } from "zod";
 
 import { operations } from "#/server/operations";
+import { updateProfileSchema } from "#/server/schemas";
+import {
+	apiKeySummarySchema,
+	createApiKeySchema,
+	createdApiKeySchema,
+	profileSchema,
+} from "#/server/schemas/account";
 
 const jsonSchema = (schema: z.ZodType) =>
 	z.toJSONSchema(schema, { target: "draft-2020-12", unrepresentable: "any" });
@@ -74,6 +81,19 @@ export function openApiDocument(origin?: string) {
 		paths[path] ??= {};
 		paths[path][operation.method.toLowerCase()] = entry;
 	}
+	// Request and response contracts for the web endpoints that have one worth
+	// generating a client from; the rest are app-internal page payloads.
+	const webContracts: Partial<
+		Record<string, { request?: z.ZodType; response: z.ZodType }>
+	> = {
+		"profile.update": { request: updateProfileSchema, response: profileSchema },
+		"apiKey.list": { response: z.array(apiKeySummarySchema) },
+		"apiKey.create": {
+			request: createApiKeySchema,
+			response: createdApiKeySchema,
+		},
+		"apiKey.delete": { response: z.object({ success: z.literal(true) }) },
+	};
 	const webEndpoints = [
 		["/v1/health", "get", "health", true],
 		["/v1/site", "get", "site.get", true],
@@ -90,6 +110,7 @@ export function openApiDocument(origin?: string) {
 		["/v1/me/api-keys/{keyId}", "delete", "apiKey.delete", false],
 	] as const;
 	for (const [path, method, operationId, publicAccess] of webEndpoints) {
+		const contract = webContracts[operationId];
 		paths[path] ??= {};
 		paths[path][method] = {
 			operationId,
@@ -101,10 +122,24 @@ export function openApiDocument(origin?: string) {
 				required: true,
 				schema: { type: "string" },
 			})),
+			...(contract?.request
+				? {
+						requestBody: {
+							required: true,
+							content: {
+								"application/json": { schema: jsonSchema(contract.request) },
+							},
+						},
+					}
+				: {}),
 			responses: {
 				"200": {
 					description: "Successful response",
-					content: { "application/json": { schema: {} } },
+					content: {
+						"application/json": {
+							schema: contract ? jsonSchema(contract.response) : {},
+						},
+					},
 				},
 				"4XX": { description: "Request error" },
 			},

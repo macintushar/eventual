@@ -1,4 +1,5 @@
 import { useForm } from "@tanstack/react-form";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
@@ -26,6 +27,7 @@ import { Spinner } from "#/components/ui/spinner";
 import { authClient } from "#/lib/auth-client";
 import { safeAuthRedirect } from "#/lib/auth-redirect";
 import { fieldError } from "#/lib/form-error";
+import { siteQueryOptions } from "#/lib/queries";
 
 const nameSchema = z
 	.string()
@@ -47,6 +49,7 @@ const passwordError = (value: string) => issue(passwordSchema, value);
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 	const search = useSearch({ strict: false }) as { redirect?: string };
+	const { googleSignIn } = useSuspenseQuery(siteQueryOptions).data;
 	const [error, setError] = useState("");
 	const [googlePending, setGooglePending] = useState(false);
 	const [claimEmail, setClaimEmail] = useState("");
@@ -296,26 +299,30 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 								</Button>
 							)}
 						</form.Subscribe>
-						<div className="flex w-full items-center gap-3 text-sm text-muted-foreground">
-							<span className="h-px flex-1 bg-border" />
-							<span className="shrink-0">Or continue with</span>
-							<span className="h-px flex-1 bg-border" />
-						</div>
-						<Button
-							type="button"
-							variant="outline"
-							size="lg"
-							className="w-full"
-							disabled={googlePending}
-							onClick={signInWithGoogle}
-						>
-							{googlePending ? (
-								<Spinner data-icon="inline-start" />
-							) : (
-								<GoogleIcon className="size-5" />
-							)}
-							{googlePending ? "Connecting…" : "Continue with Google"}
-						</Button>
+						{googleSignIn ? (
+							<>
+								<div className="flex w-full items-center gap-3 text-sm text-muted-foreground">
+									<span className="h-px flex-1 bg-border" />
+									<span className="shrink-0">Or continue with</span>
+									<span className="h-px flex-1 bg-border" />
+								</div>
+								<Button
+									type="button"
+									variant="outline"
+									size="lg"
+									className="w-full"
+									disabled={googlePending}
+									onClick={signInWithGoogle}
+								>
+									{googlePending ? (
+										<Spinner data-icon="inline-start" />
+									) : (
+										<GoogleIcon className="size-5" />
+									)}
+									{googlePending ? "Connecting…" : "Continue with Google"}
+								</Button>
+							</>
+						) : null}
 						<p className="text-sm text-muted-foreground">
 							{mode === "signup" ? "Already registered?" : "New here?"}{" "}
 							<Link

@@ -75,6 +75,48 @@ test("OpenAPI projects every registry operation", async () => {
 	);
 });
 
+test("bodyless mark-paid requests still mark the share paid", async () => {
+	const { operations } = await modules();
+	const operation = operations.find((item) => item.name === "share.paid");
+	assert(operation);
+	assert.equal(
+		(
+			operation.input.parse({ expenseId: "e", userId: "u" }) as {
+				paid: boolean;
+			}
+		).paid,
+		true,
+	);
+});
+
+test("OpenAPI publishes account write contracts", async () => {
+	const { openApiDocument } = await modules();
+	const paths = openApiDocument().paths as Record<
+		string,
+		Record<
+			string,
+			{
+				requestBody?: { content: Record<string, { schema: unknown }> };
+				responses: Record<
+					string,
+					{ content?: Record<string, { schema: unknown }> }
+				>;
+			}
+		>
+	>;
+	for (const [path, method] of [
+		["/v1/me/profile", "patch"],
+		["/v1/me/api-keys", "post"],
+	] as const) {
+		const entry = paths[path][method];
+		assert.ok(entry.requestBody?.content["application/json"].schema, path);
+		assert.notDeepEqual(
+			entry.responses["200"].content?.["application/json"].schema,
+			{},
+		);
+	}
+});
+
 test("MCP schemas represent optional dates as ISO strings", async () => {
 	const { mcpWireShape, operations } = await modules();
 	const operation = operations.find((item) => item.name === "expense.list");

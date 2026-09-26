@@ -81,9 +81,11 @@ const activitySchema = pageSchema;
 const myPageSchema = pageSchema.omit({ groupId: true });
 const renameSchema = updateGroupSchema;
 const memberRoleSchema = memberActionSchema.extend({ role: roleSchema });
-const sharePaidSchema = memberActionSchema
-	.omit({ groupId: true })
-	.extend({ expenseId: z.string().min(1), paid: z.boolean() });
+const sharePaidSchema = memberActionSchema.omit({ groupId: true }).extend({
+	expenseId: z.string().min(1),
+	// Bodyless `POST .../paid` predates the explicit flag and means "mark paid".
+	paid: z.boolean().default(true),
+});
 const shortcutCreateSchema = quickExpenseSchema;
 
 export const operations = [

@@ -1,5 +1,4 @@
 import { eq } from "drizzle-orm";
-import { z } from "zod";
 
 import { user } from "#/db/schema";
 import { env } from "#/env";
@@ -9,25 +8,17 @@ import { AppError } from "#/server/errors";
 import { getLegalInfo } from "#/server/legal";
 import {
 	pendingVerificationUser,
+	settledVerificationSendStatus,
 	verificationSendStatus,
 } from "#/server/pending-verification";
 import { updateProfileSchema } from "#/server/schemas";
+import {
+	type ApiKeySummary,
+	createApiKeySchema,
+} from "#/server/schemas/account";
 import * as services from "#/server/services/app";
 
-export type ApiKeySummary = {
-	id: string;
-	name: string | null;
-	start: string | null;
-	enabled: boolean;
-	expiresAt: string | null;
-	lastRequest: string | null;
-	createdAt: string;
-};
-
-const apiKeyInput = z.object({
-	name: z.string().trim().min(1).max(64),
-	expiresIn: z.number().int().positive().nullable(),
-});
+export type { ApiKeySummary };
 
 function toIso(value: Date | string | null | undefined) {
 	return value ? new Date(value).toISOString() : null;
@@ -152,7 +143,7 @@ export async function listApiKeys(request: Request) {
 
 export async function createApiKey(request: Request, input: unknown) {
 	const headers = await cookieHeaders(request);
-	const data = apiKeyInput.parse(input);
+	const data = createApiKeySchema.parse(input);
 	const created = await auth.api.createApiKey({
 		headers,
 		body: {
@@ -181,8 +172,9 @@ export async function sendPendingVerification(request: Request) {
 			"UNAUTHENTICATED",
 			"Verification expired. Sign in again.",
 		);
-	const recent = await verificationSendStatus(found.id);
-	if (recent) return { sent: false, retryAt: recent.expiresAt.toISOString() };
+	const recent = await settledVerificationSendStatus(found.id);
+	if (recent?.value === "sent")
+		return { sent: false, retryAt: recent.expiresAt.toISOString() };
 	await auth.api.sendVerificationEmail({
 		body: { email: found.email, callbackURL: "/verify-email" },
 		headers: request.headers,
@@ -202,5 +194,7 @@ export function siteInfo() {
 	return {
 		origin: new URL(env.BETTER_AUTH_URL).origin,
 		supportEmail: env.SUPPORT_EMAIL,
+		// Mirrors the provider registration in #/lib/auth.
+		googleSignIn: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
 	};
 }

@@ -265,12 +265,11 @@ export const getLegalInfoFn = (signal?: AbortSignal) =>
 	);
 
 export const getSiteFn = (signal?: AbortSignal) =>
-	apiRequest<{ origin: string; supportEmail: string | null }>(
-		"GET",
-		"/api/v1/site",
-		undefined,
-		signal,
-	);
+	apiRequest<{
+		origin: string;
+		supportEmail: string | null;
+		googleSignIn: boolean;
+	}>("GET", "/api/v1/site", undefined, signal);
 
 export const listApiKeysFn = (signal?: AbortSignal) =>
 	apiRequest<ApiKeySummary[]>("GET", "/api/v1/me/api-keys", undefined, signal);

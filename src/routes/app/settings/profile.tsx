@@ -2,9 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { LinkedAccounts } from "#/components/linked-accounts";
 import { ProfileSettings } from "#/components/profile-settings";
+import { siteQueryOptions } from "#/lib/queries";
 
 export const Route = createFileRoute("/app/settings/profile")({
 	head: () => ({ meta: [{ title: "Profile · Eventual" }] }),
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(siteQueryOptions),
 	component: ProfilePage,
 });
 

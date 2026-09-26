@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { AnalyticsIdentity } from "#/components/analytics-provider";
 import { AppShell } from "#/components/app-shell";
 import { sessionQueryOptions } from "#/lib/queries";
+import { claimAccountCache } from "#/lib/session";
 
 export const Route = createFileRoute("/app")({
 	head: () => ({ meta: [{ name: "robots", content: "noindex" }] }),
@@ -9,6 +10,7 @@ export const Route = createFileRoute("/app")({
 		const auth = await context.queryClient.fetchQuery(sessionQueryOptions);
 		if (!auth)
 			throw redirect({ to: "/login", search: { redirect: location.href } });
+		claimAccountCache(context.queryClient, auth.user.id);
 		return auth;
 	},
 	component: AppLayout,

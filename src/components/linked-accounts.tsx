@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -8,10 +9,12 @@ import { SettingsRow, SettingsSection } from "#/components/settings-section";
 import { Button } from "#/components/ui/button";
 import { Spinner } from "#/components/ui/spinner";
 import { authClient } from "#/lib/auth-client";
+import { siteQueryOptions } from "#/lib/queries";
 
 type AuthAccount = { id: string; providerId: string; accountId: string };
 
 export function LinkedAccounts() {
+	const { googleSignIn } = useSuspenseQuery(siteQueryOptions).data;
 	const [accounts, setAccounts] = useState<AuthAccount[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [working, setWorking] = useState(false);
@@ -101,6 +104,10 @@ export function LinkedAccounts() {
 		}
 	};
 
+	// Google is the only linkable provider. Without it configured there is
+	// nothing to connect, though an existing link can still be removed.
+	if (!googleSignIn && !loading && !googleAccount) return null;
+
 	return (
 		<SettingsSection
 			title="Sign-in methods"
@@ -152,7 +159,7 @@ export function LinkedAccounts() {
 					<Button
 						type="button"
 						variant="outline"
-						disabled={loading || working}
+						disabled={loading || working || !googleSignIn}
 						onClick={connectGoogle}
 					>
 						{working ? <Spinner data-icon="inline-start" /> : null}

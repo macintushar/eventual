@@ -82,7 +82,9 @@ export function authEmailOptions(
 			},
 		},
 		emailVerification: {
-			sendOnSignUp: false,
+			// Direct API signups need the link too; the send gate keeps the
+			// automatic send on /check-email from mailing it twice.
+			sendOnSignUp: configured,
 			autoSignInAfterVerification: true,
 			expiresIn: LINK_TTL_SECONDS,
 			sendVerificationEmail: async ({ user, url, token }) => {

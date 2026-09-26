@@ -84,6 +84,24 @@ export async function verificationSendStatus(userId: string) {
 	return marker;
 }
 
+/**
+ * Like verificationSendStatus, but waits out a concurrent send still marked
+ * `pending`: that one may yet fail and release its marker, and reporting it
+ * as a completed send would hold the user in a cooldown with no email.
+ */
+export async function settledVerificationSendStatus(
+	userId: string,
+	timeoutMs = 10_000,
+) {
+	const deadline = Date.now() + timeoutMs;
+	let status = await verificationSendStatus(userId);
+	while (status?.value === "pending" && Date.now() < deadline) {
+		await new Promise((resolve) => setTimeout(resolve, 250));
+		status = await verificationSendStatus(userId);
+	}
+	return status;
+}
+
 export async function reserveVerificationSend(userId: string) {
 	const now = new Date();
 	const id = markerId(userId);

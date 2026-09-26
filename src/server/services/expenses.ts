@@ -79,6 +79,7 @@ export async function listExpenses(
 		cursor?: string;
 		limit?: number;
 		offset?: number;
+		asOf?: number;
 		sortBy?: ExpenseSortBy;
 		sortDirection?: "asc" | "desc";
 	},
@@ -114,6 +115,10 @@ export async function listExpenses(
 							? expense.amountMinor
 							: expense.date;
 		const offset = input.offset ?? 0;
+		// Offsets count from the top, so an expense added after page one would
+		// push a row onto the next page twice. Pin pages to the first one's view.
+		const asOf = input.asOf ?? Date.now();
+		clauses.push(lte(expense.createdAt, new Date(asOf)));
 		const rows = await ctx.db.query.expense.findMany({
 			where: and(...clauses),
 			with: { payer: true, shares: { with: { user: true } } },
@@ -137,6 +142,7 @@ export async function listExpenses(
 			})),
 			nextCursor: null,
 			nextOffset: rows.length > limit ? offset + limit : null,
+			asOf,
 		};
 	}
 	if (input.cursor) {
@@ -187,6 +193,7 @@ export async function listExpenses(
 		nextCursor:
 			rows.length > limit ? encodeCursor(page[page.length - 1]) : null,
 		nextOffset: null,
+		asOf: null,
 	};
 }
 
