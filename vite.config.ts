@@ -43,6 +43,8 @@ const config = defineConfig(({ mode }) => {
 					"/help": { prerender: true },
 					"/help/create-a-group": { prerender: true },
 					"/help/add-an-expense": { prerender: true },
+					"/privacy": { prerender: true },
+					"/terms": { prerender: true },
 				},
 			}),
 			tailwindcss(),
