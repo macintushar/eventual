@@ -20,6 +20,12 @@ const brands = {
 	},
 	claude: { name: "Claude", src: lobe("claude-color"), mono: false },
 	openai: { name: "ChatGPT", src: lobe("openai"), mono: true },
+	perplexity: {
+		name: "Perplexity",
+		src: lobe("perplexity-color"),
+		mono: false,
+	},
+	google: { name: "Google", src: lobe("google-color"), mono: false },
 	codex: { name: "Codex", src: lobe("codex"), mono: true },
 	cursor: { name: "Cursor", src: lobe("cursor"), mono: true },
 	opencode: { name: "OpenCode", src: lobe("opencode"), mono: true },

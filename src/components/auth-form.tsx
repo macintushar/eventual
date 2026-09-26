@@ -17,31 +17,40 @@ import {
 import {
 	Field,
 	FieldDescription,
+	FieldError,
 	FieldGroup,
 	FieldLabel,
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { Spinner } from "#/components/ui/spinner";
 import { authClient } from "#/lib/auth-client";
+import { safeAuthRedirect } from "#/lib/auth-redirect";
+import { fieldError } from "#/lib/form-error";
 
-// Login never renders the name field, so it must not be validated against it.
-const credentialsSchema = z.object({
-	email: z.email("Enter a valid email address"),
-	password: z.string().min(8, "Password must be at least 8 characters"),
-});
-const signupSchema = credentialsSchema.extend({
-	name: z.string().trim().min(2, "Name must be at least 2 characters"),
-});
+const nameSchema = z
+	.string()
+	.trim()
+	.min(2, "Name must be at least 2 characters");
+const emailSchema = z.email("Enter a valid email address");
+const passwordSchema = z
+	.string()
+	.min(8, "Password must be at least 8 characters");
+
+function issue(schema: z.ZodType, value: unknown) {
+	const parsed = schema.safeParse(value);
+	return parsed.success ? undefined : parsed.error.issues[0]?.message;
+}
+
+const nameError = (value: string) => issue(nameSchema, value);
+const emailError = (value: string) => issue(emailSchema, value);
+const passwordError = (value: string) => issue(passwordSchema, value);
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 	const search = useSearch({ strict: false }) as { redirect?: string };
 	const [error, setError] = useState("");
 	const [googlePending, setGooglePending] = useState(false);
 	const [claimEmail, setClaimEmail] = useState("");
-	const target =
-		search.redirect?.startsWith("/") && !search.redirect.startsWith("//")
-			? search.redirect
-			: "/app";
+	const target = safeAuthRedirect(search.redirect);
 	const signInWithGoogle = async () => {
 		setError("");
 		setGooglePending(true);
@@ -68,15 +77,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 		onSubmit: async ({ value }) => {
 			setError("");
 			setClaimEmail("");
-			const parsed =
-				mode === "signup"
-					? signupSchema.safeParse(value)
-					: credentialsSchema.safeParse(value);
-			if (!parsed.success) {
-				setError(parsed.error.issues[0]?.message ?? "Check your details");
-				return;
-			}
-			const { email, password } = parsed.data;
+			const { email, password } = value;
 			const result =
 				mode === "signup"
 					? await authClient.signUp.email({
@@ -143,69 +144,116 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 							id="auth-form"
 							onSubmit={(event) => {
 								event.preventDefault();
-								form.handleSubmit();
+								event.stopPropagation();
+								void form.handleSubmit();
 							}}
 						>
 							<FieldGroup>
 								{mode === "signup" && (
-									<form.Field name="name">
-										{(field) => (
-											<Field>
-												<FieldLabel htmlFor="name">Name</FieldLabel>
+									<form.Field
+										name="name"
+										validators={{
+											onBlur: ({ value }) => nameError(value),
+											onSubmit: ({ value }) => nameError(value),
+										}}
+									>
+										{(field) => {
+											const message = field.state.meta.isTouched
+												? fieldError(field.state.meta.errors)
+												: undefined;
+											return (
+												<Field data-invalid={message ? true : undefined}>
+													<FieldLabel htmlFor={field.name}>Name</FieldLabel>
+													<Input
+														id={field.name}
+														name={field.name}
+														value={field.state.value}
+														onBlur={field.handleBlur}
+														onChange={(event) =>
+															field.handleChange(event.target.value)
+														}
+														autoComplete="name"
+														placeholder="Mac"
+														aria-invalid={message ? true : undefined}
+													/>
+													{message ? <FieldError>{message}</FieldError> : null}
+												</Field>
+											);
+										}}
+									</form.Field>
+								)}
+								<form.Field
+									name="email"
+									validators={{
+										onBlur: ({ value }) => emailError(value),
+										onSubmit: ({ value }) => emailError(value),
+									}}
+								>
+									{(field) => {
+										const message = field.state.meta.isTouched
+											? fieldError(field.state.meta.errors)
+											: undefined;
+										return (
+											<Field data-invalid={message ? true : undefined}>
+												<FieldLabel htmlFor={field.name}>Email</FieldLabel>
 												<Input
-													id="name"
+													id={field.name}
+													name={field.name}
+													type="email"
 													value={field.state.value}
+													onBlur={field.handleBlur}
 													onChange={(event) =>
 														field.handleChange(event.target.value)
 													}
-													autoComplete="name"
-													placeholder="Mac"
+													autoComplete="email"
+													placeholder="you@example.com"
+													aria-invalid={message ? true : undefined}
 												/>
+												{message ? <FieldError>{message}</FieldError> : null}
 											</Field>
-										)}
-									</form.Field>
-								)}
-								<form.Field name="email">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor="email">Email</FieldLabel>
-											<Input
-												id="email"
-												type="email"
-												value={field.state.value}
-												onChange={(event) =>
-													field.handleChange(event.target.value)
-												}
-												autoComplete="email"
-												placeholder="you@example.com"
-											/>
-										</Field>
-									)}
+										);
+									}}
 								</form.Field>
-								<form.Field name="password">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor="password">Password</FieldLabel>
-											<Input
-												id="password"
-												type="password"
-												value={field.state.value}
-												onChange={(event) =>
-													field.handleChange(event.target.value)
-												}
-												autoComplete={
-													mode === "signup"
-														? "new-password"
-														: "current-password"
-												}
-											/>
-											{mode === "signup" ? (
-												<FieldDescription>
-													At least 8 characters.
-												</FieldDescription>
-											) : null}
-										</Field>
-									)}
+								<form.Field
+									name="password"
+									validators={{
+										onBlur: ({ value }) => passwordError(value),
+										onSubmit: ({ value }) => passwordError(value),
+									}}
+								>
+									{(field) => {
+										const message = field.state.meta.isTouched
+											? fieldError(field.state.meta.errors)
+											: undefined;
+										return (
+											<Field data-invalid={message ? true : undefined}>
+												<FieldLabel htmlFor={field.name}>Password</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													type="password"
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(event) =>
+														field.handleChange(event.target.value)
+													}
+													autoComplete={
+														mode === "signup"
+															? "new-password"
+															: "current-password"
+													}
+													aria-invalid={message ? true : undefined}
+												/>
+												{message ? (
+													<FieldError>{message}</FieldError>
+												) : mode === "signup" ? (
+													<FieldDescription>
+														At least 8 characters.
+													</FieldDescription>
+												) : null}
+											</Field>
+										);
+									}}
 								</form.Field>
 								{error ? (
 									<Alert variant="destructive">
@@ -277,6 +325,13 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 								{mode === "signup" ? "Log in" : "Create an account"}
 							</Link>
 						</p>
+						{mode === "signup" ? (
+							<p className="text-xs text-muted-foreground">
+								By creating an account, you agree to the{" "}
+								<Link to="/terms">Terms</Link> and{" "}
+								<Link to="/privacy">Privacy policy</Link>.
+							</p>
+						) : null}
 					</CardFooter>
 				</Card>
 			</div>

@@ -1,5 +1,6 @@
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { PublicPage } from "#/components/public-header";
 import { Alert, AlertDescription } from "#/components/ui/alert";
 import { Button } from "#/components/ui/button";
@@ -11,14 +12,14 @@ import {
 	CardTitle,
 } from "#/components/ui/card";
 import { Spinner } from "#/components/ui/spinner";
-import {
-	getPendingVerificationFn,
-	sendPendingVerificationFn,
-} from "#/server/fn/pending-verification";
+import { pendingVerificationQueryOptions } from "#/lib/queries";
+import { sendPendingVerificationFn } from "#/lib/web-api-client";
 
 export const Route = createFileRoute("/check-email")({
-	loader: async () => {
-		const pending = await getPendingVerificationFn();
+	loader: async ({ context }) => {
+		const pending = await context.queryClient.ensureQueryData(
+			pendingVerificationQueryOptions,
+		);
 		if (!pending) throw redirect({ to: "/login" });
 		return pending;
 	},
@@ -32,35 +33,23 @@ export const Route = createFileRoute("/check-email")({
 });
 
 function CheckEmailPage() {
-	const { email } = Route.useLoaderData();
-	const [pending, setPending] = useState(true);
-	const [error, setError] = useState("");
+	const { email } = useSuspenseQuery(pendingVerificationQueryOptions).data ?? {
+		email: "",
+	};
 	const [retryAt, setRetryAt] = useState("");
 	const [now, setNow] = useState(Date.now());
 	const remainingSeconds = Math.max(
 		0,
 		Math.ceil((new Date(retryAt).getTime() - now) / 1000) || 0,
 	);
-
-	const send = useCallback(async () => {
-		setPending(true);
-		setError("");
-		try {
-			const result = await sendPendingVerificationFn();
-			setRetryAt(result.retryAt);
-		} catch (cause) {
-			setRetryAt("");
-			setError(
-				cause instanceof Error ? cause.message : "Could not send the email.",
-			);
-		} finally {
-			setPending(false);
-		}
-	}, []);
+	const send = useMutation({
+		mutationFn: sendPendingVerificationFn,
+		onSuccess: (result) => setRetryAt(result.retryAt),
+	});
 
 	useEffect(() => {
-		void send();
-	}, [send]);
+		send.mutate();
+	}, [send.mutate]);
 
 	useEffect(() => {
 		if (!retryAt) return;
@@ -88,9 +77,13 @@ function CheckEmailPage() {
 						Open the verification link in your inbox. It expires after one hour.
 						Check your spam folder if you don't see it.
 					</p>
-					{error ? (
+					{send.isError ? (
 						<Alert variant="destructive">
-							<AlertDescription>{error}</AlertDescription>
+							<AlertDescription>
+								{send.error instanceof Error
+									? send.error.message
+									: "Could not send the email."}
+							</AlertDescription>
 						</Alert>
 					) : retryAt ? (
 						<output className="text-sm">
@@ -100,11 +93,11 @@ function CheckEmailPage() {
 					<Button
 						type="button"
 						variant="outline"
-						disabled={pending || remainingSeconds > 0}
-						onClick={() => void send()}
+						disabled={send.isPending || remainingSeconds > 0}
+						onClick={() => send.mutate()}
 					>
-						{pending ? <Spinner data-icon="inline-start" /> : null}
-						{pending
+						{send.isPending ? <Spinner data-icon="inline-start" /> : null}
+						{send.isPending
 							? "Sending…"
 							: remainingSeconds > 0
 								? `Resend in ${Math.ceil(remainingSeconds / 60)} min`

@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import {
@@ -6,11 +7,12 @@ import {
 	publicSignedOutActions,
 } from "#/components/public-header";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
-import { getSessionFn } from "#/server/fn/auth";
+import { sessionQueryOptions } from "#/lib/queries";
 
 export const Route = createFileRoute("/verify-email")({
 	validateSearch: z.object({ error: z.string().optional() }),
-	loader: async () => ({ session: await getSessionFn() }),
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(sessionQueryOptions),
 	head: () => ({
 		meta: [
 			{ title: "Email verification · Eventual" },
@@ -22,7 +24,7 @@ export const Route = createFileRoute("/verify-email")({
 
 function VerificationResult() {
 	const { error } = Route.useSearch();
-	const { session } = Route.useLoaderData();
+	const session = useSuspenseQuery(sessionQueryOptions).data;
 	return (
 		<PublicPage
 			user={session?.user ?? null}

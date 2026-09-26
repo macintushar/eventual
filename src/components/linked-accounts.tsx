@@ -4,14 +4,8 @@ import { toast } from "sonner";
 
 import { ConfirmDialog } from "#/components/confirm-dialog";
 import { GoogleIcon } from "#/components/google-icon";
+import { SettingsRow, SettingsSection } from "#/components/settings-section";
 import { Button } from "#/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "#/components/ui/card";
 import { Spinner } from "#/components/ui/spinner";
 import { authClient } from "#/lib/auth-client";
 
@@ -108,74 +102,64 @@ export function LinkedAccounts() {
 	};
 
 	return (
-		<Card className="island-shell">
-			<CardHeader>
-				<CardTitle>Sign-in methods</CardTitle>
-				<CardDescription>
-					Connect another way to sign in, or disconnect one you no longer use.
-				</CardDescription>
-			</CardHeader>
-			<CardContent>
-				<div className="flex flex-wrap items-center justify-between gap-4">
-					<div className="flex min-w-0 items-center gap-3">
-						<GoogleIcon className="size-5 shrink-0" />
-						<div>
-							<p className="font-medium">Google</p>
-							<p className="text-sm text-muted-foreground">
-								{loading
-									? "Checking connection…"
-									: googleAccount
-										? "Connected to this account"
-										: "Not connected"}
-							</p>
-						</div>
-					</div>
-					{googleAccount ? (
-						<ConfirmDialog
-							trigger={
-								<Button
-									type="button"
-									variant="outline"
-									disabled={loading || working || !otherAccountExists}
-								>
-									Disconnect
-								</Button>
-							}
-							title="Disconnect Google?"
-							description="You won't be able to sign in with Google until you connect it again."
-							confirmLabel="Disconnect Google"
-							onConfirm={disconnectGoogle}
-							pending={working}
-						/>
-					) : (
-						<Button
-							type="button"
-							variant="outline"
-							disabled={loading || working}
-							onClick={connectGoogle}
-						>
-							{working ? (
-								<Spinner data-icon="inline-start" />
-							) : (
-								<GoogleIcon className="size-4" />
-							)}
-							Connect Google
-						</Button>
-					)}
-				</div>
-				{googleAccount && !otherAccountExists ? (
-					<p className="mt-3 text-sm text-muted-foreground">
-						Set a password before disconnecting Google. You can do this from{" "}
-						<Link
-							to="/forgot-password"
-							className="underline underline-offset-4"
-						>
-							Forgot your password?
-						</Link>
-						.
-					</p>
-				) : null}
-			</CardContent>
-		</Card>
+		<SettingsSection
+			title="Sign-in methods"
+			description="Connect another way to sign in, or disconnect one you no longer use."
+		>
+			<SettingsRow
+				title={
+					<>
+						<GoogleIcon className="size-4 shrink-0" />
+						Google
+					</>
+				}
+				description={
+					<>
+						{loading
+							? "Checking connection…"
+							: googleAccount
+								? "Connected to this account."
+								: "Not connected."}
+						{googleAccount && !otherAccountExists ? (
+							<span className="mt-1 block">
+								Set a password before disconnecting Google. You can do this from{" "}
+								<Link to="/forgot-password" className="underline">
+									Forgot your password?
+								</Link>
+							</span>
+						) : null}
+					</>
+				}
+			>
+				{googleAccount ? (
+					<ConfirmDialog
+						trigger={
+							<Button
+								type="button"
+								variant="outline"
+								disabled={loading || working || !otherAccountExists}
+							>
+								Disconnect
+							</Button>
+						}
+						title="Disconnect Google?"
+						description="You won't be able to sign in with Google until you connect it again."
+						confirmLabel="Disconnect Google"
+						onConfirm={disconnectGoogle}
+						pending={working}
+					/>
+				) : (
+					<Button
+						type="button"
+						variant="outline"
+						disabled={loading || working}
+						onClick={connectGoogle}
+					>
+						{working ? <Spinner data-icon="inline-start" /> : null}
+						Connect
+					</Button>
+				)}
+			</SettingsRow>
+		</SettingsSection>
 	);
 }

@@ -1,6 +1,5 @@
 import { Users } from "lucide-react";
 import { useId, useMemo, useState } from "react";
-import { toast } from "sonner";
 
 import { Amount } from "#/components/amount";
 import { CurrencySelect } from "#/components/currency-select";
@@ -39,12 +38,12 @@ import { StepDialog } from "#/components/ui/step-dialog";
 import { type Step, useStepper } from "#/components/ui/stepper";
 import { Textarea } from "#/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
+import { useAppMutation } from "#/lib/app-mutation";
 import { currencyDecimals, currencySymbol } from "#/lib/currencies";
 import { atNoon, formatLongDate } from "#/lib/dates";
 import { formatMinor, fromMinor, parseMinor } from "#/lib/money";
 import { cn } from "#/lib/utils";
 import { computeShares, type SplitMethod } from "#/server/domain/split";
-import { mutateFn } from "#/server/fn/app";
 
 export type ComposerMember = { userId: string; name: string };
 export type ComposerGroup = {
@@ -216,7 +215,7 @@ export function ExpenseComposer({
 			]) ?? [],
 		),
 	);
-	const [saving, setSaving] = useState(false);
+	const save = useAppMutation();
 
 	/*
 	 * Payer and participants are member ids, so they cannot outlive a change of
@@ -313,39 +312,31 @@ export function ExpenseComposer({
 	})();
 
 	const submit = async () => {
-		setSaving(true);
-		try {
-			const base = {
-				description,
-				notes: notes || null,
-				amountMinor: totalMinor,
-				currency,
-				paidByUserId: payer,
-				splitMethod: method,
-				date,
-				participants: preview.map((share) => ({
-					userId: share.userId,
-					input: share.splitInput,
-				})),
-			};
-			await mutateFn({
-				data: initial
-					? {
-							action: "expense.update",
-							input: { ...base, expenseId: initial.id },
-						}
-					: { action: "expense.create", input: { ...base, groupId } },
-			});
-			toast.success(initial ? "Expense updated" : "Expense added");
-			onOpenChange(false);
-			await onSaved(groupId);
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Could not save expense",
-			);
-		} finally {
-			setSaving(false);
-		}
+		const base = {
+			description,
+			notes: notes || null,
+			amountMinor: totalMinor,
+			currency,
+			paidByUserId: payer,
+			splitMethod: method,
+			date,
+			participants: preview.map((share) => ({
+				userId: share.userId,
+				input: share.splitInput,
+			})),
+		};
+		const saved = await save.run(
+			initial
+				? {
+						action: "expense.update",
+						input: { ...base, expenseId: initial.id },
+					}
+				: { action: "expense.create", input: { ...base, groupId } },
+			initial ? "Expense updated" : "Expense added",
+		);
+		if (!saved) return;
+		onOpenChange(false);
+		await onSaved(groupId);
 	};
 
 	if (!initial && groups.length === 0)
@@ -386,7 +377,7 @@ export function ExpenseComposer({
 			onNext={() => (stepper.isLast ? submit() : stepper.next())}
 			nextLabel={
 				stepper.isLast
-					? saving
+					? save.isPending
 						? "Saving…"
 						: initial
 							? "Save changes"
@@ -397,7 +388,7 @@ export function ExpenseComposer({
 			// The split step says the same thing in its own status panel, a few
 			// pixels above, so it would only be said twice.
 			nextHint={stepper.id === "split" ? undefined : blocker}
-			pending={saving}
+			pending={save.isPending}
 		>
 			{stepper.id === "group" ? (
 				<FieldGroup>

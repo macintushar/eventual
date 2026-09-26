@@ -120,7 +120,7 @@ export function HelpShot({
 							<DialogTrigger asChild>
 								<button
 									type="button"
-									className="ml-auto font-medium text-tape hover:underline"
+									className="ml-auto font-medium text-foreground underline decoration-tape decoration-2 underline-offset-3"
 								>
 									{moreLabel}
 								</button>

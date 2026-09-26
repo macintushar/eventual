@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import {
 	Link,
 	useLocation,
@@ -34,7 +35,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-
 import { useComposer } from "#/components/composer";
 import { MemberAvatar } from "#/components/member-avatar";
 import { Button } from "#/components/ui/button";
@@ -44,7 +44,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
-import { loadSession } from "#/lib/session";
+import { sessionQueryOptions } from "#/lib/queries";
 import { cn } from "#/lib/utils";
 
 const ICON = "size-[1.375rem]";
@@ -486,27 +486,13 @@ export function PublicDock({
 } = {}) {
 	const router = useRouter();
 	const { pathname } = useLocation();
-	const [user, setUser] = useState(initialUser ?? null);
 	const [profileOpen, setProfileOpen] = useState(false);
-
-	useEffect(() => {
-		if (initialUser !== undefined) {
-			setUser(initialUser);
-			return;
-		}
-		let active = true;
-		void loadSession().then(
-			(session) => {
-				if (active) setUser(session?.user ?? null);
-			},
-			() => {
-				if (active) setUser(null);
-			},
-		);
-		return () => {
-			active = false;
-		};
-	}, [initialUser]);
+	const session = useQuery({
+		...sessionQueryOptions,
+		enabled: initialUser === undefined && !import.meta.env.SSR,
+	});
+	const user =
+		initialUser !== undefined ? initialUser : (session.data?.user ?? null);
 
 	const accountActive = profileActive(pathname, Boolean(user));
 
