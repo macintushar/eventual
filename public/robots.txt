@@ -1,4 +1,22 @@
+# Eventual welcomes search engines and AI assistants on its public pages.
+# Signed-in pages under /app are marked noindex rather than blocked here.
+
 User-agent: *
+Allow: /
+
+# AI search and assistant crawlers, named so the policy is explicit.
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: anthropic-ai
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: Bingbot
 Allow: /
 
 Sitemap: https://eventual.macintushar.xyz/sitemap.xml
