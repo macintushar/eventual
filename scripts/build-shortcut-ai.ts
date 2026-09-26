@@ -43,7 +43,13 @@ const CACHE_PATH = "Shortcuts/Eventual/last-group.txt";
 // ——— Setup ———
 // The first action receives the shortcut input; keep it before the import
 // questions' Text actions so their indexes stay stable.
-setVar("Input"); // index 0
+action("setvariable", {
+	WFVariableName: "Input",
+	WFInput: {
+		Value: { Type: "ExtensionInput" },
+		WFSerializationType: "WFTextTokenAttachment",
+	},
+}, "Input"); // index 0
 const apiKey = action("gettext", { WFTextActionText: "" }, "Text"); // index 1
 const origin = action("gettext", { WFTextActionText: defaultOrigin }, "Text"); // index 2
 const auth = () => dictionary([{ key: "x-api-key", value: [apiKey] }]);
@@ -154,8 +160,9 @@ action(
 	"askllm",
 	{
 		WFLLMPrompt: prompt,
-		WFLLMModel: "Apple Intelligence",
+		WFLLMModel: "Apple Intelligence on Device",
 		WFGenerativeResultType: "Text",
+		WFLLMFollowUp: false,
 	},
 	"Response",
 );
@@ -394,7 +401,7 @@ const workflow = {
 	WFWorkflowInputContentItemClasses: ["WFStringContentItem"],
 	WFWorkflowOutputContentItemClasses: [],
 	WFQuickActionSurfaces: [],
-	WFWorkflowHasShortcutInputVariables: false,
+	WFWorkflowHasShortcutInputVariables: true,
 	WFWorkflowImportQuestions: [
 		{
 			ActionIndex: 1,

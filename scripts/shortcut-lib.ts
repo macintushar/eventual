@@ -127,20 +127,22 @@ export function createBuilder() {
 
 	function otherwise(grouping: string) {
 		actions.push({
-			WFWorkflowActionIdentifier: "is.workflow.actions.otherwise",
+			WFWorkflowActionIdentifier: "is.workflow.actions.conditional",
 			WFWorkflowActionParameters: {
 				WFControlFlowMode: 1,
 				GroupingIdentifier: grouping,
+				UUID: crypto.randomUUID().toUpperCase(),
 			},
 		});
 	}
 
 	function endIf(grouping: string) {
 		actions.push({
-			WFWorkflowActionIdentifier: "is.workflow.actions.endif",
+			WFWorkflowActionIdentifier: "is.workflow.actions.conditional",
 			WFWorkflowActionParameters: {
 				WFControlFlowMode: 2,
 				GroupingIdentifier: grouping,
+				UUID: crypto.randomUUID().toUpperCase(),
 			},
 		});
 	}
