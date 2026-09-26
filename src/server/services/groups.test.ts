@@ -6,11 +6,13 @@ import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import * as schema from "#/db/schema";
 import type { Ctx } from "#/server/context";
+import { AppError } from "#/server/errors";
 import {
 	createExpense,
 	createGroup,
 	listGroupsWithMembers,
 	previewGroupExpense,
+	updateExpense,
 	updateMemberWeight,
 } from "#/server/services/app";
 import {
@@ -254,6 +256,78 @@ test("new expenses use the member weights shown in the composer", async () => {
 			orderBy: schema.expenseShare.userId,
 		});
 		assert.deepEqual(shares(originalShares), shares(preview));
+	} finally {
+		f.client.close();
+	}
+});
+
+test("saving rejects a stale split review without writing different shares", async () => {
+	const f = await fixture();
+	try {
+		const participants = ["A", "B"].map((userId) => ({
+			userId,
+			input: null,
+		}));
+		const input = {
+			groupId: "G",
+			description: "Dinner",
+			amountMinor: 10001,
+			currency: "INR",
+			paidByUserId: "A",
+			splitMethod: "even" as const,
+			date: new Date(),
+			participants,
+		};
+		const reviewedShares = (
+			shares: { userId: string; amountMinor: number }[],
+		) => shares.map(({ userId, amountMinor }) => ({ userId, amountMinor }));
+		const originalPreview = await previewGroupExpense(f.ctx, input);
+		await updateMemberWeight(f.ctx, {
+			groupId: "G",
+			userId: "B",
+			weight: 1,
+		});
+		await assert.rejects(
+			createExpense(f.ctx, {
+				...input,
+				reviewedShares: reviewedShares(originalPreview),
+			}),
+			(error: unknown) =>
+				error instanceof AppError && error.code === "CONFLICT",
+		);
+		assert.equal((await f.db.query.expense.findMany()).length, 1);
+
+		const currentPreview = await previewGroupExpense(f.ctx, input);
+		const created = await createExpense(f.ctx, {
+			...input,
+			reviewedShares: reviewedShares(currentPreview),
+		});
+		assert.deepEqual(
+			reviewedShares(created.shares),
+			reviewedShares(currentPreview),
+		);
+		await updateMemberWeight(f.ctx, {
+			groupId: "G",
+			userId: "B",
+			weight: 3,
+		});
+		await assert.rejects(
+			updateExpense(f.ctx, {
+				...input,
+				expenseId: created.id,
+				reviewedShares: reviewedShares(currentPreview),
+			}),
+			(error: unknown) =>
+				error instanceof AppError && error.code === "CONFLICT",
+		);
+		const savedShares = await f.db.query.expenseShare.findMany({
+			where: eq(schema.expenseShare.expenseId, created.id),
+			orderBy: schema.expenseShare.userId,
+		});
+		assert.deepEqual(
+			reviewedShares(savedShares),
+			reviewedShares(currentPreview),
+		);
 	} finally {
 		f.client.close();
 	}

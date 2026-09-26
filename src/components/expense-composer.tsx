@@ -1,5 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Users } from "lucide-react";
 import { useId, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Amount } from "#/components/amount";
 import { CurrencySelect } from "#/components/currency-select";
@@ -178,6 +180,7 @@ export function ExpenseComposer({
 	);
 
 	const [groupId, setGroupId] = useState(defaultGroupId ?? groups[0]?.id ?? "");
+	const queryClient = useQueryClient();
 	const group = groups.find((row) => row.id === groupId);
 	const members = useMemo(() => group?.members ?? [], [group]);
 
@@ -216,6 +219,10 @@ export function ExpenseComposer({
 		),
 	);
 	const save = useAppMutation();
+	const [splitChanged, setSplitChanged] = useState(false);
+	const [reviewedPreview, setReviewedPreview] = useState<
+		ReturnType<typeof computeShares>
+	>([]);
 
 	/*
 	 * Payer and participants are member ids, so they cannot outlive a change of
@@ -226,6 +233,7 @@ export function ExpenseComposer({
 	const [scopedTo, setScopedTo] = useState(groupId);
 	if (scopedTo !== groupId) {
 		setScopedTo(groupId);
+		setSplitChanged(false);
 		setPayer(defaultPayer(members, currentUserId));
 		setSelected(new Set(members.map((member) => member.userId)));
 		setInputs(
@@ -238,6 +246,7 @@ export function ExpenseComposer({
 
 	const changeMethod = (next: SplitMethod) => {
 		if (next === method) return;
+		setSplitChanged(false);
 		setMethod(next);
 		if (next !== "even") setInputs(defaultInputs(next, [...selected].sort()));
 	};
@@ -328,21 +337,44 @@ export function ExpenseComposer({
 			paidByUserId: payer,
 			splitMethod: method,
 			date,
-			participants: preview.map((share) => ({
+			participants: reviewedPreview.map((share) => ({
 				userId: share.userId,
 				input: share.splitInput,
 			})),
+			reviewedShares: reviewedPreview.map((share) => ({
+				userId: share.userId,
+				amountMinor: share.amountMinor,
+			})),
 		};
-		const saved = await save.run(
+		const outcome = await save.execute(
 			initial
 				? {
 						action: "expense.update",
 						input: { ...base, expenseId: initial.id },
 					}
 				: { action: "expense.create", input: { ...base, groupId } },
-			initial ? "Expense updated" : "Expense added",
 		);
-		if (!saved) return;
+		if (!outcome.ok) {
+			const error = outcome.error as {
+				status?: number;
+				details?: { details?: { reason?: string } };
+			};
+			if (
+				error?.status === 409 &&
+				error.details?.details?.reason === "split_changed"
+			) {
+				await Promise.all([
+					queryClient.invalidateQueries({ queryKey: ["composer"] }),
+					queryClient.invalidateQueries({
+						queryKey: ["group", groupId, "page"],
+					}),
+				]);
+				setSplitChanged(true);
+				stepper.goTo(steps.length - 2);
+			}
+			return;
+		}
+		toast.success(initial ? "Expense updated" : "Expense added");
 		onOpenChange(false);
 		await onSaved(groupId);
 	};
@@ -382,7 +414,11 @@ export function ExpenseComposer({
 			index={stepper.index}
 			onSelectStep={stepper.goTo}
 			onBack={stepper.back}
-			onNext={() => (stepper.isLast ? submit() : stepper.next())}
+			onNext={() => {
+				if (stepper.isLast) return submit();
+				if (stepper.id === "split") setReviewedPreview(preview);
+				stepper.next();
+			}}
 			nextLabel={
 				stepper.isLast
 					? save.isPending
@@ -563,6 +599,14 @@ export function ExpenseComposer({
 						<ToggleGroupItem value="percent">Percent</ToggleGroupItem>
 					</ToggleGroup>
 					<p className="text-sm text-muted-foreground">{methodHelp[method]}</p>
+					{splitChanged ? (
+						<Alert role="alert">
+							<AlertTitle>Group weights changed</AlertTitle>
+							<AlertDescription>
+								Check the updated amounts, then continue to review.
+							</AlertDescription>
+						</Alert>
+					) : null}
 
 					<FieldSet>
 						<FieldLegend className="sr-only">Participants</FieldLegend>
@@ -716,7 +760,7 @@ export function ExpenseComposer({
 					<Separator />
 
 					<ItemGroup>
-						{preview.map((share) => (
+						{reviewedPreview.map((share) => (
 							<Item key={share.userId} size="sm" className="flex-nowrap">
 								<ItemMedia>
 									<MemberAvatar

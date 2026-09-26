@@ -88,7 +88,7 @@ export function useAppMutation() {
 			return { ok: true as const, result };
 		} catch (error) {
 			toast.error(messageFrom(error, "Action failed"));
-			return { ok: false as const, result: null };
+			return { ok: false as const, result: null, error };
 		}
 	};
 

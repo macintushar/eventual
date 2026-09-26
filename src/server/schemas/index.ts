@@ -44,6 +44,16 @@ export const createExpenseSchema = z.object({
 	splitMethod: splitMethodSchema,
 	date: z.coerce.date(),
 	participants: z.array(participantSchema).min(1),
+	/** Optional guard for clients that show a split before submitting it. */
+	reviewedShares: z
+		.array(
+			z.object({
+				userId: idSchema,
+				amountMinor: z.number().int().safe().nonnegative(),
+			}),
+		)
+		.min(1)
+		.optional(),
 });
 export const updateExpenseSchema = createExpenseSchema
 	.omit({ groupId: true })

@@ -234,6 +234,26 @@ export function previewExpense(input: {
 	);
 }
 
+function assertReviewedShares(
+	reviewed: CreateExpenseInput["reviewedShares"],
+	computed: ReturnType<typeof computeShares>,
+) {
+	if (!reviewed) return;
+	const amounts = new Map(
+		reviewed.map(({ userId, amountMinor }) => [userId, amountMinor]),
+	);
+	if (
+		reviewed.length !== computed.length ||
+		amounts.size !== computed.length ||
+		computed.some((share) => amounts.get(share.userId) !== share.amountMinor)
+	)
+		throw new AppError(
+			"CONFLICT",
+			"The split changed. Review the updated amounts before saving.",
+			{ reason: "split_changed" },
+		);
+}
+
 export async function createExpense(ctx: Ctx, input: CreateExpenseInput) {
 	await membership(ctx, input.groupId);
 	await assertExpenseMembers(
@@ -256,6 +276,7 @@ export async function createExpense(ctx: Ctx, input: CreateExpenseInput) {
 			error instanceof Error ? error.message : "Invalid split",
 		);
 	}
+	assertReviewedShares(input.reviewedShares, shares);
 	const expenseId = id();
 	const category =
 		input.category === undefined
@@ -367,6 +388,7 @@ async function changeExpense(
 				error instanceof Error ? error.message : "Invalid split",
 			);
 		}
+		assertReviewedShares(input.reviewedShares, shares);
 		const category =
 			input.category === undefined ? current.category : input.category;
 		await tx
