@@ -16,7 +16,7 @@ import {
 async function fixture() {
 	const client = createClient({ url: ":memory:" });
 	const db = drizzle(client, { schema });
-	await migrate(db, { migrationsFolder: "/tmp/opencode/drizzle-tmp" });
+	await migrate(db, { migrationsFolder: "./drizzle" });
 	const now = new Date();
 	const users = ["A", "B"].map((id) => ({
 		id,

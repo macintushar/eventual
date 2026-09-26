@@ -12,7 +12,7 @@ import { getPaymentIntents } from "#/server/services/payments";
 async function fixture() {
 	const client = createClient({ url: ":memory:" });
 	const db = drizzle(client, { schema });
-	await migrate(db, { migrationsFolder: "/tmp/opencode/drizzle-tmp" });
+	await migrate(db, { migrationsFolder: "./drizzle" });
 	const now = new Date();
 	const users = [
 		{ id: "A", name: "Asha", upiVpa: null },

@@ -14,6 +14,7 @@ import {
 	type Operation,
 	operations,
 } from "#/server/operations";
+import * as webApi from "#/server/web-api";
 
 export async function handle(action: () => Promise<unknown>) {
 	try {
@@ -106,9 +107,14 @@ function queryInput(url: URL) {
 
 async function requestInput(request: Request, operation: Operation, url: URL) {
 	if (operation.method === "GET") return queryInput(url);
+	if (!request.body) return {};
 	if (!request.headers.get("content-type")?.includes("application/json"))
-		return {};
-	return request.json() as Promise<unknown>;
+		throw new AppError("VALIDATION", "Expected a JSON request body");
+	try {
+		return (await request.json()) as unknown;
+	} catch {
+		throw new AppError("VALIDATION", "Malformed JSON request body");
+	}
 }
 
 function stableValue(value: unknown): unknown {
@@ -253,9 +259,23 @@ function reportResponse(result: unknown) {
 export async function dispatchApi(request: Request, splat: string) {
 	const path = `/${splat.replace(/^\/+|\/+$/g, "")}`;
 	const url = new URL(request.url);
+	const origin = request.headers.get("origin");
+	if (
+		request.method !== "GET" &&
+		request.method !== "HEAD" &&
+		origin &&
+		origin !== url.origin &&
+		!request.headers.get("x-api-key") &&
+		!request.headers.get("authorization")
+	)
+		return handle(() =>
+			Promise.reject(new AppError("FORBIDDEN", "Invalid request origin")),
+		);
 	if (path === "/openapi.json" && request.method === "GET")
 		return Response.json(openApiDocument(url.origin));
 	if (path === "/jobs/run") return runJobsRequest(request);
+	const webResponse = await dispatchWebApi(request, path);
+	if (webResponse) return webResponse;
 	const route = matchRoute(request.method, path);
 	if (!route)
 		return handle(() =>
@@ -289,5 +309,79 @@ export async function dispatchApi(request: Request, splat: string) {
 			{ status: response.status },
 		);
 	}
-	return response;
+	return cacheResponse(response, request.method === "GET");
+}
+
+function cacheResponse(response: Response, cacheable: boolean) {
+	const headers = new Headers(response.headers);
+	headers.set(
+		"Cache-Control",
+		cacheable && response.ok ? "private, max-age=5" : "private, no-store",
+	);
+	if (cacheable && response.ok)
+		headers.append("Vary", "Cookie, Authorization, x-api-key");
+	return new Response(response.body, { status: response.status, headers });
+}
+
+async function dispatchWebApi(request: Request, path: string) {
+	const method = request.method;
+	const json = async () => {
+		if (!request.headers.get("content-type")?.includes("application/json"))
+			throw new AppError("VALIDATION", "Expected a JSON request body");
+		try {
+			return (await request.json()) as unknown;
+		} catch {
+			throw new AppError("VALIDATION", "Malformed JSON request body");
+		}
+	};
+	const cookieContext = () => {
+		if (
+			request.headers.get("x-api-key") ||
+			request.headers.get("authorization")
+		)
+			throw new AppError(
+				"FORBIDDEN",
+				"This endpoint requires a session cookie",
+			);
+		return buildContext(request);
+	};
+	const route = async (action: () => Promise<unknown>, cacheable = false) =>
+		cacheResponse(await handle(action), cacheable);
+	if (path === "/v1/session" && method === "GET")
+		return route(() => webApi.session(request));
+	if (path === "/v1/legal" && method === "GET")
+		return cacheResponse(Response.json(webApi.legalInfo()), true);
+	if (path === "/v1/site" && method === "GET")
+		return cacheResponse(Response.json(webApi.siteInfo()), true);
+	if (path === "/v1/health" && method === "GET")
+		return cacheResponse(Response.json({ status: "ok" }), false);
+	if (path === "/v1/pending-verification" && method === "GET")
+		return route(() => webApi.pendingVerification(request));
+	if (path === "/v1/pending-verification/send" && method === "POST")
+		return route(() => webApi.sendPendingVerification(request));
+	if (path === "/v1/app/dashboard" && method === "GET")
+		return route(async () => webApi.dashboard(await cookieContext()), true);
+	if (path === "/v1/app/composer" && method === "GET")
+		return route(async () => webApi.composer(await cookieContext()), true);
+	const page = path.match(/^\/v1\/app\/groups\/([^/]+)\/page$/);
+	if (page && method === "GET")
+		return route(
+			async () =>
+				webApi.groupPage(await cookieContext(), decodeURIComponent(page[1])),
+			true,
+		);
+	if (path === "/v1/me/profile" && method === "PATCH")
+		return route(async () =>
+			webApi.profile(await cookieContext(), await json()),
+		);
+	if (path === "/v1/me/api-keys" && method === "GET")
+		return route(() => webApi.listApiKeys(request));
+	if (path === "/v1/me/api-keys" && method === "POST")
+		return route(async () => webApi.createApiKey(request, await json()));
+	const key = path.match(/^\/v1\/me\/api-keys\/([^/]+)$/);
+	if (key && method === "DELETE")
+		return route(() =>
+			webApi.deleteApiKey(request, decodeURIComponent(key[1])),
+		);
+	return null;
 }

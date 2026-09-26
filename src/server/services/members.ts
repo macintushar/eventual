@@ -26,6 +26,8 @@ export async function listMembers(ctx: Ctx, input: { groupId: string }) {
 			name: user.name,
 			email: user.email,
 			image: user.image,
+			upiVpa: user.upiVpa,
+			wiseTag: user.wiseTag,
 			role: member.role,
 			weight: member.weight,
 			isGuest: user.isGuest,

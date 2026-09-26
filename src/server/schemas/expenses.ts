@@ -18,9 +18,19 @@ export const expenseFiltersSchema = z.object({
 	currency: currencySchema.optional(),
 	search: z.string().trim().max(500).optional(),
 });
+export const expenseSortBySchema = z.enum([
+	"description",
+	"payer",
+	"date",
+	"category",
+	"amountMinor",
+]);
 export const listExpensesSchema = expenseFiltersSchema.extend({
 	cursor: z.string().max(2000).optional(),
 	limit: z.coerce.number().int().min(1).max(100).default(30),
+	offset: z.coerce.number().int().min(0).max(1_000_000).optional(),
+	sortBy: expenseSortBySchema.optional(),
+	sortDirection: z.enum(["asc", "desc"]).optional(),
 });
 export const expenseReportSchema = expenseFiltersSchema.extend({
 	format: z.enum(["csv", "pdf"]).default("csv"),
@@ -51,4 +61,5 @@ export const suggestCategorySchema = categoryRulesSchema.extend({
 	description: z.string().trim().min(1).max(200),
 });
 export type ExpenseFilters = z.infer<typeof expenseFiltersSchema>;
+export type ExpenseSortBy = z.infer<typeof expenseSortBySchema>;
 export type BulkResplitInput = z.infer<typeof bulkResplitSchema>;

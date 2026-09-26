@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, lte, or, sql } from "drizzle-orm";
 import { expense, expenseShare } from "#/db/schema";
 import { validateSharePayment } from "#/lib/settlements";
 import type { Ctx } from "#/server/context";
@@ -14,6 +14,7 @@ import {
 	type BulkResplitInput,
 	bulkResplitSchema,
 	type ExpenseFilters,
+	type ExpenseSortBy,
 } from "#/server/schemas/expenses";
 import { readBalances } from "./balances";
 import { normalizeSearchText, suggestCategory } from "./categories";
@@ -74,13 +75,70 @@ function encodeCursor(row: typeof expense.$inferSelect) {
 
 export async function listExpenses(
 	ctx: Ctx,
-	input: ExpenseFilters & { cursor?: string; limit?: number },
+	input: ExpenseFilters & {
+		cursor?: string;
+		limit?: number;
+		offset?: number;
+		sortBy?: ExpenseSortBy;
+		sortDirection?: "asc" | "desc";
+	},
 ) {
 	await membership(ctx, input.groupId);
 	const limit = input.limit ?? 30;
 	if (!Number.isInteger(limit) || limit < 1 || limit > 100)
 		throw new AppError("VALIDATION", "Limit must be between 1 and 100");
+	if (
+		input.offset !== undefined &&
+		(!Number.isInteger(input.offset) ||
+			input.offset < 0 ||
+			input.offset > 1_000_000)
+	)
+		throw new AppError("VALIDATION", "Invalid expense offset");
+	if (
+		input.cursor &&
+		(input.offset !== undefined || input.sortBy || input.sortDirection)
+	)
+		throw new AppError("VALIDATION", "Cursor and sorting cannot be combined");
 	const clauses = expenseFilterClauses(input);
+	if (input.offset !== undefined || input.sortBy || input.sortDirection) {
+		const sortBy = input.sortBy ?? "date";
+		const sortDirection = input.sortDirection ?? "desc";
+		const sortValue =
+			sortBy === "description"
+				? sql`lower(${expense.description})`
+				: sortBy === "payer"
+					? sql`(select lower("payer_sort"."name") from "user" as "payer_sort" where "payer_sort"."id" = ${expense.paidByUserId})`
+					: sortBy === "category"
+						? sql`lower(${expense.category})`
+						: sortBy === "amountMinor"
+							? expense.amountMinor
+							: expense.date;
+		const offset = input.offset ?? 0;
+		const rows = await ctx.db.query.expense.findMany({
+			where: and(...clauses),
+			with: { payer: true, shares: { with: { user: true } } },
+			orderBy: [
+				...(sortBy === "category"
+					? [asc(sql`case when ${expense.category} is null then 1 else 0 end`)]
+					: []),
+				sortDirection === "asc" ? asc(sortValue) : desc(sortValue),
+				...(sortBy === "date" ? [] : [desc(expense.date)]),
+				desc(expense.createdAt),
+				desc(expense.id),
+			],
+			limit: limit + 1,
+			offset,
+		});
+		const page = rows.slice(0, limit);
+		return {
+			items: page.map((row) => ({
+				...row,
+				locked: row.shares.some((share) => share.paidAt !== null),
+			})),
+			nextCursor: null,
+			nextOffset: rows.length > limit ? offset + limit : null,
+		};
+	}
 	if (input.cursor) {
 		let cursor: [number, number, string];
 		try {
@@ -128,6 +186,7 @@ export async function listExpenses(
 		})),
 		nextCursor:
 			rows.length > limit ? encodeCursor(page[page.length - 1]) : null,
+		nextOffset: null,
 	};
 }
 
