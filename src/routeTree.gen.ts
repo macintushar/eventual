@@ -15,11 +15,14 @@ import { Route as CheckEmailRouteImport } from './routes/check-email'
 import { Route as ClaimGuestRouteImport } from './routes/claim-guest'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as HealthRouteImport } from './routes/health'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as McpRouteImport } from './routes/mcp'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as ApiSplatRouteImport } from './routes/api/$'
 import { Route as AppIndexRouteImport } from './routes/app/index'
@@ -65,6 +68,11 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HealthRoute = HealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HelpRoute = HelpRouteImport.update({
   id: '/help',
   path: '/help',
@@ -80,6 +88,11 @@ const McpRoute = McpRouteImport.update({
   path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -88,6 +101,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
@@ -169,11 +187,14 @@ export interface FileRoutesByFullPath {
   '/claim-guest': typeof ClaimGuestRoute
   '/docs': typeof DocsRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/health': typeof HealthRoute
   '/help': typeof HelpRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/verify-email': typeof VerifyEmailRoute
   '/app/settings': typeof AppSettingsRouteRouteWithChildren
   '/api/$': typeof ApiSplatRoute
@@ -195,10 +216,13 @@ export interface FileRoutesByTo {
   '/claim-guest': typeof ClaimGuestRoute
   '/docs': typeof DocsRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/health': typeof HealthRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/$': typeof ApiSplatRoute
   '/app/activity': typeof AppActivityRoute
@@ -221,11 +245,14 @@ export interface FileRoutesById {
   '/claim-guest': typeof ClaimGuestRoute
   '/docs': typeof DocsRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/health': typeof HealthRoute
   '/help': typeof HelpRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/verify-email': typeof VerifyEmailRoute
   '/app/settings': typeof AppSettingsRouteRouteWithChildren
   '/api/$': typeof ApiSplatRoute
@@ -250,11 +277,14 @@ export interface FileRouteTypes {
     | '/claim-guest'
     | '/docs'
     | '/forgot-password'
+    | '/health'
     | '/help'
     | '/login'
     | '/mcp'
+    | '/privacy'
     | '/reset-password'
     | '/signup'
+    | '/terms'
     | '/verify-email'
     | '/app/settings'
     | '/api/$'
@@ -276,10 +306,13 @@ export interface FileRouteTypes {
     | '/claim-guest'
     | '/docs'
     | '/forgot-password'
+    | '/health'
     | '/login'
     | '/mcp'
+    | '/privacy'
     | '/reset-password'
     | '/signup'
+    | '/terms'
     | '/verify-email'
     | '/api/$'
     | '/app/activity'
@@ -301,11 +334,14 @@ export interface FileRouteTypes {
     | '/claim-guest'
     | '/docs'
     | '/forgot-password'
+    | '/health'
     | '/help'
     | '/login'
     | '/mcp'
+    | '/privacy'
     | '/reset-password'
     | '/signup'
+    | '/terms'
     | '/verify-email'
     | '/app/settings'
     | '/api/$'
@@ -329,11 +365,14 @@ export interface RootRouteChildren {
   ClaimGuestRoute: typeof ClaimGuestRoute
   DocsRoute: typeof DocsRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  HealthRoute: typeof HealthRoute
   HelpRoute: typeof HelpRouteWithChildren
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
+  PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  TermsRoute: typeof TermsRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ApiSplatRoute: typeof ApiSplatRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
@@ -384,6 +423,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/health': {
+      id: '/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof HealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/help': {
       id: '/help'
       path: '/help'
@@ -405,6 +451,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -417,6 +470,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/verify-email': {
@@ -573,11 +633,14 @@ const rootRouteChildren: RootRouteChildren = {
   ClaimGuestRoute: ClaimGuestRoute,
   DocsRoute: DocsRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  HealthRoute: HealthRoute,
   HelpRoute: HelpRouteWithChildren,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
+  PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  TermsRoute: TermsRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ApiSplatRoute: ApiSplatRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
