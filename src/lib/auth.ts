@@ -47,7 +47,7 @@ export const auth = betterAuth({
 	database: drizzleAdapter(db, { provider: "sqlite", schema }),
 	...guestAuthGuards(db),
 	user: {
-		// Written only through `updateProfileFn`, which validates them; `input:
+		// Written only through the validated v1 profile endpoint; `input:
 		// false` keeps better-auth's own update-user endpoint from bypassing that.
 		additionalFields: {
 			upiVpa: { type: "string", required: false, input: false },
