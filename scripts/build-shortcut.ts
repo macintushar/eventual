@@ -24,6 +24,7 @@ import {
 	CONDITION,
 	createBuilder,
 	dictionary,
+	type Ref,
 	signShortcut,
 	text,
 	variable,
@@ -32,8 +33,35 @@ import {
 const defaultOrigin = process.argv[2] ?? process.env.BETTER_AUTH_URL ?? "";
 const output = join(import.meta.dirname, "../public/eventual.shortcut");
 
-const { actions, action, varRef, getVar, setVar, beginIf, otherwise, endIf } =
+const { actions, action, varRef, setVar, beginIf, otherwise, endIf } =
 	createBuilder();
+
+/** Text action whose output is stored straight into a variable. */
+function setText(name: string, ...parts: (string | Ref)[]) {
+	setVar(name, action("gettext", { WFTextActionText: text(...parts) }, "Text"));
+}
+
+/** Match Text on a variable, returning the first match when there is one. */
+function firstMatch(source: string, pattern: string, then: (match: Ref) => void) {
+	const matches = action(
+		"text.match",
+		{
+			text: text(varRef(source)),
+			WFTextMatchPattern: pattern,
+			WFTextMatchCaseSensitive: false,
+		},
+		"Matches",
+	);
+	const matchIf = beginIf(matches, CONDITION.hasValue);
+	then(
+		action(
+			"getitemfromlist",
+			{ WFInput: variable(matches), WFItemSpecifier: "First Item" },
+			"Item from List",
+		),
+	);
+	endIf(matchIf);
+}
 
 // ——— Bank SMS parsing ———
 // Match Text uses ICU regular expressions. Lookarounds keep group 0 exactly
@@ -89,154 +117,104 @@ const origin = action("gettext", { WFTextActionText: defaultOrigin }, "Text"); /
 const auth = () => dictionary([{ key: "x-api-key", value: [apiKey] }]);
 
 // File and clipboard actions don't exist on watchOS.
-action("getdevicedetails", { WFDeviceDetail: "Device Model" }, "Device Model");
-setVar("DeviceModel");
-getVar("DeviceModel");
-const watchIf = beginIf(CONDITION.contains, { string: ["Watch"] });
-action("gettext", { WFTextActionText: "yes" }, "Text");
-setVar("OnWatch");
+const deviceModel = action(
+	"getdevicedetails",
+	{ WFDeviceDetail: "Device Model" },
+	"Device Model",
+);
+const watchIf = beginIf(deviceModel, CONDITION.contains, { string: ["Watch"] });
+setText("OnWatch", "yes");
 endIf(watchIf);
 
 // ——— What are we parsing? ———
 // Text input (Share Sheet or a Messages automation) if there is any —
 // coerced to text so a Message object becomes its body — else the clipboard
 // as a manual "copy the SMS first" fallback.
-getVar("Input");
-const inputIf = beginIf(CONDITION.hasValue);
-getVar("Input");
-action("gettext", { WFTextActionText: text(varRef("Input")) }, "Text");
-setVar("Source");
+const inputIf = beginIf(varRef("Input"), CONDITION.hasValue);
+setText("Source", varRef("Input"));
 otherwise(inputIf);
-getVar("OnWatch");
-const clipboardIf = beginIf(CONDITION.noValue);
-action("getclipboard", {}, "Clipboard");
-setVar("Source");
+const clipboardIf = beginIf(varRef("OnWatch"), CONDITION.noValue);
+setVar("Source", action("getclipboard", {}, "Clipboard"));
 endIf(clipboardIf);
 endIf(inputIf);
 
 // ——— Parse amount, currency, merchant ———
-getVar("Source");
-action(
-	"text.match",
-	{ WFTextMatchPattern: AMOUNT_RE, WFTextMatchCaseSensitive: false },
-	"Matches",
+firstMatch("Source", AMOUNT_RE, (match) =>
+	setVar(
+		"AmountParsed",
+		action(
+			"text.replace",
+			{
+				WFInput: text(match),
+				WFReplaceTextFind: ",",
+				WFReplaceTextReplace: "",
+				WFReplaceTextRegularExpression: false,
+				WFReplaceTextCaseSensitive: false,
+			},
+			"Updated Text",
+		),
+	),
 );
-setVar("AmountMatches");
-getVar("AmountMatches");
-const amountIf = beginIf(CONDITION.hasValue);
-action(
-	"getitemfromlist",
-	{
-		WFInput: variable(varRef("AmountMatches")),
-		WFItemSpecifier: "First Item",
-	},
-	"Item from List",
-);
-action(
-	"text.replace",
-	{
-		WFReplaceTextFind: ",",
-		WFReplaceTextReplace: "",
-		WFReplaceTextRegularExpression: false,
-		WFReplaceTextCaseSensitive: false,
-	},
-	"Updated Text",
-);
-setVar("AmountParsed");
-endIf(amountIf);
 
-getVar("Source");
-action(
-	"text.match",
-	{ WFTextMatchPattern: CURRENCY_RE, WFTextMatchCaseSensitive: false },
-	"Matches",
-);
-setVar("CurrencyMatches");
-getVar("CurrencyMatches");
-const currencyIf = beginIf(CONDITION.hasValue);
-action(
-	"getitemfromlist",
-	{
-		WFInput: variable(varRef("CurrencyMatches")),
-		WFItemSpecifier: "First Item",
-	},
-	"Item from List",
-);
-action("text.changecase", { WFCaseType: "UPPERCASE" }, "Text");
-setVar("CurrencyToken");
-action("dictionary", { WFItems: CURRENCY_MAP }, "Dictionary");
-setVar("CurrencyMap");
-action(
-	"getvalueforkey",
-	{
-		WFInput: variable(varRef("CurrencyMap")),
-		WFGetDictionaryValueType: "Value",
-		WFDictionaryKey: text(varRef("CurrencyToken")),
-	},
-	"Dictionary Value",
-);
-setVar("Currency");
-endIf(currencyIf);
-getVar("Currency");
-const currencyDefaultIf = beginIf(CONDITION.noValue);
-action("gettext", { WFTextActionText: "INR" }, "Text");
-setVar("Currency");
+firstMatch("Source", CURRENCY_RE, (match) => {
+	const token = action(
+		"text.changecase",
+		{ text: text(match), WFCaseType: "UPPERCASE" },
+		"Text",
+	);
+	const currencyMap = action("dictionary", { WFItems: CURRENCY_MAP }, "Dictionary");
+	setVar(
+		"Currency",
+		action(
+			"getvalueforkey",
+			{
+				WFInput: variable(currencyMap),
+				WFGetDictionaryValueType: "Value",
+				WFDictionaryKey: text(token),
+			},
+			"Dictionary Value",
+		),
+	);
+});
+const currencyDefaultIf = beginIf(varRef("Currency"), CONDITION.noValue);
+setText("Currency", "INR");
 endIf(currencyDefaultIf);
 
-getVar("Source");
-action(
-	"text.match",
-	{ WFTextMatchPattern: MERCHANT_RE, WFTextMatchCaseSensitive: false },
-	"Matches",
-);
-setVar("MerchantMatches");
-getVar("MerchantMatches");
-const merchantIf = beginIf(CONDITION.hasValue);
-action(
-	"getitemfromlist",
-	{
-		WFInput: variable(varRef("MerchantMatches")),
-		WFItemSpecifier: "First Item",
-	},
-	"Item from List",
-);
-setVar("Description");
-endIf(merchantIf);
-getVar("Description");
-const merchantDefaultIf = beginIf(CONDITION.noValue);
-action("gettext", { WFTextActionText: "Quick expense" }, "Text");
-setVar("Description");
+firstMatch("Source", MERCHANT_RE, (match) => setVar("Description", match));
+const merchantDefaultIf = beginIf(varRef("Description"), CONDITION.noValue);
+setText("Description", "Quick expense");
 endIf(merchantDefaultIf);
 
 // ——— Amount ———
 // With text input, log straight away when the amount parsed (a Messages
 // automation can't wait around for prompts). Run by hand, ask — with the
 // parsed clipboard amount pre-filled when there is one.
-getVar("Input");
-const autoIf = beginIf(CONDITION.hasValue);
-getVar("AmountParsed");
-const autoAskIf = beginIf(CONDITION.noValue);
-action(
-	"ask",
-	{ WFAskActionPrompt: "How much?", WFInputType: "Number" },
-	"Provided Input",
+const autoIf = beginIf(varRef("Input"), CONDITION.hasValue);
+const autoAskIf = beginIf(varRef("AmountParsed"), CONDITION.noValue);
+setVar(
+	"Amount",
+	action(
+		"ask",
+		{ WFAskActionPrompt: "How much?", WFInputType: "Number" },
+		"Provided Input",
+	),
 );
-setVar("Amount");
 otherwise(autoAskIf);
-getVar("AmountParsed");
-setVar("Amount");
+setVar("Amount", varRef("AmountParsed"));
 endIf(autoAskIf);
 otherwise(autoIf);
-action(
-	"ask",
-	{
-		WFAskActionPrompt: "How much?",
-		WFInputType: "Number",
-		WFAskActionDefaultAnswer: text(varRef("AmountParsed")),
-	},
-	"Provided Input",
+setVar(
+	"Amount",
+	action(
+		"ask",
+		{
+			WFAskActionPrompt: "How much?",
+			WFInputType: "Number",
+			WFAskActionDefaultAnswer: text(varRef("AmountParsed")),
+		},
+		"Provided Input",
+	),
 );
-setVar("Amount");
 endIf(autoIf);
 
 // ——— Group ———
@@ -252,25 +230,28 @@ const groupsResponse = action(
 	},
 	"Contents of URL",
 );
-action(
-	"detect.dictionary",
-	{ WFInput: variable(groupsResponse) },
-	"Dictionary",
+setVar(
+	"Groups",
+	action(
+		"detect.dictionary",
+		{ WFInput: variable(groupsResponse) },
+		"Dictionary",
+	),
 );
-setVar("Groups");
-action(
-	"getvalueforkey",
-	{
-		WFInput: variable(varRef("Groups")),
-		WFGetDictionaryValueType: "All Values",
-	},
-	"Dictionary Value",
+setVar(
+	"GroupIds",
+	action(
+		"getvalueforkey",
+		{
+			WFInput: variable(varRef("Groups")),
+			WFGetDictionaryValueType: "All Values",
+		},
+		"Dictionary Value",
+	),
 );
-setVar("GroupIds");
 
-getVar("OnWatch");
-const cacheReadIf = beginIf(CONDITION.noValue);
-action(
+const cacheReadIf = beginIf(varRef("OnWatch"), CONDITION.noValue);
+const cachedFile = action(
 	"documentpicker.open",
 	{
 		WFGetFilePath: CACHE_PATH,
@@ -279,54 +260,65 @@ action(
 	},
 	"File",
 );
-setVar("CachedGroup");
+const cachedFileIf = beginIf(cachedFile, CONDITION.hasValue);
+setText("CachedGroup", cachedFile);
+endIf(cachedFileIf);
 endIf(cacheReadIf);
 
-getVar("GroupIds");
-const cachedIf = beginIf(CONDITION.contains, {
+// An empty cache would "contain" trivially, so it counts as a miss.
+setText("KnownGroupIds", varRef("GroupIds"));
+const cachedIf = beginIf(varRef("KnownGroupIds"), CONDITION.contains, {
 	string: [varRef("CachedGroup")],
 });
-getVar("CachedGroup");
-setVar("GroupId");
-otherwise(cachedIf);
-getVar("GroupIds");
-action("count", { WFCountType: "Items" }, "Count");
-setVar("GroupCount");
-getVar("GroupCount");
-const singleIf = beginIf(CONDITION.equalsNumber, { number: 1 });
-action(
-	"getitemfromlist",
+const cachedHitIf = beginIf(varRef("CachedGroup"), CONDITION.hasValue);
+setVar("GroupId", varRef("CachedGroup"));
+endIf(cachedHitIf);
+endIf(cachedIf);
+const pickIf = beginIf(varRef("GroupId"), CONDITION.noValue);
+const groupCount = action(
+	"count",
 	{
+		WFCountType: "Items",
 		WFInput: variable(varRef("GroupIds")),
-		WFItemSpecifier: "First Item",
+		Input: variable(varRef("GroupIds")),
 	},
-	"Item from List",
+	"Count",
 );
-setVar("GroupId");
+const singleIf = beginIf(groupCount, CONDITION.lessThanOrEqual, { number: 1 });
+setVar(
+	"GroupId",
+	action(
+		"getitemfromlist",
+		{ WFInput: variable(varRef("GroupIds")), WFItemSpecifier: "First Item" },
+		"Item from List",
+	),
+);
 otherwise(singleIf);
-action(
-	"choosefromlist",
-	{
-		WFInput: variable(varRef("Groups")),
-		WFChooseFromListActionPrompt: "Which group?",
-	},
-	"Chosen Item",
+setVar(
+	"GroupId",
+	action(
+		"choosefromlist",
+		{
+			WFInput: variable(varRef("Groups")),
+			WFChooseFromListActionPrompt: "Which group?",
+		},
+		"Chosen Item",
+	),
 );
-setVar("GroupId");
 endIf(singleIf);
-getVar("OnWatch");
-const cacheWriteIf = beginIf(CONDITION.noValue);
+const cacheWriteIf = beginIf(varRef("OnWatch"), CONDITION.noValue);
 action(
 	"documentpicker.save",
 	{
 		WFInput: variable(varRef("GroupId")),
 		WFFileDestinationPath: CACHE_PATH,
 		WFSaveFileOverwrite: true,
+		WFAskWhereToSave: false,
 	},
 	"File",
 );
 endIf(cacheWriteIf);
-endIf(cachedIf);
+endIf(pickIf);
 
 // ——— Log it ———
 const response = action(

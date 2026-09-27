@@ -26,6 +26,7 @@ import {
 	CONDITION,
 	createBuilder,
 	dictionary,
+	type Ref,
 	signShortcut,
 	text,
 	variable,
@@ -34,22 +35,52 @@ import {
 const defaultOrigin = process.argv[2] ?? process.env.BETTER_AUTH_URL ?? "";
 const output = join(import.meta.dirname, "../public/eventual-ai.shortcut");
 
-const { actions, action, varRef, getVar, setVar, beginIf, otherwise, endIf } =
+const { actions, action, varRef, setVar, beginIf, otherwise, endIf } =
 	createBuilder();
 
 /** Shared with the main shortcut so the choice carries over. */
 const CACHE_PATH = "Shortcuts/Eventual/last-group.txt";
 
+/** Text action whose output is stored straight into a variable. */
+function setText(name: string, ...parts: (string | Ref)[]) {
+	setVar(name, action("gettext", { WFTextActionText: text(...parts) }, "Text"));
+}
+
+/** A dictionary value by key; missing keys and JSON null have no value. */
+function valueForKey(dictionary: Ref, key: string | Ref) {
+	return action(
+		"getvalueforkey",
+		{
+			WFInput: variable(dictionary),
+			WFGetDictionaryValueType: "Value",
+			WFDictionaryKey: typeof key === "string" ? key : text(key),
+		},
+		"Dictionary Value",
+	);
+}
+
+function notify(body: string | ReturnType<typeof text>) {
+	action(
+		"notification",
+		{ WFNotificationActionTitle: "Eventual", WFNotificationActionBody: body },
+		"Notification",
+	);
+}
+
 // ——— Setup ———
 // The first action receives the shortcut input; keep it before the import
 // questions' Text actions so their indexes stay stable.
-action("setvariable", {
-	WFVariableName: "Input",
-	WFInput: {
-		Value: { Type: "ExtensionInput" },
-		WFSerializationType: "WFTextTokenAttachment",
+action(
+	"setvariable",
+	{
+		WFVariableName: "Input",
+		WFInput: {
+			Value: { Type: "ExtensionInput" },
+			WFSerializationType: "WFTextTokenAttachment",
+		},
 	},
-}, "Input"); // index 0
+	"Input",
+); // index 0
 const apiKey = action("gettext", { WFTextActionText: "" }, "Text"); // index 1
 const origin = action("gettext", { WFTextActionText: defaultOrigin }, "Text"); // index 2
 const auth = () => dictionary([{ key: "x-api-key", value: [apiKey] }]);
@@ -62,36 +93,34 @@ const SMS_GATE_RE =
 // Text input (Share Sheet or a Messages automation) if there is any —
 // coerced to text so a Message object becomes its body. Otherwise ask in
 // plain language; a copied bank SMS is pre-filled for confirmation.
-getVar("Input");
-const inputIf = beginIf(CONDITION.hasValue);
-getVar("Input");
-action("gettext", { WFTextActionText: text(varRef("Input")) }, "Text");
-setVar("Source");
+const inputIf = beginIf(varRef("Input"), CONDITION.hasValue);
+setText("Source", varRef("Input"));
 otherwise(inputIf);
-action("getclipboard", {}, "Clipboard");
-setVar("Clipboard");
-getVar("Clipboard");
-action(
+setVar("Clipboard", action("getclipboard", {}, "Clipboard"));
+const clipboardHits = action(
 	"text.match",
-	{ WFTextMatchPattern: SMS_GATE_RE, WFTextMatchCaseSensitive: false },
+	{
+		text: text(varRef("Clipboard")),
+		WFTextMatchPattern: SMS_GATE_RE,
+		WFTextMatchCaseSensitive: false,
+	},
 	"Matches",
 );
-setVar("ClipboardHits");
-getVar("ClipboardHits");
-const clipIf = beginIf(CONDITION.hasValue);
-getVar("Clipboard");
-setVar("AskDefault");
+const clipIf = beginIf(clipboardHits, CONDITION.hasValue);
+setText("AskDefault", varRef("Clipboard"));
 endIf(clipIf);
-action(
-	"ask",
-	{
-		WFAskActionPrompt: "What did you spend?",
-		WFInputType: "Text",
-		WFAskActionDefaultAnswer: text(varRef("AskDefault")),
-	},
-	"Provided Input",
+setVar(
+	"Source",
+	action(
+		"ask",
+		{
+			WFAskActionPrompt: "What did you spend?",
+			WFInputType: "Text",
+			WFAskActionDefaultAnswer: text(varRef("AskDefault")),
+		},
+		"Provided Input",
+	),
 );
-setVar("Source");
 endIf(inputIf);
 
 // ——— Groups ———
@@ -106,22 +135,26 @@ const groupsResponse = action(
 	},
 	"Contents of URL",
 );
-action(
-	"detect.dictionary",
-	{ WFInput: variable(groupsResponse) },
-	"Dictionary",
+setVar(
+	"Groups",
+	action(
+		"detect.dictionary",
+		{ WFInput: variable(groupsResponse) },
+		"Dictionary",
+	),
 );
-setVar("Groups");
-action(
-	"getvalueforkey",
-	{
-		WFInput: variable(varRef("Groups")),
-		WFGetDictionaryValueType: "All Values",
-	},
-	"Dictionary Value",
+setVar(
+	"GroupIds",
+	action(
+		"getvalueforkey",
+		{
+			WFInput: variable(varRef("Groups")),
+			WFGetDictionaryValueType: "All Values",
+		},
+		"Dictionary Value",
+	),
 );
-setVar("GroupIds");
-action(
+const groupKeys = action(
 	"getvalueforkey",
 	{
 		WFInput: variable(varRef("Groups")),
@@ -129,14 +162,18 @@ action(
 	},
 	"Dictionary Value",
 );
-setVar("GroupKeys");
-getVar("GroupKeys");
-action(
-	"text.combine",
-	{ WFTextSeparator: "Custom", WFTextCustomSeparator: ", " },
-	"Combined Text",
+setVar(
+	"GroupNames",
+	action(
+		"text.combine",
+		{
+			text: variable(groupKeys),
+			WFTextSeparator: "Custom",
+			WFTextCustomSeparator: ", ",
+		},
+		"Combined Text",
+	),
 );
-setVar("GroupNames");
 
 // ——— Apple Intelligence ———
 // One on-device call returns JSON. The brace match guards against the model
@@ -156,131 +193,67 @@ const prompt = text(
 	varRef("Source"),
 	'\n"""',
 );
-action(
+const aiResponse = action(
 	"askllm",
 	{
 		WFLLMPrompt: prompt,
 		WFLLMModel: "Apple Intelligence on Device",
 		WFGenerativeResultType: "Text",
-		WFLLMFollowUp: false,
 	},
 	"Response",
 );
-setVar("AIResponse");
-
-getVar("AIResponse");
-action(
+const jsonMatches = action(
 	"text.match",
-	{ WFTextMatchPattern: "\\{[\\s\\S]*\\}", WFTextMatchCaseSensitive: false },
+	{
+		text: text(aiResponse),
+		WFTextMatchPattern: "\\{[\\s\\S]*\\}",
+		WFTextMatchCaseSensitive: false,
+	},
 	"Matches",
 );
-setVar("JsonMatches");
-getVar("JsonMatches");
-const jsonIf = beginIf(CONDITION.hasValue);
-action(
+const jsonIf = beginIf(jsonMatches, CONDITION.hasValue);
+const json = action(
 	"getitemfromlist",
-	{
-		WFInput: variable(varRef("JsonMatches")),
-		WFItemSpecifier: "First Item",
-	},
+	{ WFInput: variable(jsonMatches), WFItemSpecifier: "First Item" },
 	"Item from List",
 );
-action("detect.dictionary", {}, "Dictionary");
-setVar("Parsed");
+setVar(
+	"Parsed",
+	action("detect.dictionary", { WFInput: variable(json) }, "Dictionary"),
+);
 endIf(jsonIf);
 
 // ——— Everything after a successful parse; otherwise say so and stop ———
-getVar("Parsed");
-const parsedIf = beginIf(CONDITION.hasValue);
+const parsedIf = beginIf(varRef("Parsed"), CONDITION.hasValue);
 
-action(
-	"getvalueforkey",
-	{
-		WFInput: variable(varRef("Parsed")),
-		WFGetDictionaryValueType: "Value",
-		WFDictionaryKey: "amount",
-	},
-	"Dictionary Value",
-);
-setVar("Amount");
-getVar("Amount");
-const amountIf = beginIf(CONDITION.noValue);
-action(
-	"notification",
-	{
-		WFNotificationActionTitle: "Eventual",
-		WFNotificationActionBody: "Couldn't find an amount in that — nothing logged.",
-	},
-	"Notification",
-);
+setVar("Amount", valueForKey(varRef("Parsed"), "amount"));
+const amountIf = beginIf(varRef("Amount"), CONDITION.noValue);
+notify("Couldn't find an amount in that — nothing logged.");
 action("exit", {}, "Exit");
 endIf(amountIf);
 
-action(
-	"getvalueforkey",
-	{
-		WFInput: variable(varRef("Parsed")),
-		WFGetDictionaryValueType: "Value",
-		WFDictionaryKey: "currency",
-	},
-	"Dictionary Value",
-);
-setVar("Currency");
-getVar("Currency");
-const currencyDefaultIf = beginIf(CONDITION.noValue);
-action("gettext", { WFTextActionText: "INR" }, "Text");
-setVar("Currency");
+setVar("Currency", valueForKey(varRef("Parsed"), "currency"));
+const currencyDefaultIf = beginIf(varRef("Currency"), CONDITION.noValue);
+setText("Currency", "INR");
 endIf(currencyDefaultIf);
 
-action(
-	"getvalueforkey",
-	{
-		WFInput: variable(varRef("Parsed")),
-		WFGetDictionaryValueType: "Value",
-		WFDictionaryKey: "description",
-	},
-	"Dictionary Value",
-);
-setVar("Description");
-getVar("Description");
-const descriptionDefaultIf = beginIf(CONDITION.noValue);
-action("gettext", { WFTextActionText: "Quick expense" }, "Text");
-setVar("Description");
+setVar("Description", valueForKey(varRef("Parsed"), "description"));
+const descriptionDefaultIf = beginIf(varRef("Description"), CONDITION.noValue);
+setText("Description", "Quick expense");
 endIf(descriptionDefaultIf);
 
 // The model's group guess only wins if it names a real group exactly.
-action(
-	"getvalueforkey",
-	{
-		WFInput: variable(varRef("Parsed")),
-		WFGetDictionaryValueType: "Value",
-		WFDictionaryKey: "group",
-	},
-	"Dictionary Value",
-);
-setVar("GroupGuess");
-getVar("GroupGuess");
-const guessKeyIf = beginIf(CONDITION.hasValue);
-action(
-	"getvalueforkey",
-	{
-		WFInput: variable(varRef("Groups")),
-		WFGetDictionaryValueType: "Value",
-		WFDictionaryKey: text(varRef("GroupGuess")),
-	},
-	"Dictionary Value",
-);
-setVar("GuessedGroupId");
+setVar("GroupGuess", valueForKey(varRef("Parsed"), "group"));
+const guessKeyIf = beginIf(varRef("GroupGuess"), CONDITION.hasValue);
+setVar("GuessedGroupId", valueForKey(varRef("Groups"), varRef("GroupGuess")));
 endIf(guessKeyIf);
 
 // Group: the model's guess, else the cached group while it still exists,
 // else the single group, else ask once and remember.
-getVar("GuessedGroupId");
-const guessIf = beginIf(CONDITION.hasValue);
-getVar("GuessedGroupId");
-setVar("GroupId");
+const guessIf = beginIf(varRef("GuessedGroupId"), CONDITION.hasValue);
+setVar("GroupId", varRef("GuessedGroupId"));
 otherwise(guessIf);
-action(
+const cachedFile = action(
 	"documentpicker.open",
 	{
 		WFGetFilePath: CACHE_PATH,
@@ -289,38 +262,49 @@ action(
 	},
 	"File",
 );
-setVar("CachedGroup");
-getVar("GroupIds");
-const cachedIf = beginIf(CONDITION.contains, {
+const cachedFileIf = beginIf(cachedFile, CONDITION.hasValue);
+setText("CachedGroup", cachedFile);
+endIf(cachedFileIf);
+// An empty cache would "contain" trivially, so it counts as a miss.
+setText("KnownGroupIds", varRef("GroupIds"));
+const cachedIf = beginIf(varRef("KnownGroupIds"), CONDITION.contains, {
 	string: [varRef("CachedGroup")],
 });
-getVar("CachedGroup");
-setVar("GroupId");
-otherwise(cachedIf);
-getVar("GroupIds");
-action("count", { WFCountType: "Items" }, "Count");
-setVar("GroupCount");
-getVar("GroupCount");
-const singleIf = beginIf(CONDITION.equalsNumber, { number: 1 });
-action(
-	"getitemfromlist",
+const cachedHitIf = beginIf(varRef("CachedGroup"), CONDITION.hasValue);
+setVar("GroupId", varRef("CachedGroup"));
+endIf(cachedHitIf);
+endIf(cachedIf);
+const pickIf = beginIf(varRef("GroupId"), CONDITION.noValue);
+const groupCount = action(
+	"count",
 	{
+		WFCountType: "Items",
 		WFInput: variable(varRef("GroupIds")),
-		WFItemSpecifier: "First Item",
+		Input: variable(varRef("GroupIds")),
 	},
-	"Item from List",
+	"Count",
 );
-setVar("GroupId");
+const singleIf = beginIf(groupCount, CONDITION.lessThanOrEqual, { number: 1 });
+setVar(
+	"GroupId",
+	action(
+		"getitemfromlist",
+		{ WFInput: variable(varRef("GroupIds")), WFItemSpecifier: "First Item" },
+		"Item from List",
+	),
+);
 otherwise(singleIf);
-action(
-	"choosefromlist",
-	{
-		WFInput: variable(varRef("Groups")),
-		WFChooseFromListActionPrompt: "Which group?",
-	},
-	"Chosen Item",
+setVar(
+	"GroupId",
+	action(
+		"choosefromlist",
+		{
+			WFInput: variable(varRef("Groups")),
+			WFChooseFromListActionPrompt: "Which group?",
+		},
+		"Chosen Item",
+	),
 );
-setVar("GroupId");
 endIf(singleIf);
 action(
 	"documentpicker.save",
@@ -328,10 +312,11 @@ action(
 		WFInput: variable(varRef("GroupId")),
 		WFFileDestinationPath: CACHE_PATH,
 		WFSaveFileOverwrite: true,
+		WFAskWhereToSave: false,
 	},
 	"File",
 );
-endIf(cachedIf);
+endIf(pickIf);
 endIf(guessIf);
 
 // ——— Log it ———
@@ -356,34 +341,10 @@ const result = action(
 	{ WFInput: variable(response) },
 	"Dictionary",
 );
-const message = action(
-	"getvalueforkey",
-	{
-		WFInput: variable(result),
-		WFGetDictionaryValueType: "Value",
-		WFDictionaryKey: "message",
-	},
-	"Dictionary Value",
-);
-action(
-	"notification",
-	{
-		WFNotificationActionTitle: "Eventual",
-		WFNotificationActionBody: text(message),
-	},
-	"Notification",
-);
+notify(text(valueForKey(result, "message")));
 
 otherwise(parsedIf);
-action(
-	"notification",
-	{
-		WFNotificationActionTitle: "Eventual",
-		WFNotificationActionBody:
-			"Apple Intelligence couldn't read an expense from that — nothing logged.",
-	},
-	"Notification",
-);
+notify("Apple Intelligence couldn't read an expense from that — nothing logged.");
 endIf(parsedIf);
 
 const workflow = {

@@ -63,9 +63,21 @@ export function dictionary(
 	};
 }
 
-/** WFCondition codes seen in real shortcuts. */
+/**
+ * An action's main input. Conditionals need it wrapped in a Variable
+ * parameter; a bare attachment imports as a blank field.
+ */
+export const conditionInput = (ref: Ref) => ({
+	Type: "Variable",
+	Variable: variable(ref),
+});
+
+/**
+ * WFCondition codes. There is no numeric "equals": 0 is "is less than" and
+ * 1 is "is less than or equal to".
+ */
 export const CONDITION = {
-	equalsNumber: 0,
+	lessThanOrEqual: 1,
 	equalsString: 4,
 	contains: 99,
 	hasValue: 100,
@@ -90,21 +102,21 @@ export function createBuilder() {
 
 	const varRef = (name: string): Ref => ({ kind: "variable", name });
 
-	/** Get Variable, piped into the next action. */
-	function getVar(name: string) {
-		return action("getvariable", { WFVariable: variable(varRef(name)) }, name);
-	}
-
-	/** Set Variable, storing the previous action's output. */
-	function setVar(name: string) {
-		action("setvariable", { WFVariableName: name }, name);
-	}
-
 	/**
-	 * The conditional's subject is piped in from the previous action. The
-	 * compare value is optional for the has/no-value tests.
+	 * Set Variable from an explicit source. Relying on the previous action's
+	 * output imports as an empty input on current Shortcuts versions.
 	 */
+	function setVar(name: string, from: Ref) {
+		action(
+			"setvariable",
+			{ WFVariableName: name, WFInput: variable(from) },
+			name,
+		);
+	}
+
+	/** The compare value is omitted for the has/no-value tests. */
 	function beginIf(
+		subject: Ref,
 		condition: (typeof CONDITION)[keyof typeof CONDITION],
 		compare?: { string?: (string | Ref)[]; number?: number },
 	) {
@@ -113,11 +125,12 @@ export function createBuilder() {
 			WFControlFlowMode: 0,
 			GroupingIdentifier: grouping,
 			WFCondition: condition,
+			WFInput: conditionInput(subject),
 		};
 		if (compare?.string)
 			parameters.WFConditionalActionString = text(...compare.string);
 		if (compare?.number !== undefined)
-			parameters.WFNumberValue = compare.number;
+			parameters.WFNumberValue = String(compare.number);
 		actions.push({
 			WFWorkflowActionIdentifier: "is.workflow.actions.conditional",
 			WFWorkflowActionParameters: parameters,
@@ -147,7 +160,7 @@ export function createBuilder() {
 		});
 	}
 
-	return { actions, action, varRef, getVar, setVar, beginIf, otherwise, endIf };
+	return { actions, action, varRef, setVar, beginIf, otherwise, endIf };
 }
 
 /** Convert to a binary plist and sign so iOS/macOS will import it. */
