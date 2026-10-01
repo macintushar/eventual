@@ -1,10 +1,9 @@
-import * as Sentry from "@sentry/tanstackstart-react";
+import { getAppLogger } from "#/lib/logging";
 
+/** The Sentry sink owns exception capture, avoiding duplicate issues. */
 export function reportError(
 	error: unknown,
 	tags: Record<string, string | number | boolean | undefined>,
 ) {
-	if (!process.env.SENTRY_DSN)
-		console.error("Application error", { error, tags });
-	Sentry.captureException(error, { tags });
+	getAppLogger("errors").error("Application error", { error, ...tags });
 }

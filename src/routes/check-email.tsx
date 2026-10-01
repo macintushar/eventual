@@ -1,6 +1,7 @@
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import { PublicPage } from "#/components/public-header";
 import { Alert, AlertDescription } from "#/components/ui/alert";
 import { Button } from "#/components/ui/button";
@@ -12,10 +13,12 @@ import {
 	CardTitle,
 } from "#/components/ui/card";
 import { Spinner } from "#/components/ui/spinner";
+import { safeAuthRedirect } from "#/lib/auth-redirect";
 import { pendingVerificationQueryOptions } from "#/lib/queries";
 import { sendPendingVerificationFn } from "#/lib/web-api-client";
 
 export const Route = createFileRoute("/check-email")({
+	validateSearch: z.object({ next: z.string().optional() }),
 	loader: async ({ context }) => {
 		const pending = await context.queryClient.ensureQueryData(
 			pendingVerificationQueryOptions,
@@ -33,6 +36,9 @@ export const Route = createFileRoute("/check-email")({
 });
 
 function CheckEmailPage() {
+	const { next } = Route.useSearch();
+	const target = safeAuthRedirect(next);
+	const invite = target.startsWith("/invite/");
 	const { email } = useSuspenseQuery(pendingVerificationQueryOptions).data ?? {
 		email: "",
 	};
@@ -43,7 +49,8 @@ function CheckEmailPage() {
 		Math.ceil((new Date(retryAt).getTime() - now) / 1000) || 0,
 	);
 	const send = useMutation({
-		mutationFn: sendPendingVerificationFn,
+		mutationFn: () =>
+			sendPendingVerificationFn(target === "/app" ? undefined : target),
 		onSuccess: (result) => setRetryAt(result.retryAt),
 	});
 
@@ -76,6 +83,9 @@ function CheckEmailPage() {
 					<p className="text-sm text-muted-foreground">
 						Open the verification link in your inbox. It expires after one hour.
 						Check your spam folder if you don't see it.
+						{invite
+							? " The link brings you back to your invitation so you can join the group."
+							: null}
 					</p>
 					{send.isError ? (
 						<Alert variant="destructive">
@@ -103,7 +113,11 @@ function CheckEmailPage() {
 								? `Resend in ${Math.ceil(remainingSeconds / 60)} min`
 								: "Resend verification email"}
 					</Button>
-					<Link to="/login" className="self-center text-sm underline">
+					<Link
+						to="/login"
+						search={target === "/app" ? {} : { redirect: target }}
+						className="self-center text-sm underline"
+					>
 						Back to log in
 					</Link>
 				</CardContent>

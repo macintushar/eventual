@@ -5,6 +5,7 @@ import { runInBackground } from "#/server/background";
 import type { Ctx } from "#/server/context";
 import { people } from "#/server/domain/activity";
 import { AppError } from "#/server/errors";
+import { mergeGuestIdentity } from "./guests";
 import {
 	activityRow,
 	id,
@@ -46,11 +47,18 @@ export async function createInvitation(
 
 /** Internal transaction seam shared with eager guest membership creation. */
 export async function ensureInvitation(
-	tx: Pick<Ctx["db"], "query" | "insert">,
+	tx: Pick<Ctx["db"], "query" | "insert" | "update">,
 	ctx: Ctx,
-	input: { groupId: string; email: string; role: Role },
+	input: {
+		groupId: string;
+		email: string;
+		role: Role;
+		/** The guest who stands in for this person until they accept. */
+		guestUserId?: string | null;
+	},
 ) {
 	const normalizedEmail = input.email.trim().toLowerCase();
+	const guestUserId = input.guestUserId ?? null;
 	const existing = await tx.query.invitation.findFirst({
 		where: and(
 			eq(invitation.organizationId, input.groupId),
@@ -66,6 +74,18 @@ export async function ensureInvitation(
 				"CONFLICT",
 				`That email already has a pending ${existing.role ?? "member"} invitation`,
 			);
+		if (guestUserId && existing.guestUserId !== guestUserId) {
+			if (existing.guestUserId)
+				throw new AppError(
+					"CONFLICT",
+					"That email is already invited for another person in this group",
+				);
+			await tx
+				.update(invitation)
+				.set({ guestUserId })
+				.where(eq(invitation.id, existing.id));
+			return { ...existing, guestUserId };
+		}
 		return existing;
 	}
 
@@ -77,6 +97,7 @@ export async function ensureInvitation(
 		role: input.role,
 		status: "pending",
 		inviterId: ctx.user.id,
+		guestUserId,
 		createdAt,
 		expiresAt: new Date(createdAt.getTime() + 7 * 86400000),
 	};
@@ -205,21 +226,43 @@ export async function acceptInvitation(
 		);
 	if (preview.invitation.email.toLowerCase() !== ctx.user.email.toLowerCase())
 		throw new AppError("FORBIDDEN", "Sign in with the invited email address");
-	const existing = await ctx.db.query.member.findFirst({
-		where: and(
-			eq(member.organizationId, preview.invitation.organizationId),
-			eq(member.userId, ctx.user.id),
-		),
-	});
+	const groupId = preview.invitation.organizationId;
+	const role = preview.invitation.role ?? "member";
 	await ctx.db.transaction(async (tx) => {
+		// The guest who stood in for this person becomes them: their shares,
+		// payments and history move to the account. The admin's invitation is the
+		// consent, so this only touches the group that sent it.
+		const guestId = preview.invitation.guestUserId;
+		const guest = guestId
+			? await tx.query.user.findFirst({ where: eq(user.id, guestId) })
+			: undefined;
+		const merged =
+			guest?.isGuest && !guest.claimedAt
+				? await mergeGuestIdentity(
+						tx,
+						guest.id,
+						ctx.user.id,
+						async (groupIds) =>
+							groupIds.size > 0 &&
+							[...groupIds].every((affected) => affected === groupId),
+					)
+				: null;
+		const existing = await tx.query.member.findFirst({
+			where: and(
+				eq(member.organizationId, groupId),
+				eq(member.userId, ctx.user.id),
+			),
+		});
 		if (!existing)
 			await tx.insert(member).values({
 				id: id(),
-				organizationId: preview.invitation.organizationId,
+				organizationId: groupId,
 				userId: ctx.user.id,
-				role: preview.invitation.role ?? "member",
+				role,
 				createdAt: new Date(),
 			});
+		else if (merged && existing.role !== role)
+			await tx.update(member).set({ role }).where(eq(member.id, existing.id));
 		await tx
 			.update(invitation)
 			.set({ status: "accepted" })
@@ -227,11 +270,14 @@ export async function acceptInvitation(
 		await recordActivity(
 			tx,
 			activityRow(
-				preview.invitation.organizationId,
+				groupId,
 				ctx.user.id,
 				"member.joined",
 				"member",
 				ctx.user.id,
+				{
+					...(merged ? { replacedGuestName: guest?.name } : {}),
+				},
 			),
 			people(ctx.user.id),
 		);

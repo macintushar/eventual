@@ -11,6 +11,8 @@ export const env = createEnv({
 		EMAIL_FROM: z.string().min(1).optional(),
 		EMAIL_REPLY_TO: z.email().optional(),
 		SUPPORT_EMAIL: z.email().nullish().default(null),
+		/** Public status site. Unset hides the status callout. */
+		STATUS_PAGE_URL: z.url().nullish().default(null),
 		SENTRY_DSN: z.url().optional(),
 		POSTHOG_PROJECT_TOKEN: z.string().min(1).optional(),
 		POSTHOG_HOST: z.url().default("https://us.i.posthog.com"),

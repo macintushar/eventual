@@ -71,6 +71,8 @@ export const sharePaidSchema = z.object({
 });
 export const createSettlementSchema = z.object({
 	groupId: idSchema,
+	/** Defaults to the caller. Recording someone else's payment needs permission. */
+	fromUserId: idSchema.optional(),
 	toUserId: idSchema,
 	amountMinor: z.number().int().safe().positive(),
 	currency: currencySchema,

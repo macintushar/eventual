@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { and, asc, eq, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { Database } from "#/db";
 import { job } from "#/db/schema";
+import { getAppLogger } from "#/lib/logging";
 
 export const MAX_JOB_ATTEMPTS = 5;
 export const JOB_LEASE_MS = 5 * 60_000;
@@ -24,6 +25,10 @@ export async function enqueueJob(
 		})
 		.onConflictDoNothing({ target: job.dedupeKey })
 		.returning();
+	getAppLogger("jobs").debug("Job enqueue completed", {
+		kind: input.kind,
+		enqueued: rows.length > 0,
+	});
 	return rows[0] ?? null;
 }
 
@@ -128,15 +133,29 @@ export async function runJobs(
 	for (let i = 0; i < limit && Date.now() < deadline; i++) {
 		const claimed = await claimJob(db, options.now ?? new Date());
 		if (!claimed) break;
+		const logger = getAppLogger("jobs").with({
+			jobId: claimed.id,
+			kind: claimed.kind,
+			attempt: claimed.attempts,
+		});
+		logger.info("Job started");
 		try {
 			await (options.handler ?? dispatchJob)(db, claimed);
 			await completeJob(db, claimed);
 			completed++;
+			logger.info("Job completed");
 		} catch (error) {
 			await failJob(db, claimed, error, options.now ?? new Date());
 			failed++;
+			if (claimed.attempts >= MAX_JOB_ATTEMPTS)
+				logger.error("Job attempts exhausted", { error });
+			else
+				logger.warning("Job scheduled for retry", {
+					attempt: claimed.attempts,
+				});
 		}
 	}
+	getAppLogger("jobs").info("Job run completed", { completed, failed });
 	return { completed, failed };
 }
 

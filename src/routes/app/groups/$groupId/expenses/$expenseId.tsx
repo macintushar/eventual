@@ -179,9 +179,6 @@ function ExpenseDetail() {
 				<CardContent>
 					<ItemGroup>
 						{expense.shares.map((share) => {
-							const canToggle =
-								page.user.id === share.userId ||
-								page.user.id === expense.paidByUserId;
 							const paid = share.paidAt !== null;
 							const invalid = validateSharePayment(page.balances.transfers, {
 								fromUserId: share.userId,
@@ -218,7 +215,7 @@ function ExpenseDetail() {
 													)}`
 												: "Unpaid"}
 										</ItemDescription>
-										{canToggle && invalid && (
+										{invalid && (
 											<ItemDescription className="line-clamp-none text-pretty">
 												{invalid}
 											</ItemDescription>
@@ -236,7 +233,7 @@ function ExpenseDetail() {
 												id={`paid-${share.id}`}
 												checked={paid}
 												aria-label={`Mark ${share.user.name}'s share paid`}
-												disabled={!canToggle || Boolean(invalid)}
+												disabled={Boolean(invalid)}
 												onCheckedChange={(checked) =>
 													toggle(share.userId, checked === true)
 												}

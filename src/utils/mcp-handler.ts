@@ -1,7 +1,7 @@
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
+import { getAppLogger } from "#/lib/logging";
 
 export async function handleMcpRequest(
 	request: Request,
@@ -37,7 +37,7 @@ export async function handleMcpRequest(
 			},
 		});
 	} catch (error) {
-		console.error("MCP handler error:", error);
+		getAppLogger("mcp").error("MCP handler failed", { error });
 
 		// Return a JSON-RPC error response
 		return Response.json(

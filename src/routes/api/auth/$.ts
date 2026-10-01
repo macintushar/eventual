@@ -4,17 +4,27 @@ import { eq } from "drizzle-orm";
 import { db } from "#/db";
 import { user } from "#/db/schema";
 import { auth } from "#/lib/auth";
+import { getAppLogger } from "#/lib/logging";
 import { pendingVerificationCookie } from "#/server/pending-verification";
+
+async function handleAuth(request: Request) {
+	const response = await auth.handler(request);
+	getAppLogger("auth")[response.ok ? "info" : "warning"](
+		"Authentication response",
+		{ status: response.status },
+	);
+	return response;
+}
 
 async function handlePost(request: Request) {
 	if (new URL(request.url).pathname !== "/api/auth/sign-in/email")
-		return auth.handler(request);
+		return handleAuth(request);
 
 	const body = await request
 		.clone()
 		.json()
 		.catch(() => null);
-	const response = await auth.handler(request);
+	const response = await handleAuth(request);
 	if (response.status !== 403 || typeof body?.email !== "string")
 		return response;
 	const error = await response
@@ -45,7 +55,7 @@ async function handlePost(request: Request) {
 export const Route = createFileRoute("/api/auth/$")({
 	server: {
 		handlers: {
-			GET: ({ request }) => auth.handler(request),
+			GET: ({ request }) => handleAuth(request),
 			POST: ({ request }) => handlePost(request),
 		},
 	},

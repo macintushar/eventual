@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getAppLogger } from "#/lib/logging";
 
 import type { Ctx } from "#/server/context";
 import {
@@ -28,7 +29,9 @@ import {
 	updateRecurringExpenseSchema,
 } from "#/server/schemas/automation";
 import {
+	applyCategoriesSchema,
 	bulkResplitSchema,
+	categoryBackfillSchema,
 	categoryRulesSchema,
 	createCategoryRuleSchema,
 	deleteCategoryRuleSchema,
@@ -48,6 +51,7 @@ import {
 import {
 	addMemberSchema,
 	mergeGuestSchema,
+	updateGuestSchema,
 	updateMemberWeightSchema,
 } from "#/server/schemas/people";
 import * as services from "#/server/services/app";
@@ -244,6 +248,17 @@ export const operations = [
 		scope: "members:write",
 		idempotent: true,
 		handler: services.updateMemberWeight,
+	}),
+	defineOperation({
+		name: "member.updateGuest",
+		kind: "mutation",
+		method: "PATCH",
+		path: "/v1/groups/:groupId/guests/:userId",
+		input: updateGuestSchema,
+		output,
+		scope: "members:write",
+		idempotent: true,
+		handler: services.updateGuest,
 	}),
 	defineOperation({
 		name: "member.merge",
@@ -457,6 +472,27 @@ export const operations = [
 		output,
 		scope: "expenses:read",
 		handler: services.suggestCategory,
+	}),
+	defineOperation({
+		name: "category.backfillPreview",
+		kind: "read",
+		method: "GET",
+		path: "/v1/groups/:groupId/categories/backfill",
+		input: categoryBackfillSchema,
+		output,
+		scope: "expenses:read",
+		handler: services.previewCategoryBackfill,
+	}),
+	defineOperation({
+		name: "category.apply",
+		kind: "mutation",
+		method: "POST",
+		path: "/v1/groups/:groupId/categories/apply",
+		input: applyCategoriesSchema,
+		output,
+		scope: "expenses:write",
+		idempotent: true,
+		handler: services.applyCategories,
 	}),
 	defineOperation({
 		name: "category.create",
@@ -732,8 +768,27 @@ export async function invokeOperation(
 	ctx: Ctx | null,
 	input: unknown,
 ) {
-	const parsed = operation.input.parse(input);
-	return operation.handler(ctx as never, parsed as never);
+	const logger = getAppLogger("operations").with({
+		operation: operation.name,
+		kind: operation.kind,
+	});
+	const startedAt = performance.now();
+	logger.debug("Operation started");
+	try {
+		const parsed = operation.input.parse(input);
+		const result = await operation.handler(ctx as never, parsed as never);
+		logger.info("Operation completed", {
+			durationMs: Math.round(performance.now() - startedAt),
+		});
+		return result;
+	} catch (error) {
+		// The transport reports unexpected exceptions once; keep operation context here.
+		logger.warning("Operation failed", {
+			errorType: error instanceof Error ? error.name : "Unknown",
+			durationMs: Math.round(performance.now() - startedAt),
+		});
+		throw error;
+	}
 }
 
 export async function executeOperation(

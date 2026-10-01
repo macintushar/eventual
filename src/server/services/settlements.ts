@@ -32,13 +32,16 @@ export async function listSettlements(ctx: Ctx, input: { groupId: string }) {
 }
 
 export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
+	// Any member can record a repayment between any two members, so someone
+	// can log what a guest paid them or what they saw change hands.
 	await membership(ctx, input.groupId);
-	if (input.toUserId === ctx.user.id)
+	const fromUserId = input.fromUserId ?? ctx.user.id;
+	if (input.toUserId === fromUserId)
 		throw new AppError(
 			"VALIDATION",
 			"A settlement must be between two different members",
 		);
-	await assertExpenseMembers(ctx, input.groupId, input.toUserId, [ctx.user.id]);
+	await assertExpenseMembers(ctx, input.groupId, input.toUserId, [fromUserId]);
 	const members = await listMembers(ctx, input);
 	const settlementId = id();
 	const now = new Date();
@@ -46,7 +49,7 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 		const balances = await readBalances(tx, input.groupId, members);
 		const invalid = validateRepayment(balances.transfers, {
 			...input,
-			fromUserId: ctx.user.id,
+			fromUserId,
 		});
 		if (invalid) throw new AppError("VALIDATION", invalid);
 		const candidates = await tx
@@ -56,7 +59,7 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 			.where(
 				and(
 					eq(expense.organizationId, input.groupId),
-					eq(expenseShare.userId, ctx.user.id),
+					eq(expenseShare.userId, fromUserId),
 					eq(expense.paidByUserId, input.toUserId),
 					eq(expense.currency, input.currency),
 					isNull(expenseShare.paidAt),
@@ -66,7 +69,7 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 		await tx.insert(settlement).values({
 			id: settlementId,
 			organizationId: input.groupId,
-			fromUserId: ctx.user.id,
+			fromUserId,
 			toUserId: input.toUserId,
 			amountMinor: input.amountMinor,
 			currency: input.currency,
@@ -98,13 +101,13 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 				"settlement",
 				settlementId,
 				{
-					fromUserId: ctx.user.id,
+					fromUserId,
 					toUserId: input.toUserId,
 					amountMinor: input.amountMinor,
 					currency: input.currency,
 				},
 			),
-			people(ctx.user.id, input.toUserId),
+			people(fromUserId, input.toUserId),
 		);
 	});
 	return ctx.db.query.settlement.findFirst({

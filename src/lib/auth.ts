@@ -9,6 +9,7 @@ import * as schema from "#/db/schema";
 import { env } from "#/env";
 import { authEmailOptions, emailKey } from "#/lib/auth-email";
 import { guestAuthGuards, guestAuthPlugin } from "#/lib/guest-auth";
+import { getAppLogger } from "#/lib/logging";
 import { sendEmail } from "#/server/email";
 import { reportError } from "#/server/error-reporting";
 import {
@@ -38,6 +39,19 @@ export function presentedApiKey(headers: Headers | undefined) {
 }
 
 export const auth = betterAuth({
+	logger: {
+		level: "debug",
+		log(level) {
+			const logger = getAppLogger("auth", "sdk");
+			// SDK messages/arguments may contain credentials or personal information.
+			// Expected login failures are diagnostics; transports own exception capture.
+			if (level === "error" || level === "warn")
+				logger.warning("Authentication SDK diagnostic", { sdkLevel: level });
+			else if (level === "info")
+				logger.info("Authentication SDK diagnostic", { sdkLevel: level });
+			else logger.debug("Authentication SDK diagnostic", { sdkLevel: level });
+		},
+	},
 	appName: "Eventual",
 	baseURL: env.BETTER_AUTH_URL,
 	secret: env.BETTER_AUTH_SECRET,

@@ -45,6 +45,7 @@ Configure these server-side variables in the Vercel project for each deployment 
 - `BETTER_AUTH_SECRET`: a secret of at least 32 characters.
 - `BETTER_AUTH_URL`: the deployed application's HTTPS origin (e.g. `https://app.example.com`). Shared by Better Auth and the Shortcut, MCP, and API URLs shown on Integrations; these URLs do not use the incoming request's host. Defaults to `http://localhost:3000` for local development.
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (optional): Google OAuth credentials. Register `http://localhost:3000/api/auth/callback/google` for local development and `https://your-domain.com/api/auth/callback/google` for production in Google Cloud Console. Users can connect or disconnect Google from **Settings → Profile**; Better Auth also links a verified Google identity to an existing account when the email addresses match.
+- `STATUS_PAGE_URL` (optional): public status page for this instance, for example `https://status.example.com`. When set, a status callout links to it from the footer, the help contact section, and the error screen. Leave it unset to hide those links. Redeploy after changing it; the public pages that show it are prerendered.
 
 Vercel runs `bun run db:migrate && bun run build` on every deployment, as configured in `vercel.json`. A failed migration stops the deployment. Migrations use the database credentials configured for that deployment environment, including Preview deployments.
 
@@ -55,6 +56,8 @@ Vercel project variables are not automatically available in your local shell. Do
 ## Health check
 
 `GET /health` returns `200 {"status":"ok"}` without authentication. It runs a server function and sets `Cache-Control: no-store`. Use it for an external uptime check. It deliberately does not query Turso; monitor database availability separately with provider alerts or a less frequent check that performs a read through the application.
+
+Set `STATUS_PAGE_URL` when that uptime check has a public status page. The site then links to it from the footer (including signed-in pages and screens that otherwise have no footer), the help contact section, and the error screen.
 
 ## Behaviour
 
@@ -167,6 +170,12 @@ Status mapping: `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `VALIDA
 
 Set the Sentry and PostHog variables shown in `.env.example`. The browser variables enable page views and client errors; the server variables enable MCP/product metrics and server errors. Sentry source-map upload additionally requires `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` at build time.
 
+LogTape sends structured logs to the console and the existing Sentry SDK on both client and server. `SENTRY_DSN` enables server logs; `VITE_SENTRY_DSN` enables browser logs. No additional Sentry credentials are needed. Open **Logs** in the Sentry project and filter by `category` (for example `eventual.operations`, `eventual.jobs`, or `eventual.auth-client`). Server logs include a `requestId`, also returned in `X-Request-Id`, and the sink correlates active Sentry traces automatically.
+
+`LOG_LEVEL` and `VITE_LOG_LEVEL` control the server and browser minimum levels (default: `info` in production, `debug` in development). Set both to `debug` to include navigation, query-cache success, and background diagnostics. Database execution times and statement types are available at `info`. All enabled levels go to Sentry Logs; debug/info records also become breadcrumbs, and error/fatal records create issues. These settings require a rebuild for the browser. Without a DSN, logs remain available in the console.
+
+Coverage includes HTTP/auth requests, REST/MCP domain operations, React Query reads and writes, auth client flows and SDK diagnostics, route boundaries, background work, job retries/exhaustion, email and notification delivery, analytics dispatch, clipboard failures, and database migration/seed scripts. Seed completion logs contain the account count; development credentials remain defined in `src/db/seed.ts` and are no longer printed. Domain logging lives at the operation boundary, so every registered operation is covered. Database execution logs include `durationMs`, `driverMethod`, success, and statement type/parameter count where available, at `info` level. They measure driver round trips (including network time), cover transactions and batches, and exclude SQL and bound values. Batch durations cover the whole batch, not individual statements. Logs exclude request/response bodies, URLs, query strings, credentials, email addresses, and financial contents. Both sinks redact sensitive properties and interpolated values; logged exceptions preserve stack frames while replacing their messages. Use static message templates and operational metadata when adding logs with `getAppLogger()`; never pass user content.
+
 PostHog receives only an authenticated user ID and these allow-listed, count-oriented properties:
 
 - `mcp_request_completed`: normalized MCP method, success, authentication state, and duration.
@@ -223,6 +232,21 @@ Build it with `bun run shortcut:build-ai [default-url]`; both generators share `
 ```bash
 bun run check
 bunx tsc --noEmit
-node --import tsx --test src/lib/money.test.ts src/server/services/settlements.test.ts
+bun run test
 bun run build
+bunx playwright install chromium # once per machine
+bun run test:e2e
 ```
+
+`test:e2e` migrates a fresh temporary file-backed SQLite database, starts the app
+on `127.0.0.1:4173`, runs Chromium tests, and deletes the database afterward.
+It overrides local Turso and email-provider credentials, and refuses to run
+Playwright directly without the disposable-database runner. The browser suite
+tests signup, invitations, group and expense actions, cross-group balances,
+settlements, authorization, API keys, and automation against the real HTTP app.
+No email is sent. Invitation acceptance still requires a verified account, so
+the tests assert unverified users are rejected and then mark the test user
+verified **only in that disposable database**. CI runs the same command and
+uploads Playwright traces/screenshots on failure.
+Provider-backed email delivery and Google OAuth are intentionally outside this
+offline CI suite; their verification/reset behavior has separate unit tests.

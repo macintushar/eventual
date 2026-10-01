@@ -2,9 +2,11 @@
 export { listActivity, listMyActivity } from "./activity";
 export { getBalances, getCrossGroupBalances } from "./balances";
 export {
+	applyCategories,
 	createCategoryRule,
 	deleteCategoryRule,
 	listCategoryRules,
+	previewCategoryBackfill,
 	suggestCategory,
 	updateCategoryRule,
 } from "./categories";
@@ -30,7 +32,7 @@ export {
 	renameGroup,
 	unarchiveGroup,
 } from "./groups";
-export { addMember, mergeGuest } from "./guests";
+export { addMember, mergeGuest, updateGuest } from "./guests";
 export {
 	acceptInvitation,
 	createInvitation,

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { safeAuthRedirect } from "#/lib/auth-redirect";
+import { safeAuthRedirect, withNext } from "#/lib/auth-redirect";
 
 test("post-authentication redirects stay on this site", () => {
 	assert.equal(
@@ -17,4 +17,14 @@ test("post-authentication redirects stay on this site", () => {
 	]) {
 		assert.equal(safeAuthRedirect(target), "/app");
 	}
+});
+
+test("verification paths carry a safe destination", () => {
+	assert.equal(
+		withNext("/verify-email", "/invite/abc"),
+		"/verify-email?next=%2Finvite%2Fabc",
+	);
+	assert.equal(withNext("/check-email", undefined), "/check-email");
+	assert.equal(withNext("/check-email", "/app"), "/check-email");
+	assert.equal(withNext("/verify-email", "//evil.example"), "/verify-email");
 });

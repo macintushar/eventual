@@ -15,24 +15,28 @@ import {
 	History,
 	LogOut,
 	MoreHorizontal,
+	PencilLine,
 	Plus,
 	Receipt,
 	Repeat,
 	Search,
+	Tags,
 	Trash2,
 	UserMinus,
-	UserPlus,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ActivityLine } from "#/components/activity-line";
+import { AddPersonDialog } from "#/components/add-person-dialog";
 import { Amount } from "#/components/amount";
 import { AppBreadcrumb } from "#/components/app-breadcrumb";
 import { BalanceBar } from "#/components/balance-bar";
+import { CategoryReviewDialog } from "#/components/category-review-dialog";
 import { useComposer } from "#/components/composer";
 import { ConfirmDialog } from "#/components/confirm-dialog";
 import { CurrencySelect } from "#/components/currency-select";
+import { EditGuestDialog } from "#/components/edit-guest-dialog";
 import { EmptyState } from "#/components/empty-state";
 import { ExpenseTable } from "#/components/expense-table";
 import { MemberAvatar } from "#/components/member-avatar";
@@ -45,7 +49,12 @@ import {
 	RecurringExpenses,
 } from "#/components/recurring-expenses";
 import { SettingsRow, SettingsSection } from "#/components/settings-section";
-import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
+import {
+	Accordion,
+	AccordionContent,
+	AccordionItem,
+	AccordionTrigger,
+} from "#/components/ui/accordion";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
@@ -56,6 +65,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "#/components/ui/card";
+import { Checkbox } from "#/components/ui/checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -76,7 +86,6 @@ import { Input } from "#/components/ui/input";
 import {
 	InputGroup,
 	InputGroupAddon,
-	InputGroupButton,
 	InputGroupInput,
 	InputGroupText,
 } from "#/components/ui/input-group";
@@ -114,6 +123,7 @@ import { Spinner } from "#/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { Textarea } from "#/components/ui/textarea";
 import { useAppMutation } from "#/lib/app-mutation";
+import { builtInCategories, builtInCategory } from "#/lib/categories";
 import { copyToClipboard } from "#/lib/clipboard";
 import { currencySymbol } from "#/lib/currencies";
 import { formatMinor, fromMinor, parseMinor } from "#/lib/money";
@@ -124,6 +134,7 @@ import {
 	groupPageQueryOptions,
 } from "#/lib/queries";
 import { repaymentLimit, validateRepayment } from "#/lib/settlements";
+import { cn } from "#/lib/utils";
 import type { getGroupPageFn } from "#/lib/web-api-client";
 import type { MutationInput } from "#/server/operations";
 import type { ExpenseSortBy } from "#/server/schemas/expenses";
@@ -471,6 +482,7 @@ function BalancesTab({
 	 * provides — `popup-container.tsx` explains why it cannot go to the body.
 	 */
 	const [settleContent, setSettleContent] = useState<HTMLElement | null>(null);
+	const [settleFrom, setSettleFrom] = useState(data.user.id);
 	const [settleTo, setSettleTo] = useState(
 		data.balances.transfers.find((row) => row.from.userId === data.user.id)?.to
 			.userId ?? "",
@@ -484,7 +496,7 @@ function BalancesTab({
 	);
 	const [saving, setSaving] = useState(false);
 	const repayment = {
-		fromUserId: data.user.id,
+		fromUserId: settleFrom,
 		toUserId: settleTo,
 		currency: settleCurrency,
 		amountMinor: parseMinor(settleAmount, settleCurrency),
@@ -611,51 +623,49 @@ function BalancesTab({
 											<strong className="tabular">
 												{formatMinor(transfer.amountMinor, transfer.currency)}
 											</strong>
-											{transfer.from.userId === data.user.id ? (
-												<>
-													{data.paymentIntents.intents.find(
-														(intent) =>
-															intent.fromUserId === transfer.from.userId &&
-															intent.toUserId === transfer.to.userId &&
-															intent.currency === transfer.currency &&
-															intent.amountMinor === transfer.amountMinor,
-													)?.upiUrl ? (
-														<Button size="sm" variant="outline" asChild>
-															<a
-																href={
-																	data.paymentIntents.intents.find(
-																		(intent) =>
-																			intent.fromUserId ===
-																				transfer.from.userId &&
-																			intent.toUserId === transfer.to.userId &&
-																			intent.currency === transfer.currency &&
-																			intent.amountMinor ===
-																				transfer.amountMinor,
-																	)?.upiUrl ?? undefined
-																}
-															>
-																Pay via UPI
-															</a>
-														</Button>
-													) : null}
-													<Button
-														size="sm"
-														onClick={() => {
-															setSettleTo(transfer.to.userId);
-															setSettleCurrency(transfer.currency);
-															setSettleAmount(
-																fromMinor(
-																	transfer.amountMinor,
-																	transfer.currency,
-																),
-															);
-															setSettleOpen(true);
-														}}
-													>
-														Confirm paid
+											<>
+												{data.paymentIntents.intents.find(
+													(intent) =>
+														intent.fromUserId === transfer.from.userId &&
+														intent.toUserId === transfer.to.userId &&
+														intent.currency === transfer.currency &&
+														intent.amountMinor === transfer.amountMinor,
+												)?.upiUrl && transfer.from.userId === data.user.id ? (
+													<Button size="sm" variant="outline" asChild>
+														<a
+															href={
+																data.paymentIntents.intents.find(
+																	(intent) =>
+																		intent.fromUserId ===
+																			transfer.from.userId &&
+																		intent.toUserId === transfer.to.userId &&
+																		intent.currency === transfer.currency &&
+																		intent.amountMinor === transfer.amountMinor,
+																)?.upiUrl ?? undefined
+															}
+														>
+															Pay via UPI
+														</a>
 													</Button>
-												</>
-											) : null}
+												) : null}
+												<Button
+													size="sm"
+													onClick={() => {
+														setSettleFrom(transfer.from.userId);
+														setSettleTo(transfer.to.userId);
+														setSettleCurrency(transfer.currency);
+														setSettleAmount(
+															fromMinor(
+																transfer.amountMinor,
+																transfer.currency,
+															),
+														);
+														setSettleOpen(true);
+													}}
+												>
+													Confirm paid
+												</Button>
+											</>
 										</ItemActions>
 									</Item>
 								))}
@@ -676,8 +686,8 @@ function BalancesTab({
 									<DialogHeader>
 										<DialogTitle>Record settlement</DialogTitle>
 										<DialogDescription>
-											Record money you actually paid to another member. Matching
-											shares are marked paid automatically.
+											Record money that changed hands, including a payment made
+											to you. Matching shares are marked paid automatically.
 										</DialogDescription>
 									</DialogHeader>
 									<FieldGroup>
@@ -695,6 +705,33 @@ function BalancesTab({
 											/>
 										</Field>
 										<Field>
+											<FieldLabel htmlFor="settle-from">Paid by</FieldLabel>
+											<Select
+												value={settleFrom}
+												onValueChange={(value) => {
+													setSettleFrom(value);
+													if (value === settleTo) setSettleTo("");
+												}}
+											>
+												<SelectTrigger id="settle-from" className="w-full">
+													<SelectValue placeholder="Choose member" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectGroup>
+														{data.group.members.map((member) => (
+															<SelectItem
+																key={member.userId}
+																value={member.userId}
+															>
+																{member.name}
+																{member.userId === data.user.id ? " (you)" : ""}
+															</SelectItem>
+														))}
+													</SelectGroup>
+												</SelectContent>
+											</Select>
+										</Field>
+										<Field>
 											<FieldLabel htmlFor="settle-to">Paid to</FieldLabel>
 											<Select value={settleTo} onValueChange={setSettleTo}>
 												<SelectTrigger id="settle-to" className="w-full">
@@ -703,15 +740,16 @@ function BalancesTab({
 												<SelectContent>
 													<SelectGroup>
 														{data.group.members
-															.filter(
-																(member) => member.userId !== data.user.id,
-															)
+															.filter((member) => member.userId !== settleFrom)
 															.map((member) => (
 																<SelectItem
 																	key={member.userId}
 																	value={member.userId}
 																>
 																	{member.name}
+																	{member.userId === data.user.id
+																		? " (you)"
+																		: ""}
 																</SelectItem>
 															))}
 													</SelectGroup>
@@ -771,6 +809,7 @@ function BalancesTab({
 														action: "settlement.create",
 														input: {
 															groupId,
+															fromUserId: settleFrom,
 															toUserId: settleTo,
 															amountMinor: repayment.amountMinor,
 															currency: settleCurrency,
@@ -872,12 +911,14 @@ function MemberSheet({
 	data,
 	groupId,
 	run,
+	execute,
 	canManage,
 }: {
 	member: LoaderData["group"]["members"][number];
 	data: LoaderData;
 	groupId: string;
 	run: Run;
+	execute: Execute;
 	canManage: boolean;
 }) {
 	const isSelf = member.userId === data.user.id;
@@ -911,10 +952,28 @@ function MemberSheet({
 					<span className="flex min-w-0 flex-col">
 						<SheetTitle>{member.name}</SheetTitle>
 						<SheetDescription className="truncate text-xs">
-							{member.email}
+							{member.isGuest
+								? member.invitedEmail
+									? `Guest · invited ${member.invitedEmail}`
+									: "Guest"
+								: member.email}
 						</SheetDescription>
 					</span>
 				</SheetHeader>
+
+				{canManage && member.isGuest ? (
+					<EditGuestDialog
+						groupId={groupId}
+						guest={member}
+						execute={execute}
+						trigger={
+							<button type="button" className="sheet-row">
+								<PencilLine className="size-[1.125rem]" />
+								Edit name, email and phone
+							</button>
+						}
+					/>
+				) : null}
 
 				{isOwner ? (
 					<div className="flex flex-col">
@@ -1044,24 +1103,12 @@ function MembersTab({
 	run: Run;
 	execute: Execute;
 }) {
-	const [inviteEmail, setInviteEmail] = useState("");
-	const [inviting, setInviting] = useState(false);
-	const [inviteRole, setInviteRole] = useState<"owner" | "admin" | "member">(
-		"member",
-	);
-	const [inviteUrl, setInviteUrl] = useState("");
-	const [copied, setCopied] = useState(false);
 	const canManage = data.group.myRole !== "member";
-	const [addOpen, setAddOpen] = useState(false);
-	const [addName, setAddName] = useState("");
-	const [addEmail, setAddEmail] = useState("");
-	const [addPhone, setAddPhone] = useState("");
-	const [addWeight, setAddWeight] = useState("1");
-	const addWeightValue = addWeight.trim() === "" ? 1 : Number(addWeight);
-	const addValid =
-		Boolean(addName.trim()) &&
-		Number.isInteger(addWeightValue) &&
-		addWeightValue > 0;
+	const people = {
+		myRole: data.group.myRole,
+		members: data.group.members,
+		invitations: data.invitations,
+	};
 
 	return (
 		<div className="flex flex-col gap-10 sm:gap-12">
@@ -1080,246 +1127,11 @@ function MembersTab({
 						</p>
 					</div>
 					{canManage && (
-						<div className="flex flex-wrap gap-2">
-							<Dialog
-								open={addOpen}
-								onOpenChange={(open) => {
-									setAddOpen(open);
-									if (!open) {
-										setAddName("");
-										setAddEmail("");
-										setAddPhone("");
-										setAddWeight("1");
-									}
-								}}
-							>
-								<DialogTrigger asChild>
-									<Button variant="outline">
-										<UserPlus data-icon="inline-start" />
-										Add person
-									</Button>
-								</DialogTrigger>
-								<DialogContent>
-									<DialogHeader>
-										<DialogTitle>Add a person</DialogTitle>
-										<DialogDescription>
-											Add someone without an account yet — for example, a guest
-											who pays in cash.
-										</DialogDescription>
-									</DialogHeader>
-									<FieldGroup>
-										<Field>
-											<FieldLabel htmlFor="add-name">Name</FieldLabel>
-											<Input
-												id="add-name"
-												placeholder="Guest name"
-												value={addName}
-												onChange={(event) => setAddName(event.target.value)}
-											/>
-										</Field>
-										<Field>
-											<FieldLabel htmlFor="add-email">Email</FieldLabel>
-											<Input
-												id="add-email"
-												type="email"
-												placeholder="person@example.com"
-												value={addEmail}
-												onChange={(event) => setAddEmail(event.target.value)}
-											/>
-											<FieldDescription>Optional.</FieldDescription>
-										</Field>
-										<Field>
-											<FieldLabel htmlFor="add-phone">Phone</FieldLabel>
-											<Input
-												id="add-phone"
-												type="tel"
-												inputMode="tel"
-												placeholder="+919876543210"
-												value={addPhone}
-												onChange={(event) => setAddPhone(event.target.value)}
-											/>
-											<FieldDescription>
-												Optional, international format with country code.
-											</FieldDescription>
-										</Field>
-										<Field>
-											<FieldLabel htmlFor="add-weight">Weight</FieldLabel>
-											<Input
-												id="add-weight"
-												type="number"
-												min={1}
-												step={1}
-												className="w-20 tabular"
-												value={addWeight}
-												onChange={(event) => setAddWeight(event.target.value)}
-											/>
-											<FieldDescription>
-												How many shares they count as in an even split. Default
-												1.
-											</FieldDescription>
-										</Field>
-									</FieldGroup>
-									<DialogFooter>
-										<Button
-											disabled={!addValid}
-											onClick={async () => {
-												const ok = await run(
-													{
-														action: "member.add",
-														input: {
-															groupId,
-															name: addName,
-															email: addEmail.trim() || undefined,
-															phone: addPhone.trim() || undefined,
-															weight: addWeightValue,
-														},
-													},
-													"Person added",
-												);
-												if (ok) setAddOpen(false);
-											}}
-										>
-											Add person
-										</Button>
-									</DialogFooter>
-								</DialogContent>
-							</Dialog>
-							<Dialog
-								onOpenChange={(open) => {
-									if (!open) {
-										setInviteUrl("");
-										setCopied(false);
-									}
-								}}
-							>
-								<DialogTrigger asChild>
-									<Button>
-										<UserPlus data-icon="inline-start" />
-										Invite
-									</Button>
-								</DialogTrigger>
-								<DialogContent>
-									<DialogHeader>
-										<DialogTitle>Invite a member</DialogTitle>
-										<DialogDescription>
-											We email the invitation when email is configured —
-											otherwise share the link yourself.
-										</DialogDescription>
-									</DialogHeader>
-									<FieldGroup>
-										<Field>
-											<FieldLabel htmlFor="invite-email">Email</FieldLabel>
-											<Input
-												id="invite-email"
-												type="email"
-												placeholder="friend@example.com"
-												value={inviteEmail}
-												onChange={(event) => setInviteEmail(event.target.value)}
-											/>
-										</Field>
-										<Field>
-											<FieldLabel htmlFor="invite-role">Role</FieldLabel>
-											<Select
-												value={inviteRole}
-												onValueChange={(value) =>
-													setInviteRole(value as typeof inviteRole)
-												}
-											>
-												<SelectTrigger id="invite-role" className="w-full">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectGroup>
-														{["member", "admin", "owner"].map((role) => (
-															<SelectItem
-																key={role}
-																value={role}
-																className="capitalize"
-															>
-																{role}
-															</SelectItem>
-														))}
-													</SelectGroup>
-												</SelectContent>
-											</Select>
-										</Field>
-										<Button
-											disabled={inviting || !inviteEmail.trim()}
-											onClick={async () => {
-												setInviting(true);
-												const outcome = await execute({
-													action: "invitation.create",
-													input: {
-														groupId,
-														email: inviteEmail,
-														role: inviteRole,
-													},
-												});
-												setInviting(false);
-												if (
-													!outcome.ok ||
-													!outcome.result ||
-													typeof outcome.result !== "object"
-												)
-													return;
-												if (
-													"inviteUrl" in outcome.result &&
-													typeof outcome.result.inviteUrl === "string"
-												)
-													setInviteUrl(
-														`${window.location.origin}${outcome.result.inviteUrl}`,
-													);
-												if (
-													"emailDelivery" in outcome.result &&
-													outcome.result.emailDelivery === "scheduled"
-												)
-													toast.success("Invitation email queued");
-												setCopied(false);
-											}}
-										>
-											{inviting ? <Spinner data-icon="inline-start" /> : null}
-											{inviting ? "Sending…" : "Send invitation"}
-										</Button>
-
-										{inviteUrl ? (
-											<Alert className="border-primary/30 bg-primary/5">
-												<AlertTitle>Share this link</AlertTitle>
-												<AlertDescription>
-													<InputGroup className="mt-2">
-														<InputGroupInput
-															id="invite-url"
-															readOnly
-															value={inviteUrl}
-															className="text-xs"
-															onFocus={(event) => event.currentTarget.select()}
-														/>
-														<InputGroupAddon align="inline-end">
-															<InputGroupButton
-																aria-label={
-																	copied ? "Copied" : "Copy invite link"
-																}
-																onClick={async () => {
-																	const ok = await copyToClipboard(
-																		inviteUrl,
-																		"invite link",
-																	);
-																	if (!ok) return;
-																	setCopied(true);
-																	toast.success("Invite link copied");
-																}}
-															>
-																{copied ? <Check /> : <Copy />}
-																{copied ? "Copied" : "Copy"}
-															</InputGroupButton>
-														</InputGroupAddon>
-													</InputGroup>
-												</AlertDescription>
-											</Alert>
-										) : null}
-									</FieldGroup>
-								</DialogContent>
-							</Dialog>
-						</div>
+						<AddPersonDialog
+							groupId={groupId}
+							people={people}
+							execute={execute}
+						/>
 					)}
 				</div>
 
@@ -1349,7 +1161,11 @@ function MembersTab({
 												) : null}
 											</span>
 											<span className="truncate text-sm text-muted-foreground">
-												{member.isGuest ? "Guest" : member.email}
+												{member.isGuest
+													? member.invitedEmail
+														? `Guest · invited ${member.invitedEmail}`
+														: "Guest"
+													: member.email}
 											</span>
 										</span>
 										<span className="sr-only">, view profile</span>
@@ -1368,11 +1184,29 @@ function MembersTab({
 									data={data}
 									groupId={groupId}
 									run={run}
+									execute={execute}
 									canManage={canManage}
 								/>
 							</div>
 
 							<div className="hidden shrink-0 items-center gap-2 sm:flex">
+								{canManage && member.isGuest ? (
+									<EditGuestDialog
+										groupId={groupId}
+										guest={member}
+										execute={execute}
+										trigger={
+											<Button
+												variant="ghost"
+												size="icon-sm"
+												className="text-muted-foreground"
+												aria-label={`Edit ${member.name}'s details`}
+											>
+												<PencilLine />
+											</Button>
+										}
+									/>
+								) : null}
 								{canManage ? (
 									<MemberWeight member={member} groupId={groupId} run={run} />
 								) : null}
@@ -1475,9 +1309,36 @@ function MembersTab({
 								key={invite.id}
 								className="flex items-center gap-3 py-3 ps-5 pe-4 sm:ps-6"
 							>
-								<span className="min-w-0 flex-1 truncate text-sm font-medium">
-									{invite.email}
+								<span className="flex min-w-0 flex-1 flex-col">
+									<span className="truncate text-sm font-medium">
+										{invite.email}
+									</span>
+									{invite.guestUserId ? (
+										<span className="truncate text-xs text-muted-foreground">
+											Joins as{" "}
+											{data.group.members.find(
+												(row) => row.userId === invite.guestUserId,
+											)?.name ?? "a guest"}
+										</span>
+									) : null}
 								</span>
+								<Button
+									size="sm"
+									variant="ghost"
+									aria-label={`Copy invite link for ${invite.email}`}
+									onClick={async () => {
+										if (
+											await copyToClipboard(
+												`${window.location.origin}/invite/${invite.id}`,
+												"invite link",
+											)
+										)
+											toast.success("Invite link copied");
+									}}
+								>
+									<Copy data-icon="inline-start" />
+									Copy link
+								</Button>
 								<Badge variant="secondary" className="capitalize">
 									{invite.role}
 								</Badge>
@@ -1658,6 +1519,14 @@ function SettingsTab({
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [rulePattern, setRulePattern] = useState("");
 	const [ruleCategory, setRuleCategory] = useState("");
+	const [ruleApplyToExisting, setRuleApplyToExisting] = useState(true);
+	// Group rules run before the built-in keywords, so a rule only matters when
+	// it adds a phrase the built-ins miss or sends one to a different category.
+	const ruleBuiltIn = rulePattern.trim() ? builtInCategory(rulePattern) : null;
+	const ruleRedundant =
+		ruleBuiltIn !== null &&
+		(!ruleCategory.trim() ||
+			ruleCategory.trim().toLowerCase() === ruleBuiltIn.category.toLowerCase());
 	const [reminderUser, setReminderUser] = useState(
 		data.group.members.find((member) => member.userId !== data.user.id)
 			?.userId ?? data.user.id,
@@ -1759,9 +1628,52 @@ function SettingsTab({
 				<SettingsRow
 					layout="stacked"
 					title="Category rules"
-					description="New expenses whose description contains the phrase get the category automatically."
+					description="New expenses whose description contains the phrase get the category automatically. Common expenses are already covered by built-in keywords; your rules run first, so they can also override them."
 				>
 					<div className="flex flex-col gap-4">
+						<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm">
+							<span className="text-muted-foreground">
+								Rules only run when an expense is added. Apply them to the
+								expenses you already have.
+							</span>
+							<CategoryReviewDialog
+								groupId={groupId}
+								execute={execute}
+								trigger={
+									<Button variant="outline" size="sm">
+										<Tags data-icon="inline-start" />
+										Review categories
+									</Button>
+								}
+							/>
+						</div>
+						<Accordion
+							type="single"
+							collapsible
+							className="rounded-xl border px-4"
+						>
+							<AccordionItem value="built-in">
+								<AccordionTrigger className="text-sm">
+									Built-in keywords
+								</AccordionTrigger>
+								<AccordionContent>
+									<dl className="grid gap-2 text-sm sm:grid-cols-[auto_1fr] sm:gap-x-4">
+										{builtInCategories.map(([category, keywords]) => (
+											<div key={category} className="contents">
+												<dt className="font-medium">{category}</dt>
+												<dd className="text-muted-foreground">
+													{keywords.join(", ")}
+												</dd>
+											</div>
+										))}
+									</dl>
+									<p className="mt-3 text-xs text-muted-foreground">
+										These match whole words, so “bus” doesn't match “business”.
+										Anything else is filed under Other.
+									</p>
+								</AccordionContent>
+							</AccordionItem>
+						</Accordion>
 						{data.categoryRules.length > 0 ? (
 							<ul className="divide-y rounded-xl border">
 								{data.categoryRules.map((rule) => (
@@ -1769,7 +1681,7 @@ function SettingsTab({
 										key={rule.id}
 										className="flex items-center gap-3 py-2 ps-4 pe-2 text-sm"
 									>
-										<span className="min-w-0 flex-1 truncate">
+										<span className="min-w-0 flex-1 break-words">
 											<span className="text-muted-foreground">Contains </span>
 											<span className="font-medium">“{rule.pattern}”</span>
 											<ArrowRight
@@ -1778,7 +1690,31 @@ function SettingsTab({
 											/>
 											<span className="sr-only">sets category to </span>
 											<Badge variant="secondary">{rule.category}</Badge>
+											{builtInCategory(rule.pattern)?.category.toLowerCase() ===
+											rule.category.toLowerCase() ? (
+												<span className="ms-2 text-xs text-muted-foreground">
+													Built-in already covers this
+												</span>
+											) : null}
 										</span>
+										<CategoryReviewDialog
+											groupId={groupId}
+											ruleId={rule.id}
+											execute={execute}
+											trigger={
+												<Button
+													size="sm"
+													variant="ghost"
+													className="text-muted-foreground"
+													aria-label={`Apply rule for “${rule.pattern}” to existing expenses`}
+												>
+													<span className="sm:hidden">Apply</span>
+													<span className="hidden sm:inline">
+														Apply to existing
+													</span>
+												</Button>
+											}
+										/>
 										{isMember ? null : (
 											<Button
 												size="icon-sm"
@@ -1812,19 +1748,25 @@ function SettingsTab({
 								onSubmit={async (event) => {
 									event.preventDefault();
 									if (!rulePattern.trim() || !ruleCategory.trim()) return;
-									const ok = await run(
-										{
-											action: "category.create",
-											input: {
-												groupId,
-												pattern: rulePattern,
-												category: ruleCategory,
-												priority: 0,
-											},
+									const outcome = await execute({
+										action: "category.create",
+										input: {
+											groupId,
+											pattern: rulePattern,
+											category: ruleCategory,
+											priority: 0,
+											applyToExisting: ruleApplyToExisting,
 										},
-										"Category rule added",
-									);
-									if (ok) {
+									});
+									if (outcome.ok) {
+										const { recategorized } = outcome.result as {
+											recategorized: number;
+										};
+										toast.success(
+											recategorized
+												? `Category rule added. ${recategorized} existing ${recategorized === 1 ? "expense" : "expenses"} updated.`
+												: "Category rule added",
+										);
 										setRulePattern("");
 										setRuleCategory("");
 									}
@@ -1838,7 +1780,7 @@ function SettingsTab({
 										id="category-pattern"
 										value={rulePattern}
 										onChange={(event) => setRulePattern(event.target.value)}
-										placeholder="coffee"
+										placeholder="zomato"
 									/>
 								</Field>
 								<Field className="gap-1.5">
@@ -1858,6 +1800,35 @@ function SettingsTab({
 									<Plus data-icon="inline-start" />
 									Add rule
 								</Button>
+								<Field orientation="horizontal" className="gap-2 sm:col-span-3">
+									<Checkbox
+										id="category-apply-existing"
+										checked={ruleApplyToExisting}
+										onCheckedChange={(value) =>
+											setRuleApplyToExisting(value === true)
+										}
+									/>
+									<FieldLabel
+										htmlFor="category-apply-existing"
+										className="font-normal"
+									>
+										Also update existing expenses that match
+									</FieldLabel>
+								</Field>
+								{ruleBuiltIn ? (
+									<p
+										className={cn(
+											"text-sm sm:col-span-3",
+											ruleRedundant
+												? "text-amber-700 dark:text-amber-400"
+												: "text-muted-foreground",
+										)}
+									>
+										{ruleRedundant
+											? `Already covered: “${ruleBuiltIn.keyword}” is a built-in keyword for ${ruleBuiltIn.category}. You don't need a rule for it.`
+											: `This overrides the built-in ${ruleBuiltIn.category} category for “${ruleBuiltIn.keyword}”.`}
+									</p>
+								) : null}
 							</form>
 						)}
 					</div>

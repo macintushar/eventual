@@ -1,9 +1,12 @@
 import * as Sentry from "@sentry/tanstackstart-react";
 
+import { configureLogging } from "#/lib/logging-config";
+
 const dsn = import.meta.env.VITE_SENTRY_DSN;
 
 Sentry.init({
 	dsn,
+	enableLogs: true,
 	enabled: Boolean(dsn),
 	environment: import.meta.env.MODE,
 	sendDefaultPii: false,
@@ -28,4 +31,11 @@ Sentry.init({
 		}
 		return event;
 	},
+});
+
+configureLogging({
+	runtime: "client",
+	production: import.meta.env.PROD,
+	sentryEnabled: Boolean(dsn),
+	level: import.meta.env.VITE_LOG_LEVEL,
 });

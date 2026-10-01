@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
+	Activity,
 	ArrowRight,
 	type LucideIcon,
 	Mail,
@@ -167,7 +168,7 @@ const categories: FaqCategory[] = [
 				id: "invite",
 				question: "How do I invite people?",
 				answer:
-					"You can invite by email while creating the group, or later from the Members tab. They get a link. Until they accept, they appear as pending and aren't included in new expenses.",
+					"Invite by email while creating the group, or later with Add person on the Members tab. They get a link. Someone new appears in the group straight away, so you can add them to expenses; when they accept, their account takes over. Someone who already has an account joins once they accept. You can also add people without an email and keep track of their share yourself.",
 			},
 			{
 				id: "roles",
@@ -257,7 +258,8 @@ function faqGallery(
 }
 
 function HelpIndex() {
-	const { supportEmail } = useSuspenseQuery(siteQueryOptions).data;
+	const { supportEmail, statusPageUrl } =
+		useSuspenseQuery(siteQueryOptions).data;
 
 	return (
 		<div className="flex flex-col gap-10 sm:gap-12">
@@ -402,14 +404,25 @@ function HelpIndex() {
 						{supportEmail
 							? "Email us and we'll reply as soon as we can."
 							: "Setting up the Shortcut or an AI assistant? Integrations has the full walkthrough."}
+						{statusPageUrl
+							? " If the app looks down, the status page says whether we're up."
+							: null}
 					</p>
 				</div>
-				<div className="flex flex-wrap gap-3">
+				<div className="flex flex-wrap justify-end gap-3">
 					{supportEmail ? (
 						<Button size="lg" asChild>
 							<a href={`mailto:${supportEmail}?subject=Eventual%20help`}>
 								<Mail data-icon="inline-start" />
 								Email us
+							</a>
+						</Button>
+					) : null}
+					{statusPageUrl ? (
+						<Button size="lg" variant="outline" asChild>
+							<a href={statusPageUrl} target="_blank" rel="noreferrer">
+								<Activity data-icon="inline-start" />
+								Service status
 							</a>
 						</Button>
 					) : null}

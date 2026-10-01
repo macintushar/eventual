@@ -1,6 +1,6 @@
 import { PostHog } from "posthog-node";
-
 import { env } from "#/env";
+import { getAppLogger } from "#/lib/logging";
 import { runInBackground } from "#/server/background";
 
 export const mcpToolNames = [
@@ -78,6 +78,10 @@ export function captureEvent<Name extends keyof AnalyticsEvent>(input: {
 	properties: AnalyticsEvent[Name];
 	anonymous?: boolean;
 }) {
+	getAppLogger("telemetry").debug("Analytics event recorded", {
+		event: input.event,
+		...input.properties,
+	});
 	const client = posthogClient();
 	if (!client) return;
 	runInBackground(

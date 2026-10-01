@@ -1,4 +1,3 @@
-import * as Sentry from "@sentry/tanstackstart-react";
 import { useQuery } from "@tanstack/react-query";
 import {
 	type ErrorComponentProps,
@@ -16,16 +15,17 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { toast } from "sonner";
-
 import { useInAppShell } from "#/components/app-shell";
 import {
 	PublicPage,
 	publicSignedInActions,
 	publicSignedOutActions,
 } from "#/components/public-header";
+import { StatusPagePrompt } from "#/components/status-page";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
 import { EmptyMedia } from "#/components/ui/empty";
+import { getAppLogger } from "#/lib/logging";
 import { sessionQueryOptions } from "#/lib/queries";
 
 /**
@@ -45,6 +45,7 @@ function ErrorLayout({
 	description,
 	note,
 	actions,
+	supplement,
 	detail,
 }: {
 	icon: LucideIcon;
@@ -53,6 +54,7 @@ function ErrorLayout({
 	description: string;
 	note: string;
 	actions: ReactNode;
+	supplement?: ReactNode;
 	detail?: string;
 }) {
 	const inShell = useInAppShell();
@@ -84,6 +86,8 @@ function ErrorLayout({
 					<div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
 						{actions}
 					</div>
+
+					{supplement}
 
 					{/*
 					 * Developers need the message; users get the logged report instead.
@@ -133,7 +137,10 @@ export function ErrorScreen({ error, reset }: ErrorComponentProps) {
 	const inShell = useInAppShell();
 
 	useEffect(() => {
-		Sentry.captureException(error, { tags: { boundary: "route" } });
+		getAppLogger("router").error("Route boundary failed", {
+			error,
+			boundary: "route",
+		});
 	}, [error]);
 
 	return (
@@ -143,6 +150,7 @@ export function ErrorScreen({ error, reset }: ErrorComponentProps) {
 			title="This page didn't load."
 			description="The error has been logged. Nothing you had saved was changed."
 			note="Your balances are safe."
+			supplement={<StatusPagePrompt />}
 			detail={error instanceof Error ? error.message : String(error)}
 			actions={
 				<>
