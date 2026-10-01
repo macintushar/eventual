@@ -135,6 +135,9 @@ test("two people join, split expenses, settle, and net balances across groups", 
 
 		// The first expense is entered via the actual composer.
 		await a.page.goto(`/app/groups/${first.id}`);
+		// The dialog opens from a React handler; a click before hydration is
+		// silently dropped (slow CI runners lose this race).
+		await waitForHydration(a.page, "main button");
 		await a.page.getByRole("button", { name: "Add expense" }).first().click();
 		const composer = a.page.getByRole("dialog", { name: "Add an expense" });
 		await composer.getByLabel("Description").fill("Dinner together");
@@ -170,6 +173,8 @@ test("two people join, split expenses, settle, and net balances across groups", 
 		// B records payment through the UI; both independently signed-in users see it.
 		await b.page.goto(`/app/groups/${first.id}`);
 		await b.page.waitForLoadState("networkidle");
+		// Tab switches are Radix handlers: hydration must land first.
+		await waitForHydration(b.page, "main button");
 		await b.page.getByRole("tab", { name: "Balances" }).click();
 		await b.page.getByRole("button", { name: "Confirm paid" }).click();
 		const settlementDialog = b.page.getByRole("dialog", {
