@@ -247,6 +247,11 @@ export async function acceptInvitation(
 							[...groupIds].every((affected) => affected === groupId),
 					)
 				: null;
+		if (guestId && !merged)
+			throw new AppError(
+				"CONFLICT",
+				"This guest could not be transferred. Ask an admin to resolve their identity across groups before accepting.",
+			);
 		const existing = await tx.query.member.findFirst({
 			where: and(
 				eq(member.organizationId, groupId),

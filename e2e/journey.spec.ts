@@ -174,7 +174,10 @@ test("two people join, split expenses, settle, and net balances across groups", 
 		await b.page.goto(`/app/groups/${first.id}`);
 		await b.page.waitForLoadState("networkidle");
 		// Tab switches are Radix handlers: hydration must land first.
-		await waitForHydration(b.page, "main button");
+		await waitForHydration(
+			b.page,
+			b.page.getByRole("tab", { name: "Balances" }),
+		);
 		await b.page.getByRole("tab", { name: "Balances" }).click();
 		await b.page.getByRole("button", { name: "Confirm paid" }).click();
 		const settlementDialog = b.page.getByRole("dialog", {

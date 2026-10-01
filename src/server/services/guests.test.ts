@@ -297,3 +297,145 @@ test("any member can record a repayment between other members", async () => {
 		f.client.close();
 	}
 });
+
+test("an unmatched email cannot claim a guest through their phone", async () => {
+	const f = await fixture();
+	try {
+		const guest = await addMember(f.owner, {
+			groupId: "G",
+			name: "Guest",
+			phone: "+919876543210",
+			email: "original@example.com",
+		});
+		await assert.rejects(
+			addMember(f.owner, {
+				groupId: "G",
+				name: "Other",
+				phone: "+919876543210",
+				email: "other@example.com",
+			}),
+			/Email and phone identify different people/,
+		);
+		const again = await addMember(f.owner, {
+			groupId: "G",
+			name: "Guest",
+			phone: "+919876543210",
+			email: "original@example.com",
+		});
+		assert.equal(again.userId, guest.userId);
+		assert.equal((await f.db.query.invitation.findMany()).length, 1);
+	} finally {
+		f.client.close();
+	}
+});
+
+test("correcting an invitation preserves its admin or owner role", async () => {
+	for (const role of ["admin", "owner"] as const) {
+		const f = await fixture();
+		try {
+			const guest = await addMember(f.owner, {
+				groupId: "G",
+				name: "Guest",
+				email: "typo@example.com",
+				role,
+			});
+			await updateGuest(f.owner, {
+				groupId: "G",
+				userId: guest.userId,
+				email: "x@example.com",
+			});
+			const pending = await f.db.query.invitation.findFirst({
+				where: eq(schema.invitation.status, "pending"),
+			});
+			assert.equal(pending?.role, role);
+			assert.ok(pending);
+			await acceptInvitation(f.x, { invitationId: pending.id });
+			const joined = await f.db.query.member.findFirst({
+				where: eq(schema.member.userId, "X"),
+			});
+			assert.equal(joined?.role, role);
+		} finally {
+			f.client.close();
+		}
+	}
+});
+
+test("accepting a shared guest invitation refuses without leaving a duplicate member", async () => {
+	const f = await fixture();
+	try {
+		const guest = await addMember(f.owner, {
+			groupId: "G",
+			name: "Guest",
+			email: "new@example.com",
+		});
+		await hotel(f.owner, guest.userId);
+		const now = new Date();
+		await f.db
+			.insert(schema.organization)
+			.values({ id: "H", name: "Other", slug: "other", createdAt: now });
+		await f.db.insert(schema.member).values({
+			id: "m-H",
+			organizationId: "H",
+			userId: guest.userId,
+			role: "member",
+			createdAt: now,
+		});
+		// Account creation occurs after the guest invitation was issued.
+		await f.db
+			.update(schema.user)
+			.set({ email: "new@example.com" })
+			.where(eq(schema.user.id, "X"));
+		const target = {
+			...f.x,
+			user: { ...f.x.user, email: "new@example.com" },
+		} as Ctx;
+		assert.ok(guest.invitation);
+		await assert.rejects(
+			acceptInvitation(target, { invitationId: guest.invitation.invitationId }),
+			/could not be transferred/,
+		);
+		assert.equal((await f.db.query.invitation.findFirst())?.status, "pending");
+		assert.equal(
+			await f.db.query.member.findFirst({
+				where: eq(schema.member.userId, "X"),
+			}),
+			undefined,
+		);
+		assert.ok(
+			await f.db.query.expenseShare.findFirst({
+				where: eq(schema.expenseShare.userId, guest.userId),
+			}),
+		);
+	} finally {
+		f.client.close();
+	}
+});
+
+test("an admin cannot redirect an owner invitation", async () => {
+	const f = await fixture();
+	try {
+		const guest = await addMember(f.owner, {
+			groupId: "G",
+			name: "Guest",
+			email: "typo@example.com",
+			role: "owner",
+		});
+		await f.db
+			.update(schema.member)
+			.set({ role: "admin" })
+			.where(eq(schema.member.userId, "M"));
+		await assert.rejects(
+			updateGuest(f.member, {
+				groupId: "G",
+				userId: guest.userId,
+				email: "x@example.com",
+			}),
+			/Only owners can reissue/,
+		);
+		const pending = await f.db.query.invitation.findFirst();
+		assert.equal(pending?.email, "typo@example.com");
+		assert.equal(pending?.status, "pending");
+	} finally {
+		f.client.close();
+	}
+});

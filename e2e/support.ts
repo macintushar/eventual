@@ -3,6 +3,7 @@ import {
 	type Browser,
 	type BrowserContext,
 	expect,
+	type Locator,
 	type Page,
 } from "@playwright/test";
 
@@ -18,7 +19,17 @@ export async function account(browser: Browser) {
 
 // TanStack Start streams the HTML before React attaches handlers in dev mode.
 // Do not click SSR-only forms/buttons: their native fallback can submit a GET.
-export async function waitForHydration(page: Page, selector: string) {
+export async function waitForHydration(page: Page, selector: string | Locator) {
+	if (typeof selector !== "string") {
+		await expect
+			.poll(() =>
+				selector.evaluate((element) =>
+					Object.keys(element).some((key) => key.startsWith("__reactProps$")),
+				),
+			)
+			.toBe(true);
+		return;
+	}
 	await page.waitForFunction((css) => {
 		const element = document.querySelector(css);
 		return (

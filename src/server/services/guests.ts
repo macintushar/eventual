@@ -74,8 +74,8 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 				})
 			: undefined;
 		if (phone) {
-			// Guests keep their address on the invitation, so an email with no
-			// account can still belong to the guest this phone identifies.
+			// An existing email lookup (including a pending invitation) must
+			// agree with the phone; a new address cannot prove guest ownership.
 			if (person && person.id !== phone.userId)
 				throw new AppError(
 					"CONFLICT",
@@ -87,7 +87,7 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 				});
 				if (!phonePerson)
 					throw new AppError("CONFLICT", "Phone identity has no user");
-				if (input.email && !phonePerson.isGuest)
+				if (input.email)
 					throw new AppError(
 						"CONFLICT",
 						"Email and phone identify different people",
@@ -333,6 +333,15 @@ export async function updateGuest(ctx: Ctx, raw: UpdateGuestInput) {
 				: guest.email;
 			const currentEmail = pending[0]?.email ?? legacyEmail;
 			if (input.email !== currentEmail) {
+				if (
+					input.email &&
+					pending[0]?.role === "owner" &&
+					mine.role !== "owner"
+				)
+					throw new AppError(
+						"FORBIDDEN",
+						"Only owners can reissue an owner invitation",
+					);
 				if (input.email) {
 					const owner = await tx.query.user.findFirst({
 						where: sql`lower(trim(${s.user.email})) = ${input.email}`,
@@ -384,7 +393,7 @@ export async function updateGuest(ctx: Ctx, raw: UpdateGuestInput) {
 					invite = await ensureInvitation(tx, ctx, {
 						groupId: input.groupId,
 						email: input.email,
-						role: "member",
+						role: (pending[0]?.role ?? "member") as Role,
 						guestUserId: guest.id,
 					});
 				changed.push("email");

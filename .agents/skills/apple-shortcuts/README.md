@@ -1,3 +1,7 @@
+# Eventual shortcut tooling
+
+Use [SKILL.md](SKILL.md) for the working local TypeScript build and test workflow. The documents below describe an external compiler project and are retained as historical references; their Python tooling and catalogs are not bundled here.
+
 # Documentation
 
 ## Guides
