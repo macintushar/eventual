@@ -14,6 +14,7 @@ import {
 	listMembers,
 	setSharePaid,
 	updateGuest,
+	updateMemberRole,
 } from "#/server/services/app";
 
 async function fixture() {
@@ -412,57 +413,68 @@ test("accepting a shared guest invitation refuses without leaving a duplicate me
 });
 
 test("a guest who claimed their account can still accept their invitation", async () => {
-	const f = await fixture();
-	try {
-		const guest = await addMember(f.owner, {
-			groupId: "G",
-			name: "Legacy",
-			email: "legacy@example.com",
-		});
-		await hotel(f.owner, guest.userId);
-		assert.ok(guest.invitation);
-		// The legacy claim flow keeps the guest's user ID but ends guest status.
-		await f.db
-			.update(schema.user)
-			.set({
-				isGuest: false,
-				claimedAt: new Date(),
+	// Invited as admin: accepting grants it unless an owner changed the role since.
+	for (const [changedTo, expected] of [
+		[null, "admin"],
+		["member", "member"],
+	] as const) {
+		const f = await fixture();
+		try {
+			const guest = await addMember(f.owner, {
+				groupId: "G",
+				name: "Legacy",
 				email: "legacy@example.com",
-				emailVerified: true,
-			})
-			.where(eq(schema.user.id, guest.userId));
-		// A role change made after the invitation was sent must survive accepting it.
-		await f.db
-			.update(schema.member)
-			.set({ role: "admin" })
-			.where(eq(schema.member.userId, guest.userId));
-		const claimed = {
-			...f.owner,
-			user: {
-				...f.owner.user,
-				id: guest.userId,
-				email: "legacy@example.com",
-			},
-		} as Ctx;
-		await acceptInvitation(claimed, {
-			invitationId: guest.invitation.invitationId,
-		});
-		assert.equal((await f.db.query.invitation.findFirst())?.status, "accepted");
-		const rows = await f.db.query.member.findMany({
-			where: and(
-				eq(schema.member.organizationId, "G"),
-				eq(schema.member.userId, guest.userId),
-			),
-		});
-		assert.equal(rows.length, 1);
-		assert.equal(rows[0].role, "admin");
-		assert.ok(
-			await f.db.query.expenseShare.findFirst({
-				where: eq(schema.expenseShare.userId, guest.userId),
-			}),
-		);
-	} finally {
-		f.client.close();
+				role: "admin",
+			});
+			await hotel(f.owner, guest.userId);
+			assert.ok(guest.invitation);
+			// The legacy claim flow keeps the guest's user ID but ends guest status.
+			await f.db
+				.update(schema.user)
+				.set({
+					isGuest: false,
+					claimedAt: new Date(),
+					email: "legacy@example.com",
+					emailVerified: true,
+				})
+				.where(eq(schema.user.id, guest.userId));
+			if (changedTo)
+				await updateMemberRole(f.owner, {
+					groupId: "G",
+					userId: guest.userId,
+					role: changedTo,
+				});
+			const claimed = {
+				...f.owner,
+				user: {
+					...f.owner.user,
+					id: guest.userId,
+					email: "legacy@example.com",
+				},
+			} as Ctx;
+			await acceptInvitation(claimed, {
+				invitationId: guest.invitation.invitationId,
+			});
+			assert.equal(
+				(await f.db.query.invitation.findFirst())?.status,
+				"accepted",
+			);
+			const rows = await f.db.query.member.findMany({
+				where: and(
+					eq(schema.member.organizationId, "G"),
+					eq(schema.member.userId, guest.userId),
+				),
+			});
+			assert.equal(rows.length, 1);
+			assert.equal(rows[0].role, expected, `changed to ${changedTo}`);
+			assert.ok(
+				await f.db.query.expenseShare.findFirst({
+					where: eq(schema.expenseShare.userId, guest.userId),
+				}),
+			);
+		} finally {
+			f.client.close();
+		}
 	}
 });
 

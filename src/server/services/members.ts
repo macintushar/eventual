@@ -217,6 +217,18 @@ export async function updateMemberRole(
 			.update(member)
 			.set({ role: input.role })
 			.where(eq(member.id, target.id));
+		// Keep a guest's pending invitation in step, so accepting it later grants
+		// the role they hold now rather than the one they were first invited with.
+		await tx
+			.update(invitation)
+			.set({ role: input.role })
+			.where(
+				and(
+					eq(invitation.organizationId, input.groupId),
+					eq(invitation.guestUserId, input.userId),
+					eq(invitation.status, "pending"),
+				),
+			);
 		await recordActivity(
 			tx,
 			activityRow(
