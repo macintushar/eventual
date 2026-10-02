@@ -1,5 +1,12 @@
 import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
-import { expense, expenseShare, member, user } from "#/db/schema";
+import {
+	channelIdentity,
+	expense,
+	expenseShare,
+	invitation,
+	member,
+	user,
+} from "#/db/schema";
 import type { Ctx } from "#/server/context";
 import { people } from "#/server/domain/activity";
 import type { Participant } from "#/server/domain/split";
@@ -19,7 +26,7 @@ import {
 
 export async function listMembers(ctx: Ctx, input: { groupId: string }) {
 	await membership(ctx, input.groupId);
-	return ctx.db
+	const rows = await ctx.db
 		.select({
 			id: member.id,
 			userId: user.id,
@@ -38,6 +45,45 @@ export async function listMembers(ctx: Ctx, input: { groupId: string }) {
 		.innerJoin(user, eq(member.userId, user.id))
 		.where(eq(member.organizationId, input.groupId))
 		.orderBy(asc(user.name));
+	// Guests have no profile of their own, so show the contact details admins
+	// gave them: the phone on file and the address their invitation went to.
+	const guestIds = rows.filter((row) => row.isGuest).map((row) => row.userId);
+	const [phones, invites] = guestIds.length
+		? await Promise.all([
+				ctx.db
+					.select({
+						userId: channelIdentity.userId,
+						address: channelIdentity.address,
+					})
+					.from(channelIdentity)
+					.where(
+						and(
+							inArray(channelIdentity.userId, guestIds),
+							eq(channelIdentity.channel, "phone"),
+						),
+					),
+				ctx.db
+					.select({
+						guestUserId: invitation.guestUserId,
+						email: invitation.email,
+					})
+					.from(invitation)
+					.where(
+						and(
+							eq(invitation.organizationId, input.groupId),
+							eq(invitation.status, "pending"),
+							inArray(invitation.guestUserId, guestIds),
+						),
+					),
+			])
+		: [[], []];
+	return rows.map((row) => ({
+		...row,
+		phone: phones.find((phone) => phone.userId === row.userId)?.address ?? null,
+		invitedEmail:
+			invites.find((invite) => invite.guestUserId === row.userId)?.email ??
+			null,
+	}));
 }
 
 async function assertCanExit(ctx: Ctx, groupId: string, userId: string) {
@@ -171,6 +217,18 @@ export async function updateMemberRole(
 			.update(member)
 			.set({ role: input.role })
 			.where(eq(member.id, target.id));
+		// Keep a guest's pending invitation in step, so accepting it later grants
+		// the role they hold now rather than the one they were first invited with.
+		await tx
+			.update(invitation)
+			.set({ role: input.role })
+			.where(
+				and(
+					eq(invitation.organizationId, input.groupId),
+					eq(invitation.guestUserId, input.userId),
+					eq(invitation.status, "pending"),
+				),
+			);
 		await recordActivity(
 			tx,
 			activityRow(

@@ -1,7 +1,7 @@
 import { APIError } from "better-auth/api";
-
 import { type Database, db } from "#/db";
 import { auth, presentedApiKey } from "#/lib/auth";
+import { getAppLogger } from "#/lib/logging";
 import { AppError } from "#/server/errors";
 
 export type AuthSession = NonNullable<
@@ -24,8 +24,14 @@ export async function buildContext(request: Request): Promise<Ctx> {
 				throw new AppError("UNAUTHENTICATED", error.message);
 			throw error;
 		});
-	if (!session) throw new AppError("UNAUTHENTICATED", "Sign in to continue");
+	if (!session) {
+		getAppLogger("auth").debug("Authentication required");
+		throw new AppError("UNAUTHENTICATED", "Sign in to continue");
+	}
 	const presentedKey = presentedApiKey(request.headers);
+	getAppLogger("auth").debug("Request authenticated", {
+		authMethod: presentedKey ? "api-key" : "session",
+	});
 	return {
 		db,
 		user: session.user,

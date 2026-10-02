@@ -30,6 +30,16 @@ export const addMemberSchema = z.object({
 	email: normalizedEmailSchema.optional(),
 	phone: phoneSchema.optional(),
 	weight: memberWeightSchema.optional(),
+	/** Role they get once they accept the invitation an email sends. */
+	role: z.enum(["owner", "admin", "member"]).optional(),
+});
+/** Contact details an admin can correct on a guest. `null` clears a field. */
+export const updateGuestSchema = z.object({
+	groupId: z.string().min(1),
+	userId: z.string().min(1),
+	name: z.string().trim().min(1).max(100).optional(),
+	email: normalizedEmailSchema.nullable().optional(),
+	phone: phoneSchema.nullable().optional(),
 });
 export const updateMemberWeightSchema = z.object({
 	groupId: z.string().min(1),
@@ -56,3 +66,4 @@ export const claimGuestSchema = z.object({
 export type AddMemberInput = z.infer<typeof addMemberSchema>;
 export type UpdateMemberWeightInput = z.infer<typeof updateMemberWeightSchema>;
 export type MergeGuestInput = z.infer<typeof mergeGuestSchema>;
+export type UpdateGuestInput = z.input<typeof updateGuestSchema>;

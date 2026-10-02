@@ -71,6 +71,8 @@ export const sharePaidSchema = z.object({
 });
 export const createSettlementSchema = z.object({
 	groupId: idSchema,
+	/** Defaults to the caller. Recording someone else's payment needs permission. */
+	fromUserId: idSchema.optional(),
 	toUserId: idSchema,
 	amountMinor: z.number().int().safe().positive(),
 	currency: currencySchema,
@@ -97,10 +99,14 @@ export const pageSchema = z.object({
 	limit: z.coerce.number().int().min(1).max(100).default(30),
 });
 
-/** Apple Shortcut quick log: major units in, even split across the whole group. */
+/**
+ * Apple Shortcut quick log: major units in, even split across the whole
+ * group. The payer defaults to the caller so the shortcut can skip the
+ * members lookup; pass paidByUserId to log for someone else.
+ */
 export const quickExpenseSchema = z.object({
 	groupId: idSchema,
-	paidByUserId: idSchema,
+	paidByUserId: idSchema.optional(),
 	amount: z.union([z.number(), z.string()]),
 	currency: currencySchema.default("INR"),
 	description: z.string().trim().min(1).max(200).optional(),

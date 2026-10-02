@@ -158,10 +158,18 @@ export const invitation = sqliteTable(
 		inviterId: text("inviter_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		/**
+		 * The guest this invitation stands in for. The real address lives here,
+		 * never on the guest, and accepting merges the guest into the account.
+		 */
+		guestUserId: text("guest_user_id").references(() => user.id, {
+			onDelete: "set null",
+		}),
 	},
 	(table) => [
 		index("invitation_organizationId_idx").on(table.organizationId),
 		index("invitation_email_idx").on(table.email),
+		index("invitation_guestUserId_idx").on(table.guestUserId),
 	],
 );
 
@@ -381,6 +389,7 @@ export const activityTypes = [
 	"member.removed",
 	"member.left",
 	"member.role_changed",
+	"member.updated",
 	"expense.created",
 	"expense.updated",
 	"expense.deleted",

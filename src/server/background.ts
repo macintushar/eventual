@@ -1,4 +1,5 @@
 import { getRequest } from "@tanstack/react-start/server";
+import { getAppLogger } from "#/lib/logging";
 
 import { reportError } from "#/server/error-reporting";
 
@@ -15,7 +16,11 @@ export function runInBackground(
 	task: Promise<unknown>,
 	tags: Record<string, string | number | boolean | undefined>,
 ) {
-	const guarded = task.catch((error) => reportError(error, tags));
+	const guarded = task
+		.then(() => {
+			getAppLogger("background").debug("Background task completed", tags);
+		})
+		.catch((error) => reportError(error, tags));
 	try {
 		(getRequest() as WaitUntilRequest).waitUntil?.(guarded);
 	} catch {

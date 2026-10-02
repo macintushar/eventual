@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { PublicDock } from "#/components/dock";
+import { StatusPageCallout, useStatusPageUrl } from "#/components/status-page";
 import { ThemeToggle } from "#/components/theme";
 import { Button } from "#/components/ui/button";
 import { Separator } from "#/components/ui/separator";
@@ -90,12 +91,7 @@ export function PublicHeader({
 	);
 }
 
-/**
- * The public chrome around a page: the shared header, a main column, an
- * optional footer, and the dock. Auth, invite and recovery screens use the
- * same shell as the landing page so the top of the product never jumps.
- */
-/** Tagline on the left; page links, then Privacy and Terms, on the right. */
+/** Tagline on the left; page links, then Privacy, Terms and status, on the right. */
 export function PublicFooter({
 	tagline,
 	children,
@@ -106,15 +102,21 @@ export function PublicFooter({
 	return (
 		<div className="flex flex-wrap items-center justify-between gap-3">
 			<span>{tagline}</span>
-			<nav className="flex flex-wrap gap-4">
+			<nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
 				{children}
 				<Link to="/privacy">Privacy</Link>
 				<Link to="/terms">Terms</Link>
+				<StatusPageCallout />
 			</nav>
 		</div>
 	);
 }
 
+/**
+ * The public chrome around a page: the shared header, a main column, an
+ * optional footer, and the dock. Auth, invite and recovery screens use the
+ * same shell as the landing page so the top of the product never jumps.
+ */
 export function PublicPage({
 	user,
 	actions,
@@ -128,16 +130,23 @@ export function PublicPage({
 	mainClassName?: string;
 	children: ReactNode;
 }) {
+	const statusPageUrl = useStatusPageUrl();
+	// Auth and recovery screens pass no footer. When this instance publishes a
+	// status page, give them the same footer as the rest of the site.
+	const showFooter = Boolean(footer) || Boolean(statusPageUrl);
+
 	return (
 		<div className="pad-dock flex min-h-[100dvh] flex-col">
 			<PublicHeader wordmarkTo={user ? "/app" : "/"} actions={actions} />
 			<main className={cn("page-wrap flex flex-1 flex-col", mainClassName)}>
 				{children}
 			</main>
-			{footer ? (
+			{showFooter ? (
 				<footer className="page-wrap py-8 text-xs text-muted-foreground">
 					<Separator className="mb-8" />
-					{footer}
+					{footer ?? (
+						<PublicFooter tagline="Eventual · expenses without the spreadsheet." />
+					)}
 				</footer>
 			) : null}
 			<PublicDock user={user ?? null} />

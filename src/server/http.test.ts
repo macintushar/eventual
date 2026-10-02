@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { env } from "#/env";
 import { dispatchApi } from "#/server/http";
 import { openApiDocument } from "#/server/openapi";
 
@@ -18,6 +19,8 @@ test("public v1 endpoints and private cache headers", async () => {
 	assert.equal(site.status, 200);
 	assert.equal(site.headers.get("cache-control"), "private, max-age=5");
 	assert.match(site.headers.get("vary") ?? "", /Cookie/);
+	const siteBody: { statusPageUrl: string | null } = await site.json();
+	assert.equal(siteBody.statusPageUrl, env.STATUS_PAGE_URL);
 });
 
 test("web aggregates require a session cookie", async () => {

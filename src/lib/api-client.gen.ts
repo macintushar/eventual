@@ -59,6 +59,10 @@ export const routes = {
 		method: "PATCH",
 		path: "/v1/groups/:groupId/members/:userId/weight",
 	},
+	"member.updateGuest": {
+		method: "PATCH",
+		path: "/v1/groups/:groupId/guests/:userId",
+	},
 	"member.merge": {
 		method: "POST",
 		path: "/v1/members/merge",
@@ -134,6 +138,14 @@ export const routes = {
 	"category.suggest": {
 		method: "GET",
 		path: "/v1/groups/:groupId/categories/suggest",
+	},
+	"category.backfillPreview": {
+		method: "GET",
+		path: "/v1/groups/:groupId/categories/backfill",
+	},
+	"category.apply": {
+		method: "POST",
+		path: "/v1/groups/:groupId/categories/apply",
 	},
 	"category.create": {
 		method: "POST",

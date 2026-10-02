@@ -1,0 +1,70 @@
+/*
+ * Eventual "paper desk" theme for the OpenStatus status page (STATUS_PAGE_URL).
+ * Mirrors the tokens in src/styles.css. Paste into https://themes.openstatus.dev/?b=true
+ * (builder → Paste) to preview. Only OpenStatus variable names are used; the
+ * builder drops anything else.
+ */
+:root {
+  --background: #f3f6f9;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #e8ecf0;
+  --secondary-foreground: #000000;
+  --muted: #e8ecf0;
+  --muted-foreground: #46403f;
+  --accent: #e6ebf0;
+  --accent-foreground: #000000;
+  --border: #dbd8d6;
+  --input: #bbb8b7;
+  --ring: #3a9edd;
+  --radius: 0.875rem;
+
+  /* Status: operational / degraded / outage / monitoring. All >= 3:1 on the canvas. */
+  --success: #1f6b45;
+  --warning: #9a6f00;
+  --destructive: #b42318;
+  --info: #1c5f8f;
+
+  /* Response-time percentiles, fast -> slow: tape blue -> badge purple -> cardboard -> red. */
+  --chart-1: #3a9edd;
+  --chart-2: #1c5f8f;
+  --chart-3: #5253a4;
+  --chart-4: #c59e7c;
+  --chart-5: #b42318;
+}
+
+.dark {
+  --background: #111111;
+  --foreground: #f3f3f1;
+  --card: #1a1a1a;
+  --card-foreground: #f3f3f1;
+  --popover: #1e1e1e;
+  --popover-foreground: #f3f3f1;
+  --primary: #f3f6f9;
+  --primary-foreground: #000000;
+  --secondary: #252525;
+  --secondary-foreground: #f3f3f1;
+  --muted: #222222;
+  --muted-foreground: #b5b1af;
+  --accent: #2a2a2a;
+  --accent-foreground: #f3f3f1;
+  --border: #2e2e2e;
+  --input: #4a4a4a;
+  --ring: #6bbcec;
+
+  --success: #6fcb95;
+  --warning: #e3cf4a;
+  --destructive: #e8675c;
+  --info: #6bbcec;
+
+  --chart-1: #a6d4f2;
+  --chart-2: #6bbcec;
+  --chart-3: #8e8fe0;
+  --chart-4: #d9b594;
+  --chart-5: #e8675c;
+}

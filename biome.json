@@ -8,6 +8,9 @@
 	"files": {
 		"ignoreUnknown": false,
 		"includes": [
+			"**/e2e/**/*",
+			"**/playwright.config.ts",
+			"**/scripts/run-e2e.mjs",
 			"**/src/**/*",
 			"**/.vscode/**/*",
 			"**/index.html",
@@ -28,6 +31,12 @@
 			"recommended": true
 		}
 	},
+	"overrides": [
+		{
+			"includes": ["**/e2e/**/*"],
+			"linter": { "rules": { "suspicious": { "noExplicitAny": "off" } } }
+		}
+	],
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"

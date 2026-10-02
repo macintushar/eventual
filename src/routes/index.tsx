@@ -149,7 +149,7 @@ const integrations: {
 	{
 		logos: ["shortcuts"],
 		title: "Log it before you forget",
-		text: "Run the Apple Shortcut from your iPhone, Watch or Siri. Pick the group, who paid and the amount. It splits evenly, and you can fine-tune it later.",
+		text: "Run the Apple Shortcut from your Action Button, Watch or Siri and just type an amount — or let it read a bank SMS. It splits evenly, and you can fine-tune it later.",
 		hash: "shortcut",
 	},
 	{

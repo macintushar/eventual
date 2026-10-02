@@ -1,6 +1,8 @@
+import "../instrument.server";
 import { db } from "#/db";
 import * as schema from "#/db/schema";
 import { auth } from "#/lib/auth";
+import { getAppLogger } from "#/lib/logging";
 import {
 	expenseRecipients,
 	people,
@@ -215,6 +217,6 @@ await insertActivity(
 	people(firstShares[debtorIndex].userId, payerId),
 );
 
-console.log("Seed complete. Login credentials:");
-for (const credential of credentials)
-	console.log(`${credential.email} / ${credential.password}`);
+getAppLogger("database", "seed").info("Seed completed", {
+	accountCount: credentials.length,
+});

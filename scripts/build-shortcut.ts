@@ -1,211 +1,470 @@
 /**
- * Builds `public/eventual.shortcut`: pick a group, pick who paid, type the
- * amount. Import asks for the user's API key and Eventual URL.
+ * Builds `public/eventual.shortcut`: the fastest way to get an expense into
+ * Eventual from an Apple device.
+ *
+ * Three ways in:
+ *  - Action Button / Siri / Home Screen (no input): asks only for the
+ *    amount. If the clipboard holds a bank SMS, the parsed amount is
+ *    pre-filled — confirm and done. The payer defaults to you, and the group
+ *    is asked once then remembered on device, so a normal log is one prompt.
+ *  - Share Sheet or a Messages automation (text input): parses a bank SMS —
+ *    amount, currency and merchant — and logs without asking. A
+ *    notification confirms what was logged, or why it wasn't.
+ *  - Watch: the same one-prompt flow, minus the clipboard and the on-device
+ *    group cache (file and clipboard actions don't exist on watchOS).
+ *
+ * Import asks for the user's API key and Eventual URL.
  *
  * macOS only — signing needs the `shortcuts` CLI.
  *   bun run shortcut:build [https://your-eventual-url]
  */
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const defaultOrigin = process.argv[2] ?? process.env.BETTER_AUTH_URL ?? "";
-const output = join(import.meta.dirname, "../public/eventual.shortcut");
+import {
+	CONDITION,
+	createBuilder,
+	dictionary,
+	type Ref,
+	signShortcut,
+	text,
+	variable,
+} from "./shortcut-lib";
 
-/** Shortcuts marks an inline variable with U+FFFC plus a range attachment. */
-const OBJECT_REPLACEMENT = "￼";
+export function buildShortcut(defaultOrigin = "") {
+	const { actions, action, varRef, setVar, beginIf, otherwise, endIf } =
+		createBuilder();
 
-type Ref = { uuid: string; name: string };
-
-const attachment = (ref: Ref) => ({
-	Type: "ActionOutput",
-	OutputUUID: ref.uuid,
-	OutputName: ref.name,
-});
-
-const variable = (ref: Ref) => ({
-	Value: attachment(ref),
-	WFSerializationType: "WFTextTokenAttachment",
-});
-
-function text(...parts: (string | Ref)[]) {
-	let string = "";
-	const attachmentsByRange: Record<string, ReturnType<typeof attachment>> = {};
-	for (const part of parts) {
-		if (typeof part === "string") {
-			string += part;
-			continue;
-		}
-		attachmentsByRange[`{${string.length}, 1}`] = attachment(part);
-		string += OBJECT_REPLACEMENT;
+	/** Text action whose output is stored straight into a variable. */
+	function setText(name: string, ...parts: (string | Ref)[]) {
+		setVar(
+			name,
+			action("gettext", { WFTextActionText: text(...parts) }, "Text"),
+		);
 	}
-	return {
-		Value: { string, attachmentsByRange },
-		WFSerializationType: "WFTextTokenString",
-	};
-}
 
-function dictionary(
-	items: { key: string; value: (string | Ref)[]; number?: boolean }[],
-) {
-	return {
-		Value: {
-			WFDictionaryFieldValueItems: items.map((item) => ({
-				WFItemType: item.number ? 3 : 0,
-				WFKey: text(item.key),
-				WFValue: text(...item.value),
-			})),
+	/** Match Text on a variable, returning the first match when there is one. */
+	function firstMatch(
+		source: string,
+		pattern: string,
+		then: (match: Ref) => void,
+	) {
+		const matches = action(
+			"text.match",
+			{
+				text: text(varRef(source)),
+				WFTextMatchPattern: pattern,
+				WFTextMatchCaseSensitive: false,
+			},
+			"Matches",
+		);
+		const matchIf = beginIf(matches, CONDITION.hasValue);
+		then(
+			action(
+				"getitemfromlist",
+				{ WFInput: variable(matches), WFItemSpecifier: "First Item" },
+				"Item from List",
+			),
+		);
+		endIf(matchIf);
+	}
+
+	// ——— Bank SMS parsing ———
+	// Match Text uses ICU regular expressions. Lookarounds keep group 0 exactly
+	// the piece we want, since Match Text returns whole matches.
+	/** The figure right after a currency marker: "Rs.1,250.00" → "1,250.00". */
+	const AMOUNT_RE =
+		"(?<=(?:Rs\\.?|INR|₹|US\\$|\\$|USD|EUR|€|GBP|£|AED|Dhs?)\\s{0,2})\\d[\\d,]*(?:\\.\\d{1,2})?";
+	/** The currency marker itself, when an amount follows it. */
+	const CURRENCY_RE =
+		"(?:Rs\\.?|INR|₹|US\\$|\\$|USD|EUR|€|GBP|£|AED|Dhs?)(?=\\s{0,2}\\d[\\d,]*(?:\\.\\d{1,2})?)";
+	/**
+	 * The words after "at"/"to"/"towards", stopping before dates, references
+	 * and balances: "… at AMAZON PAY on 27-Sep" → "AMAZON PAY".
+	 */
+	const MERCHANT_RE =
+		"(?<=\\b(?:towards|at|to)\\s)[A-Za-z0-9][A-Za-z0-9&*'# -]{0,38}?[A-Za-z0-9&*'-](?=\\s+(?:on|dt|dated|ref|via|avl|bal|info|call)\\b|[.,;]|$)";
+	/** Currency tokens, uppercased before lookup, to ISO 4217 codes. */
+	const CURRENCY_MAP = dictionary(
+		(
+			[
+				["RS", "INR"],
+				["RS.", "INR"],
+				["INR", "INR"],
+				["₹", "INR"],
+				["US$", "USD"],
+				["$", "USD"],
+				["USD", "USD"],
+				["EUR", "EUR"],
+				["€", "EUR"],
+				["GBP", "GBP"],
+				["£", "GBP"],
+				["AED", "AED"],
+				["DH", "AED"],
+				["DHS", "AED"],
+			] as const
+		).map(([key, value]) => ({ key, value: [value] })),
+	);
+
+	const CACHE_PATH = "Shortcuts/Eventual/last-group.txt";
+
+	// ——— Setup ———
+	// The first action receives the shortcut input; keep it before the import
+	// questions' Text actions so their indexes stay stable.
+	action(
+		"setvariable",
+		{
+			WFVariableName: "Input",
+			WFInput: {
+				Value: { Type: "ExtensionInput" },
+				WFSerializationType: "WFTextTokenAttachment",
+			},
 		},
-		WFSerializationType: "WFDictionaryFieldValue",
-	};
-}
+		"Input",
+	); // index 0
+	const apiKey = action("gettext", { WFTextActionText: "" }, "Text"); // index 1
+	const origin = action("gettext", { WFTextActionText: defaultOrigin }, "Text"); // index 2
+	const auth = () => dictionary([{ key: "x-api-key", value: [apiKey] }]);
 
-const actions: object[] = [];
-
-function action(
-	identifier: string,
-	parameters: Record<string, unknown>,
-	outputName: string,
-): Ref {
-	const uuid = crypto.randomUUID().toUpperCase();
-	actions.push({
-		WFWorkflowActionIdentifier: `is.workflow.actions.${identifier}`,
-		WFWorkflowActionParameters: { UUID: uuid, ...parameters },
+	// File and clipboard actions don't exist on watchOS.
+	const deviceModel = action(
+		"getdevicedetails",
+		{ WFDeviceDetail: "Device Model" },
+		"Device Model",
+	);
+	const watchIf = beginIf(deviceModel, CONDITION.contains, {
+		string: ["Watch"],
 	});
-	return { uuid, name: outputName };
-}
+	setText("OnWatch", "yes");
+	endIf(watchIf);
 
-const apiKey = action("gettext", { WFTextActionText: "" }, "Text");
-const origin = action("gettext", { WFTextActionText: defaultOrigin }, "Text");
-const auth = () => dictionary([{ key: "x-api-key", value: [apiKey] }]);
+	// ——— What are we parsing? ———
+	// Text input (Share Sheet or a Messages automation) if there is any —
+	// coerced to text so a Message object becomes its body — else the clipboard
+	// as a manual "copy the SMS first" fallback.
+	const inputIf = beginIf(varRef("Input"), CONDITION.hasValue);
+	setText("Source", varRef("Input"));
+	otherwise(inputIf);
+	const clipboardIf = beginIf(varRef("OnWatch"), CONDITION.noValue);
+	setVar("Source", action("getclipboard", {}, "Clipboard"));
+	endIf(clipboardIf);
+	endIf(inputIf);
 
-function getJson(...url: (string | Ref)[]) {
-	const response = action(
+	// ——— Parse amount, currency, merchant ———
+	firstMatch("Source", AMOUNT_RE, (match) =>
+		setVar(
+			"AmountParsed",
+			action(
+				"text.replace",
+				{
+					WFInput: text(match),
+					WFReplaceTextFind: ",",
+					WFReplaceTextReplace: "",
+					WFReplaceTextRegularExpression: false,
+					WFReplaceTextCaseSensitive: false,
+				},
+				"Updated Text",
+			),
+		),
+	);
+
+	firstMatch("Source", CURRENCY_RE, (match) => {
+		const token = action(
+			"text.changecase",
+			{ text: text(match), WFCaseType: "UPPERCASE" },
+			"Text",
+		);
+		const currencyMap = action(
+			"dictionary",
+			{ WFItems: CURRENCY_MAP },
+			"Dictionary",
+		);
+		setVar(
+			"Currency",
+			action(
+				"getvalueforkey",
+				{
+					WFInput: variable(currencyMap),
+					WFGetDictionaryValueType: "Value",
+					WFDictionaryKey: text(token),
+				},
+				"Dictionary Value",
+			),
+		);
+	});
+	const currencyDefaultIf = beginIf(varRef("Currency"), CONDITION.noValue);
+	setText("Currency", "INR");
+	endIf(currencyDefaultIf);
+
+	firstMatch("Source", MERCHANT_RE, (match) => setVar("Description", match));
+	const merchantDefaultIf = beginIf(varRef("Description"), CONDITION.noValue);
+	setText("Description", "Quick expense");
+	endIf(merchantDefaultIf);
+
+	// ——— Amount ———
+	// With text input, log straight away when the amount parsed (a Messages
+	// automation can't wait around for prompts). Run by hand, ask — with the
+	// parsed clipboard amount pre-filled when there is one.
+	const autoIf = beginIf(varRef("Input"), CONDITION.hasValue);
+	function skipMessage(message: string) {
+		action(
+			"notification",
+			{
+				WFNotificationActionTitle: "Eventual",
+				WFNotificationActionBody: message,
+			},
+			"Notification",
+		);
+		action("exit", {}, "Exit");
+	}
+	function match(pattern: string) {
+		return action(
+			"text.match",
+			{
+				text: text(varRef("Source")),
+				WFTextMatchPattern: pattern,
+				WFTextMatchCaseSensitive: false,
+			},
+			"Matches",
+		);
+	}
+	// A completed-spend verb is enough on its own; a bare payment/transaction
+	// noun only counts when the message isn't a due/reminder notice.
+	const completed = match(
+		"\\b(?:debited|charged|spent|paid|purchased?|withdrawn|sent|transferred|used\\s+at)\\b",
+	);
+	const completedIf = beginIf(completed, CONDITION.noValue);
+	const payment = match("\\b(?:payment|debit|txn|transaction)\\b");
+	const paymentIf = beginIf(payment, CONDITION.noValue);
+	skipMessage("Couldn't identify spending in that message — nothing logged.");
+	endIf(paymentIf);
+	const notice = match("\\b(?:due|reminder)\\b");
+	const noticeIf = beginIf(notice, CONDITION.hasValue);
+	skipMessage("That message isn't a completed expense — nothing logged.");
+	endIf(noticeIf);
+	endIf(completedIf);
+	const nonSpending = match(
+		"\\b(?:credited|refund(?:ed)?|reversed|OTP|one[ -]time|verification|declined|failed)\\b",
+	);
+	const nonSpendingIf = beginIf(nonSpending, CONDITION.hasValue);
+	skipMessage("That message isn't a completed expense — nothing logged.");
+	endIf(nonSpendingIf);
+	const autoAmountIf = beginIf(varRef("AmountParsed"), CONDITION.noValue);
+	skipMessage("Couldn't find an amount in that message — nothing logged.");
+	endIf(autoAmountIf);
+	setVar("Amount", varRef("AmountParsed"));
+	otherwise(autoIf);
+	setVar(
+		"Amount",
+		action(
+			"ask",
+			{
+				WFAskActionPrompt: "How much?",
+				WFInputType: "Number",
+				WFAskActionDefaultAnswer: text(varRef("AmountParsed")),
+			},
+			"Provided Input",
+		),
+	);
+	endIf(autoIf);
+
+	// ——— Group ———
+	// The cached group wins while it still exists; a single group selects
+	// itself; otherwise ask once and remember the choice.
+	const groupsResponse = action(
 		"downloadurl",
 		{
-			WFURL: text(...url),
+			WFURL: text(origin, "/api/shortcut/groups"),
 			WFHTTPMethod: "GET",
 			ShowHeaders: true,
 			WFHTTPHeaders: auth(),
 		},
 		"Contents of URL",
 	);
-	return action(
+	setVar(
+		"Groups",
+		action(
+			"detect.dictionary",
+			{ WFInput: variable(groupsResponse) },
+			"Dictionary",
+		),
+	);
+	setVar(
+		"GroupIds",
+		action(
+			"getvalueforkey",
+			{
+				WFInput: variable(varRef("Groups")),
+				WFGetDictionaryValueType: "All Values",
+			},
+			"Dictionary Value",
+		),
+	);
+
+	const cacheReadIf = beginIf(varRef("OnWatch"), CONDITION.noValue);
+	const cachedFile = action(
+		"documentpicker.open",
+		{
+			WFGetFilePath: CACHE_PATH,
+			WFShowFilePicker: false,
+			WFFileErrorIfNotFound: false,
+		},
+		"File",
+	);
+	const cachedFileIf = beginIf(cachedFile, CONDITION.hasValue);
+	setText("CachedGroup", cachedFile);
+	endIf(cachedFileIf);
+	endIf(cacheReadIf);
+
+	// An empty cache would "contain" trivially, so it counts as a miss.
+	setText("KnownGroupIds", varRef("GroupIds"));
+	const cachedIf = beginIf(varRef("KnownGroupIds"), CONDITION.contains, {
+		string: [varRef("CachedGroup")],
+	});
+	const cachedHitIf = beginIf(varRef("CachedGroup"), CONDITION.hasValue);
+	setVar("GroupId", varRef("CachedGroup"));
+	endIf(cachedHitIf);
+	endIf(cachedIf);
+	const pickIf = beginIf(varRef("GroupId"), CONDITION.noValue);
+	const groupCount = action(
+		"count",
+		{
+			WFCountType: "Items",
+			WFInput: variable(varRef("GroupIds")),
+			Input: variable(varRef("GroupIds")),
+		},
+		"Count",
+	);
+	const singleIf = beginIf(groupCount, CONDITION.lessThanOrEqual, {
+		number: 1,
+	});
+	setVar(
+		"GroupId",
+		action(
+			"getitemfromlist",
+			{ WFInput: variable(varRef("GroupIds")), WFItemSpecifier: "First Item" },
+			"Item from List",
+		),
+	);
+	otherwise(singleIf);
+	setVar(
+		"GroupId",
+		action(
+			"choosefromlist",
+			{
+				WFInput: variable(varRef("Groups")),
+				WFChooseFromListActionPrompt: "Which group?",
+			},
+			"Chosen Item",
+		),
+	);
+	endIf(singleIf);
+	const cacheWriteIf = beginIf(varRef("OnWatch"), CONDITION.noValue);
+	action(
+		"documentpicker.save",
+		{
+			WFInput: variable(varRef("GroupId")),
+			WFFileDestinationPath: CACHE_PATH,
+			WFSaveFileOverwrite: true,
+			WFAskWhereToSave: false,
+		},
+		"File",
+	);
+	endIf(cacheWriteIf);
+	endIf(pickIf);
+
+	// ——— Log it ———
+	const response = action(
+		"downloadurl",
+		{
+			WFURL: text(
+				origin,
+				"/api/shortcut/groups/",
+				varRef("GroupId"),
+				"/expenses",
+			),
+			WFHTTPMethod: "POST",
+			ShowHeaders: true,
+			WFHTTPHeaders: auth(),
+			WFHTTPBodyType: "JSON",
+			WFJSONValues: dictionary([
+				{ key: "amount", value: [varRef("Amount")] },
+				{ key: "currency", value: [varRef("Currency")] },
+				{ key: "description", value: [varRef("Description")] },
+			]),
+		},
+		"Contents of URL",
+	);
+	const result = action(
 		"detect.dictionary",
 		{ WFInput: variable(response) },
 		"Dictionary",
 	);
+	const message = action(
+		"getvalueforkey",
+		{
+			WFInput: variable(result),
+			WFGetDictionaryValueType: "Value",
+			WFDictionaryKey: "message",
+		},
+		"Dictionary Value",
+	);
+	action(
+		"notification",
+		{
+			WFNotificationActionTitle: "Eventual",
+			WFNotificationActionBody: text(message),
+		},
+		"Notification",
+	);
+
+	const workflow = {
+		WFWorkflowClientVersion: "2605.0.4",
+		WFWorkflowMinimumClientVersion: 900,
+		WFWorkflowMinimumClientVersionString: "900",
+		WFWorkflowIcon: {
+			WFWorkflowIconStartColor: 431817727,
+			WFWorkflowIconGlyphNumber: 59446,
+		},
+		// ActionExtension + text input puts the shortcut in the Share Sheet and
+		// lets a Messages automation hand it the SMS.
+		WFWorkflowTypes: ["NCWidget", "WatchKit", "ActionExtension"],
+		WFWorkflowInputContentItemClasses: ["WFStringContentItem"],
+		WFWorkflowOutputContentItemClasses: [],
+		WFQuickActionSurfaces: [],
+		WFWorkflowHasShortcutInputVariables: true,
+		WFWorkflowImportQuestions: [
+			{
+				ActionIndex: 1,
+				Category: "Parameter",
+				ParameterKey: "WFTextActionText",
+				Text: "Paste an Eventual API key (create one under API keys)",
+				DefaultValue: "",
+			},
+			{
+				ActionIndex: 2,
+				Category: "Parameter",
+				ParameterKey: "WFTextActionText",
+				Text: "Your Eventual URL, without a trailing slash",
+				DefaultValue: defaultOrigin,
+			},
+		],
+		WFWorkflowActions: actions,
+	};
+
+	return workflow;
 }
 
-/** Choose from List displays dictionary keys but outputs the selected value (ID). */
-function choose(options: Ref, prompt: string) {
-	return action(
-		"choosefromlist",
-		{ WFInput: variable(options), WFChooseFromListActionPrompt: prompt },
-		"Chosen Item",
+if (
+	process.argv[1] &&
+	resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+	const workflow = buildShortcut(
+		process.argv[2] ?? process.env.BETTER_AUTH_URL ?? "",
+	);
+	const output = join(import.meta.dirname, "../public/eventual.shortcut");
+	signShortcut(workflow, output);
+	console.log(
+		`Signed shortcut (${workflow.WFWorkflowActions.length} actions) written to ${output}`,
 	);
 }
-
-// 1. Group
-const groupId = choose(
-	getJson(origin, "/api/shortcut/groups"),
-	"Which group?",
-);
-// 2. Payer
-const payerId = choose(
-	getJson(origin, "/api/shortcut/groups/", groupId, "/members"),
-	"Who paid?",
-);
-// 3. Amount
-const amount = action(
-	"ask",
-	{ WFAskActionPrompt: "How much? (₹)", WFInputType: "Number" },
-	"Provided Input",
-);
-
-const response = action(
-	"downloadurl",
-	{
-		WFURL: text(origin, "/api/shortcut/groups/", groupId, "/expenses"),
-		WFHTTPMethod: "POST",
-		ShowHeaders: true,
-		WFHTTPHeaders: auth(),
-		WFHTTPBodyType: "JSON",
-		WFJSONValues: dictionary([
-			{ key: "paidByUserId", value: [payerId] },
-			{ key: "amount", value: [amount], number: true },
-		]),
-	},
-	"Contents of URL",
-);
-const result = action(
-	"detect.dictionary",
-	{ WFInput: variable(response) },
-	"Dictionary",
-);
-const message = action(
-	"getvalueforkey",
-	{
-		WFInput: variable(result),
-		WFGetDictionaryValueType: "Value",
-		WFDictionaryKey: "message",
-	},
-	"Dictionary Value",
-);
-action(
-	"notification",
-	{
-		WFNotificationActionTitle: "Eventual",
-		WFNotificationActionBody: text(message),
-	},
-	"Notification",
-);
-
-const workflow = {
-	WFWorkflowClientVersion: "2605.0.4",
-	WFWorkflowMinimumClientVersion: 900,
-	WFWorkflowMinimumClientVersionString: "900",
-	WFWorkflowIcon: {
-		WFWorkflowIconStartColor: 431817727,
-		WFWorkflowIconGlyphNumber: 59446,
-	},
-	WFWorkflowTypes: ["NCWidget", "WatchKit"],
-	WFWorkflowInputContentItemClasses: [],
-	WFWorkflowOutputContentItemClasses: [],
-	WFQuickActionSurfaces: [],
-	WFWorkflowHasShortcutInputVariables: false,
-	WFWorkflowImportQuestions: [
-		{
-			ActionIndex: 0,
-			Category: "Parameter",
-			ParameterKey: "WFTextActionText",
-			Text: "Paste an Eventual API key (create one under API keys)",
-			DefaultValue: "",
-		},
-		{
-			ActionIndex: 1,
-			Category: "Parameter",
-			ParameterKey: "WFTextActionText",
-			Text: "Your Eventual URL, without a trailing slash",
-			DefaultValue: defaultOrigin,
-		},
-	],
-	WFWorkflowActions: actions,
-};
-
-const dir = mkdtempSync(join(tmpdir(), "eventual-shortcut-"));
-const json = join(dir, "workflow.json");
-const unsigned = join(dir, "unsigned.shortcut");
-writeFileSync(json, JSON.stringify(workflow));
-execFileSync("plutil", ["-convert", "binary1", json, "-o", unsigned]);
-execFileSync("shortcuts", [
-	"sign",
-	"--mode",
-	"anyone",
-	"--input",
-	unsigned,
-	"--output",
-	output,
-]);
-console.log(`Signed shortcut written to ${output}`);

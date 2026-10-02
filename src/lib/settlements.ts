@@ -34,7 +34,8 @@ export function validateRepayment(
 	input: Repayment,
 ): string | null {
 	if (!isCurrency(input.currency)) return "Choose a supported currency";
-	if (!input.toUserId) return "Choose a member to repay";
+	if (!input.fromUserId) return "Choose who paid";
+	if (!input.toUserId) return "Choose who was paid";
 	if (input.fromUserId === input.toUserId)
 		return "A settlement must be between two different members";
 	if (
@@ -45,9 +46,9 @@ export function validateRepayment(
 		return `Enter a valid positive ${input.currency} amount`;
 	const limit = repaymentLimit(transfers, input);
 	if (limit === 0)
-		return `No ${input.currency} payment is owed to this member in the current simplified debts`;
+		return `No ${input.currency} payment is owed between these members in the current simplified debts`;
 	if (input.amountMinor > limit)
-		return `You cannot pay more than the ${formatMinor(limit, input.currency)} owed to this member`;
+		return `The payment can't be more than the ${formatMinor(limit, input.currency)} owed`;
 	return null;
 }
 
