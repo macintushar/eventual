@@ -269,7 +269,7 @@ export async function acceptInvitation(
 				role,
 				createdAt: new Date(),
 			});
-		else if ((merged || alreadyOwned) && existing.role !== role)
+		else if (merged && existing.role !== role)
 			await tx.update(member).set({ role }).where(eq(member.id, existing.id));
 		await tx
 			.update(invitation)

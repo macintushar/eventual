@@ -145,6 +145,7 @@ test("SMS automation skips credits, OTPs, balance alerts and missing amounts wit
 		"Payment of INR 500 failed",
 		"Payment due INR 500",
 		"Payment reminder: INR 500 for your card",
+		"Reminder: your card transaction of INR 500 is due tomorrow",
 	]) {
 		const result = runSms(sms);
 		assert.equal(result.stopped, true, sms);
@@ -161,6 +162,7 @@ test("SMS automation skips credits, OTPs, balance alerts and missing amounts wit
 		["Payment of INR 500 to SWIGGY successful", "500"],
 		["INR 750 debited at UBER. Next payment due on 05-Oct", "750"],
 		["Reminder: INR 300 spent at STARBUCKS", "300"],
+		["Txn of INR 400 at ZOMATO on your card", "400"],
 	]) {
 		const result = runSms(sms);
 		assert.equal(result.stopped, false, sms);

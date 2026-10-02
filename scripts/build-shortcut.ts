@@ -228,13 +228,13 @@ export function buildShortcut(defaultOrigin = "") {
 			"Matches",
 		);
 	}
-	// A completed-spend verb is enough on its own; a bare "payment" only counts
-	// when the message isn't a due/reminder notice.
+	// A completed-spend verb is enough on its own; a bare payment/transaction
+	// noun only counts when the message isn't a due/reminder notice.
 	const completed = match(
-		"\\b(?:debited|debit|charged|spent|paid|purchased?|withdrawn|sent|transferred|txn|transaction|used\\s+at)\\b",
+		"\\b(?:debited|charged|spent|paid|purchased?|withdrawn|sent|transferred|used\\s+at)\\b",
 	);
 	const completedIf = beginIf(completed, CONDITION.noValue);
-	const payment = match("\\bpayment\\b");
+	const payment = match("\\b(?:payment|debit|txn|transaction)\\b");
 	const paymentIf = beginIf(payment, CONDITION.noValue);
 	skipMessage("Couldn't identify spending in that message — nothing logged.");
 	endIf(paymentIf);

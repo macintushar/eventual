@@ -431,6 +431,11 @@ test("a guest who claimed their account can still accept their invitation", asyn
 				emailVerified: true,
 			})
 			.where(eq(schema.user.id, guest.userId));
+		// A role change made after the invitation was sent must survive accepting it.
+		await f.db
+			.update(schema.member)
+			.set({ role: "admin" })
+			.where(eq(schema.member.userId, guest.userId));
 		const claimed = {
 			...f.owner,
 			user: {
@@ -450,6 +455,7 @@ test("a guest who claimed their account can still accept their invitation", asyn
 			),
 		});
 		assert.equal(rows.length, 1);
+		assert.equal(rows[0].role, "admin");
 		assert.ok(
 			await f.db.query.expenseShare.findFirst({
 				where: eq(schema.expenseShare.userId, guest.userId),
