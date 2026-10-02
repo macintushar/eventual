@@ -411,6 +411,55 @@ test("accepting a shared guest invitation refuses without leaving a duplicate me
 	}
 });
 
+test("a guest who claimed their account can still accept their invitation", async () => {
+	const f = await fixture();
+	try {
+		const guest = await addMember(f.owner, {
+			groupId: "G",
+			name: "Legacy",
+			email: "legacy@example.com",
+		});
+		await hotel(f.owner, guest.userId);
+		assert.ok(guest.invitation);
+		// The legacy claim flow keeps the guest's user ID but ends guest status.
+		await f.db
+			.update(schema.user)
+			.set({
+				isGuest: false,
+				claimedAt: new Date(),
+				email: "legacy@example.com",
+				emailVerified: true,
+			})
+			.where(eq(schema.user.id, guest.userId));
+		const claimed = {
+			...f.owner,
+			user: {
+				...f.owner.user,
+				id: guest.userId,
+				email: "legacy@example.com",
+			},
+		} as Ctx;
+		await acceptInvitation(claimed, {
+			invitationId: guest.invitation.invitationId,
+		});
+		assert.equal((await f.db.query.invitation.findFirst())?.status, "accepted");
+		const rows = await f.db.query.member.findMany({
+			where: and(
+				eq(schema.member.organizationId, "G"),
+				eq(schema.member.userId, guest.userId),
+			),
+		});
+		assert.equal(rows.length, 1);
+		assert.ok(
+			await f.db.query.expenseShare.findFirst({
+				where: eq(schema.expenseShare.userId, guest.userId),
+			}),
+		);
+	} finally {
+		f.client.close();
+	}
+});
+
 test("an admin cannot redirect an owner invitation", async () => {
 	const f = await fixture();
 	try {

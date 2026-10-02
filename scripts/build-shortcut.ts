@@ -217,28 +217,34 @@ export function buildShortcut(defaultOrigin = "") {
 		);
 		action("exit", {}, "Exit");
 	}
-	const spending = action(
-		"text.match",
-		{
-			text: text(varRef("Source")),
-			WFTextMatchPattern:
-				"\\b(?:debited|spent|paid|purchase[d]?|withdrawn|payment(?:\\s+of)?)\\b",
-			WFTextMatchCaseSensitive: false,
-		},
-		"Matches",
+	function match(pattern: string) {
+		return action(
+			"text.match",
+			{
+				text: text(varRef("Source")),
+				WFTextMatchPattern: pattern,
+				WFTextMatchCaseSensitive: false,
+			},
+			"Matches",
+		);
+	}
+	// A completed-spend verb is enough on its own; a bare "payment" only counts
+	// when the message isn't a due/reminder notice.
+	const completed = match(
+		"\\b(?:debited|debit|charged|spent|paid|purchased?|withdrawn|sent|transferred|txn|transaction|used\\s+at)\\b",
 	);
-	const spendingIf = beginIf(spending, CONDITION.noValue);
+	const completedIf = beginIf(completed, CONDITION.noValue);
+	const payment = match("\\bpayment\\b");
+	const paymentIf = beginIf(payment, CONDITION.noValue);
 	skipMessage("Couldn't identify spending in that message — nothing logged.");
-	endIf(spendingIf);
-	const nonSpending = action(
-		"text.match",
-		{
-			text: text(varRef("Source")),
-			WFTextMatchPattern:
-				"\\b(?:credited|refund(?:ed)?|reversed|OTP|one[ -]time|verification|declined|failed|due|reminder)\\b",
-			WFTextMatchCaseSensitive: false,
-		},
-		"Matches",
+	endIf(paymentIf);
+	const notice = match("\\b(?:due|reminder)\\b");
+	const noticeIf = beginIf(notice, CONDITION.hasValue);
+	skipMessage("That message isn't a completed expense — nothing logged.");
+	endIf(noticeIf);
+	endIf(completedIf);
+	const nonSpending = match(
+		"\\b(?:credited|refund(?:ed)?|reversed|OTP|one[ -]time|verification|declined|failed)\\b",
 	);
 	const nonSpendingIf = beginIf(nonSpending, CONDITION.hasValue);
 	skipMessage("That message isn't a completed expense — nothing logged.");

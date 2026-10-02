@@ -247,7 +247,10 @@ export async function acceptInvitation(
 							[...groupIds].every((affected) => affected === groupId),
 					)
 				: null;
-		if (guestId && !merged)
+		// A legacy guest who claimed their account already is this user: they own
+		// the membership and history, so there is nothing to transfer.
+		const alreadyOwned = guest?.id === ctx.user.id;
+		if (guestId && !merged && !alreadyOwned)
 			throw new AppError(
 				"CONFLICT",
 				"This guest could not be transferred. Ask an admin to resolve their identity across groups before accepting.",
@@ -266,7 +269,7 @@ export async function acceptInvitation(
 				role,
 				createdAt: new Date(),
 			});
-		else if (merged && existing.role !== role)
+		else if ((merged || alreadyOwned) && existing.role !== role)
 			await tx.update(member).set({ role }).where(eq(member.id, existing.id));
 		await tx
 			.update(invitation)

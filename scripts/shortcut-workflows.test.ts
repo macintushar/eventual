@@ -144,6 +144,7 @@ test("SMS automation skips credits, OTPs, balance alerts and missing amounts wit
 		"Your account was debited",
 		"Payment of INR 500 failed",
 		"Payment due INR 500",
+		"Payment reminder: INR 500 for your card",
 	]) {
 		const result = runSms(sms);
 		assert.equal(result.stopped, true, sms);
@@ -154,6 +155,18 @@ test("SMS automation skips credits, OTPs, balance alerts and missing amounts wit
 	assert.equal(spent.stopped, false);
 	assert.equal(spent.prompts, 0);
 	assert.equal(spent.amount, "1250.00");
+	for (const [sms, amount] of [
+		["INR 500 charged to your card at AMAZON", "500"],
+		["INR 500 sent to ROHIT via UPI", "500"],
+		["Payment of INR 500 to SWIGGY successful", "500"],
+		["INR 750 debited at UBER. Next payment due on 05-Oct", "750"],
+		["Reminder: INR 300 spent at STARBUCKS", "300"],
+	]) {
+		const result = runSms(sms);
+		assert.equal(result.stopped, false, sms);
+		assert.equal(result.prompts, 0, sms);
+		assert.equal(result.amount, amount, sms);
+	}
 });
 
 test("AI group cache write runs after all group selection branches", () => {
