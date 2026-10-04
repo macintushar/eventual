@@ -6,6 +6,7 @@ import { z } from "zod";
 import { GoogleIcon } from "#/components/google-icon";
 import { PublicPage } from "#/components/public-header";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
+import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
 	Card,
@@ -15,6 +16,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "#/components/ui/card";
+import { Checkbox } from "#/components/ui/checkbox";
 import {
 	Field,
 	FieldDescription,
@@ -27,6 +29,11 @@ import { Spinner } from "#/components/ui/spinner";
 import { authClient } from "#/lib/auth-client";
 import { safeAuthRedirect } from "#/lib/auth-redirect";
 import { fieldError } from "#/lib/form-error";
+import { setLastLoginConsent } from "#/lib/last-login-consent";
+import {
+	useLastLoginConsent,
+	useLastLoginMethod,
+} from "#/lib/last-login-method";
 import { siteQueryOptions } from "#/lib/queries";
 
 const nameSchema = z
@@ -47,9 +54,68 @@ const nameError = (value: string) => issue(nameSchema, value);
 const emailError = (value: string) => issue(emailSchema, value);
 const passwordError = (value: string) => issue(passwordSchema, value);
 
+/**
+ * Marks the way this browser signed in last, so returning users don't hunt
+ * through the options again. Only meaningful on the login screen, and it
+ * rides alongside the button label rather than replacing it.
+ */
+function LastUsed() {
+	return (
+		<Badge variant="secondary" className="ml-1 font-normal">
+			Last used
+		</Badge>
+	);
+}
+
+/**
+ * Opt-in for the cookie behind the hint above. Better Auth only writes it once
+ * this is on, so the choice is stored in the same first-party cookie the
+ * server reads on the next sign-in.
+ *
+ * Withdrawing clears the marker as well as the consent, so turning this off
+ * actually removes the thing it allowed rather than only refusing new writes.
+ */
+function LastLoginConsentToggle() {
+	const consent = useLastLoginConsent();
+	// Radix renders the checkbox as a <button role="checkbox">, which is a
+	// labelable element, so htmlFor/for makes the text a real click target.
+	const controlId = "last-login-consent";
+	return (
+		<div className="flex items-start gap-2 text-xs text-muted-foreground">
+			<Checkbox
+				id={controlId}
+				checked={consent === "granted"}
+				onCheckedChange={(checked) => {
+					if (checked === true) {
+						setLastLoginConsent(true);
+						return;
+					}
+					// Clear the marker first. setLastLoginConsent notifies
+					// subscribers, so anything it leaves behind would be read
+					// back as still granted.
+					authClient.clearLastUsedLoginMethod();
+					setLastLoginConsent(false);
+				}}
+				className="mt-0.5"
+				aria-describedby={`${controlId}-hint`}
+			/>
+			<label htmlFor={controlId} className="cursor-pointer">
+				Remember how I signed in last
+				<span id={`${controlId}-hint`} className="block">
+					Saves a cookie so this screen can point at it next time.
+				</span>
+			</label>
+		</div>
+	);
+}
+
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 	const search = useSearch({ strict: false }) as { redirect?: string };
 	const { googleSignIn } = useSuspenseQuery(siteQueryOptions).data;
+	const lastMethod = useLastLoginMethod();
+	// A marker can outlive the consent that allowed it, so the hint only shows
+	// where the visitor still has it switched on.
+	const hint = useLastLoginConsent() === "granted" ? lastMethod : null;
 	const [error, setError] = useState("");
 	const [googlePending, setGooglePending] = useState(false);
 	const [claimEmail, setClaimEmail] = useState("");
@@ -296,6 +362,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 										: mode === "signup"
 											? "Create account"
 											: "Log in"}
+									{!pending && mode === "login" && hint === "email" ? (
+										<LastUsed />
+									) : null}
 								</Button>
 							)}
 						</form.Subscribe>
@@ -320,8 +389,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 										<GoogleIcon className="size-5" />
 									)}
 									{googlePending ? "Connecting…" : "Continue with Google"}
+									{!googlePending && hint === "google" ? <LastUsed /> : null}
 								</Button>
 							</>
+						) : null}
+						{mode === "login" ? (
+							<div className="w-full">
+								<LastLoginConsentToggle />
+							</div>
 						) : null}
 						<p className="text-sm text-muted-foreground">
 							{mode === "signup" ? "Already registered?" : "New here?"}{" "}

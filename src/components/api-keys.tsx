@@ -1,5 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
 	columnFilteringFeature,
 	createColumnHelper,
@@ -27,6 +28,12 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import {
+	defaultCustomPermissions,
+	type KeyAccessMode,
+	KeyAccessPicker,
+	keyModeLabels,
+} from "#/components/api-key-access";
 import { EmptyState } from "#/components/empty-state";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import {
@@ -83,6 +90,11 @@ import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
 import { useCreateApiKey, useDeleteApiKey } from "#/lib/app-mutation";
 import { copyToClipboard } from "#/lib/clipboard";
 import { fieldError } from "#/lib/form-error";
+import {
+	FULL_ACCESS_MAX_DAYS,
+	type Permissions,
+	validateKeyPermissions,
+} from "#/lib/permissions";
 import { apiKeysQueryOptions } from "#/lib/queries";
 import { cn } from "#/lib/utils";
 import type { ApiKeySummary } from "#/lib/web-api-client";
@@ -96,6 +108,15 @@ const expiryOptions = [
 ] as const;
 
 type Expiry = (typeof expiryOptions)[number]["value"];
+
+/** Full account access keys can't outlive FULL_ACCESS_MAX_DAYS. */
+function expiryChoices(mode: KeyAccessMode) {
+	if (mode !== "full") return expiryOptions;
+	return expiryOptions.filter(
+		(option) =>
+			option.value !== "never" && Number(option.value) <= FULL_ACCESS_MAX_DAYS,
+	);
+}
 
 const features = tableFeatures({
 	rowSortingFeature,
@@ -149,7 +170,12 @@ export function ApiKeys() {
 	);
 	const [globalFilter, setGlobalFilter] = useState("");
 	const form = useForm({
-		defaultValues: { name: "", expiry: "never" as Expiry },
+		defaultValues: {
+			name: "",
+			expiry: "never" as Expiry,
+			mode: "transactional" as KeyAccessMode,
+			permissions: defaultCustomPermissions(),
+		},
 		onSubmit: async ({ value }) => {
 			try {
 				const result = await createKey.mutateAsync({
@@ -158,6 +184,10 @@ export function ApiKeys() {
 						value.expiry === "never"
 							? null
 							: Number(value.expiry) * 60 * 60 * 24,
+					mode: value.mode,
+					...(value.mode === "custom"
+						? { permissions: value.permissions }
+						: {}),
 				});
 				setCreateOpen(false);
 				form.reset();
@@ -187,6 +217,27 @@ export function ApiKeys() {
 					header: "Key",
 					sortFn: "text",
 					cell: (info) => <code>{info.getValue()}</code>,
+				}),
+				helper.accessor((row) => keyModeLabels[row.mode], {
+					id: "access",
+					header: "Access",
+					sortFn: "text",
+					cell: (info) => (
+						<Badge
+							variant={
+								info.row.original.mode === "transactional"
+									? "secondary"
+									: "outline"
+							}
+							title={
+								info.row.original.mode === "legacy"
+									? "Created before scoped keys. Revoke and recreate it to limit access."
+									: undefined
+							}
+						>
+							{info.getValue()}
+						</Badge>
+					),
 				}),
 				helper.accessor((row) => new Date(row.createdAt).getTime(), {
 					id: "createdAt",
@@ -265,18 +316,14 @@ export function ApiKeys() {
 						return (
 							<Button
 								variant="ghost"
-								size="sm"
+								size="icon-sm"
 								className="press text-destructive"
 								aria-label={`Revoke ${key.name ?? "this key"}`}
 								disabled={revoking}
 								onClick={() => setPendingDelete(key)}
 							>
-								{revoking ? (
-									<Spinner data-icon="inline-start" />
-								) : (
-									<Trash2 data-icon="inline-start" />
-								)}
-								<span className="sr-only sm:not-sr-only">
+								{revoking ? <Spinner /> : <Trash2 />}
+								<span className="sr-only">
 									{revoking ? "Revoking…" : "Revoke"}
 								</span>
 							</Button>
@@ -321,7 +368,10 @@ export function ApiKeys() {
 								<code className="rounded bg-muted px-1 py-0.5 text-xs">
 									x-api-key
 								</code>{" "}
-								header to call the REST API or MCP endpoint.
+								header to call the REST API or MCP endpoint.{" "}
+								<Link to="/docs" className="font-medium underline">
+									Integration docs
+								</Link>
 							</CardDescription>
 						</div>
 						{hasKeys ? (
@@ -467,7 +517,7 @@ export function ApiKeys() {
 					if (!open) form.reset();
 				}}
 			>
-				<DialogContent>
+				<DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
 					<form
 						className="flex flex-col gap-4"
 						onSubmit={(event) => {
@@ -525,34 +575,87 @@ export function ApiKeys() {
 									);
 								}}
 							</form.Field>
-							<form.Field name="expiry">
-								{(field) => (
-									<Field>
-										<FieldLabel>Expires</FieldLabel>
-										<ToggleGroup
-											type="single"
-											variant="outline"
-											spacing={2}
-											rovingFocus={false}
-											value={field.state.value}
-											onValueChange={(value) => {
-												if (value) field.handleChange(value as Expiry);
-											}}
-											className="flex flex-wrap"
-											aria-label="Key expiration"
-										>
-											{expiryOptions.map((option) => (
-												<ToggleGroupItem
-													key={option.value}
-													value={option.value}
-												>
-													{option.label}
-												</ToggleGroupItem>
-											))}
-										</ToggleGroup>
-									</Field>
+							<form.Subscribe selector={(state) => state.values.mode}>
+								{(mode) => (
+									<form.Field
+										name="permissions"
+										validators={{
+											onSubmit: ({ value }) =>
+												mode === "custom" &&
+												!validateKeyPermissions(value as Permissions)
+													? "Choose at least one permission"
+													: undefined,
+										}}
+									>
+										{(field) => {
+											const message = fieldError(field.state.meta.errors);
+											return (
+												<Field data-invalid={message ? true : undefined}>
+													<KeyAccessPicker
+														mode={mode}
+														permissions={field.state.value}
+														onModeChange={(next) => {
+															form.setFieldValue("mode", next);
+															// Full access must expire; keep the choice if it's
+															// still allowed, else fall back to 30 days.
+															const expiry = form.getFieldValue("expiry");
+															if (
+																!expiryChoices(next).some(
+																	(option) => option.value === expiry,
+																)
+															)
+																form.setFieldValue("expiry", "30");
+														}}
+														onPermissionsChange={(next) =>
+															field.handleChange(next)
+														}
+														invalid={Boolean(message)}
+													/>
+													{message ? <FieldError>{message}</FieldError> : null}
+												</Field>
+											);
+										}}
+									</form.Field>
 								)}
-							</form.Field>
+							</form.Subscribe>
+							<form.Subscribe selector={(state) => state.values.mode}>
+								{(mode) => (
+									<form.Field name="expiry">
+										{(field) => (
+											<Field>
+												<FieldLabel>Expires</FieldLabel>
+												<ToggleGroup
+													type="single"
+													variant="outline"
+													spacing={2}
+													rovingFocus={false}
+													value={field.state.value}
+													onValueChange={(value) => {
+														if (value) field.handleChange(value as Expiry);
+													}}
+													className="flex flex-wrap"
+													aria-label="Key expiration"
+												>
+													{expiryChoices(mode).map((option) => (
+														<ToggleGroupItem
+															key={option.value}
+															value={option.value}
+														>
+															{option.label}
+														</ToggleGroupItem>
+													))}
+												</ToggleGroup>
+												{mode === "full" ? (
+													<FieldDescription>
+														Full account access keys expire within{" "}
+														{FULL_ACCESS_MAX_DAYS} days.
+													</FieldDescription>
+												) : null}
+											</Field>
+										)}
+									</form.Field>
+								)}
+							</form.Subscribe>
 						</FieldGroup>
 						<DialogFooter>
 							<Button
