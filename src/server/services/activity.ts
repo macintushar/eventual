@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, lt, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
 import {
 	activity,
 	activityRecipient,
@@ -9,6 +9,12 @@ import {
 } from "#/db/schema";
 import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
+import {
+	cursorScope,
+	decodePageCursor,
+	encodePageCursor,
+	pageLimit,
+} from "#/server/pagination";
 import { membership } from "./shared";
 
 export async function listActivity(
@@ -16,23 +22,43 @@ export async function listActivity(
 	input: { groupId: string; cursor?: string; limit?: number },
 ) {
 	await membership(ctx, input.groupId);
+	const limit = pageLimit(input.limit);
+	const scope = cursorScope(["activity", input.groupId]);
 	const clauses = [eq(activity.organizationId, input.groupId)];
-	if (input.cursor) clauses.push(lt(activity.id, input.cursor));
+	if (input.cursor) {
+		// Accept old UUID continuations during rollout, but seek on the full order.
+		const legacy = /^[\da-f]{8}-[\da-f-]{27}$/i.test(input.cursor)
+			? await ctx.db.query.activity.findFirst({
+					where: and(
+						eq(activity.id, input.cursor),
+						eq(activity.organizationId, input.groupId),
+					),
+				})
+			: null;
+		const [at, id] = legacy
+			? [legacy.createdAt.getTime() / 1000, legacy.id]
+			: decodePageCursor(input.cursor, scope, ["number", "string"]);
+		clauses.push(sql`(${activity.createdAt}, ${activity.id}) < (${at}, ${id})`);
+	}
 	const rows = await ctx.db
 		.select({ activity, actorName: user.name })
 		.from(activity)
 		.innerJoin(user, eq(activity.actorUserId, user.id))
 		.where(and(...clauses))
 		.orderBy(desc(activity.createdAt), desc(activity.id))
-		.limit(input.limit ?? 30);
+		.limit(limit + 1);
+	const page = rows.slice(0, limit);
+	const last = page.at(-1)?.activity;
 	return {
-		items: rows.map((row) => ({
+		items: page.map((row) => ({
 			...row.activity,
 			actorName: row.actorName,
 			metadata: JSON.parse(row.activity.metadata),
 		})),
 		nextCursor:
-			rows.length === (input.limit ?? 30) ? rows.at(-1)?.activity.id : null,
+			rows.length > limit && last
+				? encodePageCursor(scope, [last.createdAt.getTime() / 1000, last.id])
+				: null,
 	};
 }
 
@@ -48,23 +74,20 @@ export async function listMyActivity(
 	ctx: Ctx,
 	input: { cursor?: string; limit?: number } = {},
 ) {
-	const limit = Math.min(Math.max(Math.trunc(input.limit || 30), 1), 100);
+	const limit = pageLimit(input.limit);
+	const scope = cursorScope(["activity.mine", ctx.user.id]);
 	const clauses: (SQL | undefined)[] = [
 		eq(activityRecipient.userId, ctx.user.id),
 	];
 	if (input.cursor) {
-		const [ms, activityId] = input.cursor.split("_");
+		const [ms, activityId] = /^\d+_[^_]+$/.test(input.cursor)
+			? input.cursor.split("_")
+			: decodePageCursor(input.cursor, scope, ["number", "string"]);
 		const at = new Date(Number(ms));
 		if (!activityId || Number.isNaN(at.getTime()))
 			throw new AppError("VALIDATION", "Invalid cursor");
 		clauses.push(
-			or(
-				lt(activityRecipient.createdAt, at),
-				and(
-					eq(activityRecipient.createdAt, at),
-					lt(activityRecipient.activityId, activityId),
-				),
-			),
+			sql`(${activityRecipient.createdAt}, ${activityRecipient.activityId}) < (${at.getTime()}, ${String(activityId)})`,
 		);
 	}
 	const rows = await ctx.db
@@ -94,9 +117,10 @@ export async function listMyActivity(
 			desc(activityRecipient.createdAt),
 			desc(activityRecipient.activityId),
 		)
-		.limit(limit);
+		.limit(limit + 1);
 
-	const items = rows.map((row) => ({
+	const page = rows.slice(0, limit);
+	const items = page.map((row) => ({
 		...row.activity,
 		metadata: JSON.parse(row.activity.metadata),
 		actorName: row.actorName,
@@ -122,13 +146,13 @@ export async function listMyActivity(
 				.where(inArray(user.id, [...userIds]))
 		: [];
 
-	const last = rows.at(-1);
+	const last = page.at(-1);
 	return {
 		items,
 		names: Object.fromEntries(names.map((row) => [row.id, row.name])),
 		nextCursor:
-			rows.length === limit && last
-				? `${last.createdAt.getTime()}_${last.activity.id}`
+			rows.length > limit && last
+				? encodePageCursor(scope, [last.createdAt.getTime(), last.activity.id])
 				: null,
 	};
 }

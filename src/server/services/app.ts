@@ -8,6 +8,7 @@ export {
 	suggestCategory,
 	updateCategoryRule,
 } from "./categories";
+export { listExpensePage } from "./expense-pages";
 export {
 	bulkResplitExpenses,
 	createExpense,
@@ -63,5 +64,6 @@ export { expenseReport } from "./reports";
 export {
 	createSettlement,
 	deleteSettlement,
+	listSettlementPage,
 	listSettlements,
 } from "./settlements";

@@ -48,6 +48,7 @@ async function fixture() {
 		db,
 		user: users[0],
 		apiKeyId: "test",
+		apiKeyPermissions: null,
 		session: {
 			id: "test",
 			userId: "A",
@@ -107,7 +108,7 @@ test("USD repayment closes only USD shares, rejects overpayment, and deletion re
 		await assert.rejects(f.pay("USD", 1), /No USD payment/);
 		await assert.rejects(
 			setSharePaid(f.ctx, { expenseId: usd.id, userId: "A" }, false),
-			/linked settlement/,
+			/linked payment/,
 		);
 		await deleteSettlement(f.ctx, { settlementId: payment.id });
 		assert.equal(

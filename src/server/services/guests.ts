@@ -14,7 +14,7 @@ import {
 	id,
 	type Role,
 	recordActivity,
-	requireRole,
+	requirePermission,
 } from "./shared";
 
 export async function addMember(ctx: Ctx, raw: AddMemberInput) {
@@ -28,7 +28,8 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 		});
 		if (!mine)
 			throw new AppError("FORBIDDEN", "You are not a member of this group");
-		requireRole(mine.role as Role, ["owner", "admin"]);
+		requirePermission(mine.role as Role, { member: ["create"] });
+		const role = input.role ?? "member";
 		const group = await tx.query.organization.findFirst({
 			where: eq(s.organization.id, input.groupId),
 		});
@@ -95,6 +96,7 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 		});
 		// Registered users consent through invitation; adding someone cannot change
 		// their global profile, phone ownership, or existing membership weight.
+		// Weight is ignored here: it's set once they accept (member stays null).
 		if (!person.isGuest) {
 			if (existing)
 				return {
@@ -108,18 +110,13 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 					"CONFLICT",
 					"Only the account holder can attach a phone to a registered account",
 				);
-			if (input.weight !== undefined && input.weight !== 1)
-				throw new AppError(
-					"CONFLICT",
-					"Set the member weight after the invitation is accepted",
-				);
 			return {
 				userId: person.id,
 				member: null,
 				invitation: await ensureInvitation(tx, ctx, {
 					groupId: input.groupId,
 					email: person.email,
-					role: "member",
+					role,
 				}),
 				groupName: group.name,
 			};
@@ -180,7 +177,7 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 			? await ensureInvitation(tx, ctx, {
 					groupId: input.groupId,
 					email: input.email,
-					role: "member",
+					role,
 				})
 			: null;
 		return {

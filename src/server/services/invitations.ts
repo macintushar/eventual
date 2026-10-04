@@ -11,12 +11,14 @@ import {
 	membership,
 	type Role,
 	recordActivity,
-	requireRole,
+	requirePermission,
 } from "./shared";
+
+const roleRank: Record<Role, number> = { member: 0, admin: 1, owner: 2 };
 
 export async function listInvitations(ctx: Ctx, input: { groupId: string }) {
 	const mine = await membership(ctx, input.groupId);
-	requireRole(mine.role, ["owner", "admin"]);
+	requirePermission(mine.role, { invitation: ["read"] });
 	return ctx.db.query.invitation.findMany({
 		where: and(
 			eq(invitation.organizationId, input.groupId),
@@ -31,9 +33,9 @@ export async function createInvitation(
 	input: { groupId: string; email: string; role: Role },
 ) {
 	const mine = await membership(ctx, input.groupId);
-	requireRole(mine.role, ["owner", "admin"]);
-	if (input.role === "owner" && mine.role !== "owner")
-		throw new AppError("FORBIDDEN", "Only owners can invite another owner");
+	requirePermission(mine.role, { invitation: ["create"] });
+	if (input.role === "owner")
+		throw new AppError("FORBIDDEN", "Each group has one owner");
 	const group = await ctx.db.query.organization.findFirst({
 		where: eq(organization.id, input.groupId),
 	});
@@ -169,7 +171,7 @@ export async function revokeInvitation(
 	});
 	if (!invite) throw new AppError("NOT_FOUND", "Invitation not found");
 	const mine = await membership(ctx, invite.organizationId);
-	requireRole(mine.role, ["owner", "admin"]);
+	requirePermission(mine.role, { invitation: ["cancel"] });
 	await ctx.db.transaction(async (tx) => {
 		await tx
 			.update(invitation)
@@ -187,7 +189,7 @@ export async function revokeInvitation(
 			),
 		);
 	});
-	return { success: true };
+	return { success: true, groupId: invite.organizationId };
 }
 
 export async function acceptInvitation(
@@ -211,15 +213,23 @@ export async function acceptInvitation(
 			eq(member.userId, ctx.user.id),
 		),
 	});
+	const invitedRole = (preview.invitation.role ?? "member") as Role;
 	await ctx.db.transaction(async (tx) => {
 		if (!existing)
 			await tx.insert(member).values({
 				id: id(),
 				organizationId: preview.invitation.organizationId,
 				userId: ctx.user.id,
-				role: preview.invitation.role ?? "member",
+				role: invitedRole,
 				createdAt: new Date(),
 			});
+		// A guest added with an invite already has a member row; accepting grants
+		// the invited role but never downgrades.
+		else if (roleRank[invitedRole] > roleRank[existing.role as Role])
+			await tx
+				.update(member)
+				.set({ role: invitedRole })
+				.where(eq(member.id, existing.id));
 		await tx
 			.update(invitation)
 			.set({ status: "accepted" })

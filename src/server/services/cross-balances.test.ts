@@ -60,6 +60,7 @@ async function fixture(): Promise<Fixture> {
 		db,
 		user: users[0],
 		apiKeyId: "test",
+		apiKeyPermissions: null,
 		session: {
 			id: "test",
 			userId: "A",

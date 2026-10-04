@@ -57,7 +57,7 @@ export function expenseFilterClauses(input: ExpenseFilters) {
 	if (input.currency) clauses.push(eq(expense.currency, input.currency));
 	if (input.participant)
 		clauses.push(
-			sql`exists (select 1 from ${expenseShare} where ${expenseShare.expenseId} = ${expense.id} and ${expenseShare.userId} = ${input.participant})`,
+			sql`exists (select 1 from expense_share as participant_share where participant_share.expense_id = ${expense.id} and participant_share.user_id = ${input.participant})`,
 		);
 	const search = normalizeSearchText(input.search);
 	if (search)
@@ -493,7 +493,7 @@ export async function bulkResplitExpenses(ctx: Ctx, raw: BulkResplitInput) {
 }
 
 export async function deleteExpense(ctx: Ctx, input: { expenseId: string }) {
-	await ctx.db.transaction(async (tx) => {
+	const groupId = await ctx.db.transaction(async (tx) => {
 		await lockExpense(tx, input.expenseId);
 		const current = await unlockedExpense(
 			{ ...ctx, db: tx as unknown as Ctx["db"] },
@@ -521,8 +521,9 @@ export async function deleteExpense(ctx: Ctx, input: { expenseId: string }) {
 			),
 		);
 		await tx.delete(expense).where(eq(expense.id, current.id));
+		return current.organizationId;
 	});
-	return { success: true };
+	return { success: true, groupId };
 }
 
 export async function setSharePaid(

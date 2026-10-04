@@ -1,5 +1,12 @@
 import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
-import { expense, expenseShare, member, user } from "#/db/schema";
+import {
+	channelIdentity,
+	expense,
+	expenseShare,
+	member,
+	user,
+} from "#/db/schema";
+import { roleCan } from "#/lib/permissions";
 import type { Ctx } from "#/server/context";
 import { people } from "#/server/domain/activity";
 import type { Participant } from "#/server/domain/split";
@@ -14,7 +21,7 @@ import {
 	membership,
 	type Role,
 	recordActivity,
-	requireRole,
+	requirePermission,
 } from "./shared";
 
 export async function listMembers(ctx: Ctx, input: { groupId: string }) {
@@ -28,6 +35,12 @@ export async function listMembers(ctx: Ctx, input: { groupId: string }) {
 			image: user.image,
 			upiVpa: user.upiVpa,
 			wiseTag: user.wiseTag,
+			bio: user.bio,
+			isEmailPublic: user.isEmailPublic,
+			isPhonePublic: user.isPhonePublic,
+			// The number a guest was added with lives on `channel_identity`, not
+			// on `user`, so a profile reads it from the same place either way.
+			phone: channelIdentity.address,
 			role: member.role,
 			weight: member.weight,
 			isGuest: user.isGuest,
@@ -36,6 +49,13 @@ export async function listMembers(ctx: Ctx, input: { groupId: string }) {
 		})
 		.from(member)
 		.innerJoin(user, eq(member.userId, user.id))
+		.leftJoin(
+			channelIdentity,
+			and(
+				eq(channelIdentity.userId, user.id),
+				eq(channelIdentity.channel, "phone"),
+			),
+		)
 		.where(eq(member.organizationId, input.groupId))
 		.orderBy(asc(user.name));
 }
@@ -121,7 +141,7 @@ export async function updateMemberWeight(
 		});
 		if (!mine)
 			throw new AppError("FORBIDDEN", "You are not a member of this group");
-		requireRole(mine.role as Role, ["owner", "admin"]);
+		requirePermission(mine.role as Role, { member: ["update"] });
 		const rows = await tx
 			.update(member)
 			.set({ weight: input.weight })
@@ -152,7 +172,9 @@ export async function updateMemberRole(
 	input: { groupId: string; userId: string; role: Role },
 ) {
 	const mine = await membership(ctx, input.groupId);
-	requireRole(mine.role, ["owner"]);
+	requirePermission(mine.role, { member: ["role"] });
+	if (input.role === "owner")
+		throw new AppError("FORBIDDEN", "Each group has one owner");
 	const target = await ctx.db.query.member.findFirst({
 		where: and(
 			eq(member.organizationId, input.groupId),
@@ -160,11 +182,7 @@ export async function updateMemberRole(
 		),
 	});
 	if (!target) throw new AppError("NOT_FOUND", "Member not found");
-	if (
-		target.role === "owner" &&
-		input.role !== "owner" &&
-		(await ownerCount(ctx, input.groupId)) === 1
-	)
+	if (target.role === "owner" && (await ownerCount(ctx, input.groupId)) === 1)
 		throw new AppError("CONFLICT", "The last owner cannot be demoted");
 	await ctx.db.transaction(async (tx) => {
 		await tx
@@ -192,7 +210,7 @@ export async function removeMember(
 	input: { groupId: string; userId: string },
 ) {
 	const mine = await membership(ctx, input.groupId);
-	requireRole(mine.role, ["owner", "admin"]);
+	requirePermission(mine.role, { member: ["delete"] });
 	const target = await ctx.db.query.member.findFirst({
 		where: and(
 			eq(member.organizationId, input.groupId),
@@ -200,7 +218,8 @@ export async function removeMember(
 		),
 	});
 	if (!target) throw new AppError("NOT_FOUND", "Member not found");
-	if (mine.role === "admin" && target.role !== "member")
+	// Removing an admin or owner is a role decision, not just a removal.
+	if (target.role !== "member" && !roleCan(mine.role, { member: ["role"] }))
 		throw new AppError("FORBIDDEN", "Admins can only remove members");
 	if (target.role === "owner" && (await ownerCount(ctx, input.groupId)) === 1)
 		throw new AppError("CONFLICT", "The last owner cannot be removed");
@@ -223,12 +242,55 @@ export async function removeMember(
 	return { success: true };
 }
 
-export async function leaveGroup(ctx: Ctx, input: { groupId: string }) {
+export async function leaveGroup(
+	ctx: Ctx,
+	input: { groupId: string; newOwnerId?: string },
+) {
 	const mine = await membership(ctx, input.groupId);
-	if (mine.role === "owner" && (await ownerCount(ctx, input.groupId)) === 1)
-		throw new AppError("CONFLICT", "The last owner cannot leave");
+	const mustHandOver =
+		mine.role === "owner" && (await ownerCount(ctx, input.groupId)) === 1;
+	if (mustHandOver && !input.newOwnerId)
+		throw new AppError(
+			"CONFLICT",
+			"Choose a new owner before leaving, or delete the group",
+		);
+	const successor = mustHandOver
+		? await ctx.db
+				.select({ id: member.id, userId: member.userId, role: member.role })
+				.from(member)
+				.innerJoin(user, eq(member.userId, user.id))
+				.where(
+					and(
+						eq(member.organizationId, input.groupId),
+						eq(member.userId, input.newOwnerId ?? ""),
+						ne(member.userId, ctx.user.id),
+						eq(user.isGuest, false),
+					),
+				)
+				.then((rows) => rows[0])
+		: undefined;
+	if (mustHandOver && !successor)
+		throw new AppError("NOT_FOUND", "The new owner must be another member");
 	await assertCanExit(ctx, input.groupId, ctx.user.id);
 	await ctx.db.transaction(async (tx) => {
+		if (successor) {
+			await tx
+				.update(member)
+				.set({ role: "owner" })
+				.where(eq(member.id, successor.id));
+			await recordActivity(
+				tx,
+				activityRow(
+					input.groupId,
+					ctx.user.id,
+					"member.role_changed",
+					"member",
+					successor.id,
+					{ userId: successor.userId, from: successor.role, to: "owner" },
+				),
+				people(successor.userId),
+			);
+		}
 		await recordActivity(
 			tx,
 			activityRow(input.groupId, ctx.user.id, "member.left", "member", mine.id),

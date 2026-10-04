@@ -20,12 +20,14 @@ test("public v1 endpoints and private cache headers", async () => {
 	assert.match(site.headers.get("vary") ?? "", /Cookie/);
 });
 
-test("web aggregates require a session cookie", async () => {
+test("web aggregates verify a presented key before anything else", async () => {
+	// Only full account access keys get past this point; scoped-key refusals
+	// are covered end to end in tests/e2e/api-keys.spec.ts.
 	const response = await dispatchApi(
 		request("v1/app/dashboard", { headers: { "x-api-key": "invalid" } }),
 		"v1/app/dashboard",
 	);
-	assert.equal(response.status, 403);
+	assert.equal(response.status, 401);
 	assert.equal(response.headers.get("cache-control"), "private, no-store");
 });
 

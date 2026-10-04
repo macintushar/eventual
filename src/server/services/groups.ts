@@ -1,76 +1,46 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
-import {
-	expense,
-	member,
-	organization,
-	session,
-	settlement,
-	user,
-} from "#/db/schema";
+import { member, organization, session, user } from "#/db/schema";
 import type { Ctx } from "#/server/context";
-import { computeBalances } from "#/server/domain/balances";
 import { AppError } from "#/server/errors";
 import type { CreateGroupInput } from "#/server/schemas";
+import { readGroupSummaries } from "./balances";
 import { listMembers } from "./members";
 import {
 	activityRow,
 	id,
 	membership,
 	recordActivity,
-	requireRole,
+	requirePermission,
 } from "./shared";
 
 export async function listGroups(ctx: Ctx) {
-	const rows = await ctx.db
-		.select({ organization, role: member.role })
+	return groupsFromSummaries(ctx.user.id, await readGroupSummaries(ctx));
+}
+
+export function groupsFromSummaries(
+	userId: string,
+	rows: Awaited<ReturnType<typeof readGroupSummaries>>,
+) {
+	return rows.map(({ organization: group, role, balances }) => ({
+		...group,
+		role,
+		balances: balances
+			.filter((row) => row.userId === userId)
+			.map(({ currency, balanceMinor }) => ({ currency, balanceMinor })),
+	}));
+}
+
+export async function listGroupDirectory(ctx: Ctx) {
+	return ctx.db
+		.select({
+			id: organization.id,
+			name: organization.name,
+			archivedAt: organization.archivedAt,
+		})
 		.from(member)
 		.innerJoin(organization, eq(member.organizationId, organization.id))
 		.where(eq(member.userId, ctx.user.id))
-		.orderBy(asc(organization.name));
-	if (!rows.length) return [];
-	const groupIds = rows.map(({ organization: group }) => group.id);
-	// The join above already proves membership in every group, so these three
-	// batched reads stand in for a per-group `getBalances`, which cost four
-	// queries each and then had its simplified transfer list thrown away.
-	const [memberRows, expenses, settlements] = await Promise.all([
-		ctx.db
-			.select({
-				organizationId: member.organizationId,
-				userId: user.id,
-				name: user.name,
-			})
-			.from(member)
-			.innerJoin(user, eq(member.userId, user.id))
-			.where(inArray(member.organizationId, groupIds))
-			.orderBy(asc(user.name)),
-		ctx.db.query.expense.findMany({
-			where: inArray(expense.organizationId, groupIds),
-			with: { shares: true },
-		}),
-		ctx.db.query.settlement.findMany({
-			where: inArray(settlement.organizationId, groupIds),
-			with: { allocations: true },
-		}),
-	]);
-	const byGroup = <Row extends { organizationId: string }>(list: Row[]) => {
-		const map = new Map(groupIds.map((groupId) => [groupId, [] as Row[]]));
-		for (const row of list) map.get(row.organizationId)?.push(row);
-		return map;
-	};
-	const membersByGroup = byGroup(memberRows);
-	const expensesByGroup = byGroup(expenses);
-	const settlementsByGroup = byGroup(settlements);
-	return rows.map(({ organization: group, role }) => ({
-		...group,
-		role,
-		balances: computeBalances(
-			membersByGroup.get(group.id) ?? [],
-			expensesByGroup.get(group.id) ?? [],
-			settlementsByGroup.get(group.id) ?? [],
-		)
-			.filter((row) => row.userId === ctx.user.id)
-			.map(({ currency, balanceMinor }) => ({ currency, balanceMinor })),
-	}));
+		.orderBy(asc(organization.name), asc(organization.id));
 }
 
 /**
@@ -94,6 +64,7 @@ export async function listGroupsWithMembers(ctx: Ctx) {
 			organizationId: member.organizationId,
 			userId: user.id,
 			name: user.name,
+			image: user.image,
 			weight: member.weight,
 		})
 		.from(member)
@@ -103,19 +74,27 @@ export async function listGroupsWithMembers(ctx: Ctx) {
 	const byGroup = new Map(
 		groupIds.map((groupId) => [
 			groupId,
-			[] as { userId: string; name: string; weight: number }[],
+			[] as {
+				userId: string;
+				name: string;
+				image: string | null;
+				weight: number;
+			}[],
 		]),
 	);
 	for (const row of memberRows)
-		byGroup
-			.get(row.organizationId)
-			?.push({ userId: row.userId, name: row.name, weight: row.weight });
+		byGroup.get(row.organizationId)?.push({
+			userId: row.userId,
+			name: row.name,
+			image: row.image,
+			weight: row.weight,
+		});
 	return rows.map((row) => ({ ...row, members: byGroup.get(row.id) ?? [] }));
 }
 
 export async function archiveGroup(ctx: Ctx, input: { groupId: string }) {
 	const mine = await membership(ctx, input.groupId);
-	requireRole(mine.role, ["owner", "admin"]);
+	requirePermission(mine.role, { group: ["update"] });
 	await ctx.db.transaction(async (tx) => {
 		const group = await tx.query.organization.findFirst({
 			where: eq(organization.id, input.groupId),
@@ -143,7 +122,7 @@ export async function archiveGroup(ctx: Ctx, input: { groupId: string }) {
 
 export async function unarchiveGroup(ctx: Ctx, input: { groupId: string }) {
 	const mine = await membership(ctx, input.groupId);
-	requireRole(mine.role, ["owner", "admin"]);
+	requirePermission(mine.role, { group: ["update"] });
 	await ctx.db.transaction(async (tx) => {
 		const group = await tx.query.organization.findFirst({
 			where: eq(organization.id, input.groupId),
@@ -179,7 +158,7 @@ export async function duplicateGroup(
 	input: { groupId: string; name?: string },
 ) {
 	const mine = await membership(ctx, input.groupId);
-	requireRole(mine.role, ["owner", "admin"]);
+	requirePermission(mine.role, { group: ["update"] });
 	const source = await ctx.db.query.organization.findFirst({
 		where: eq(organization.id, input.groupId),
 	});
@@ -265,7 +244,7 @@ export async function createGroup(ctx: Ctx, input: CreateGroupInput) {
 
 export async function getGroup(ctx: Ctx, input: { groupId: string }) {
 	const mine = await membership(ctx, input.groupId);
-	if (!ctx.apiKeyId && ctx.session.activeOrganizationId !== input.groupId)
+	if (ctx.session && ctx.session.activeOrganizationId !== input.groupId)
 		await ctx.db
 			.update(session)
 			.set({ activeOrganizationId: input.groupId })
@@ -283,7 +262,7 @@ export async function renameGroup(
 	input: { groupId: string; name: string },
 ) {
 	const mine = await membership(ctx, input.groupId);
-	requireRole(mine.role, ["owner", "admin"]);
+	requirePermission(mine.role, { group: ["update"] });
 	await ctx.db.transaction(async (tx) => {
 		const previous = await tx.query.organization.findFirst({
 			where: eq(organization.id, input.groupId),
@@ -310,7 +289,7 @@ export async function renameGroup(
 
 export async function deleteGroup(ctx: Ctx, input: { groupId: string }) {
 	const mine = await membership(ctx, input.groupId);
-	requireRole(mine.role, ["owner"]);
+	requirePermission(mine.role, { group: ["delete"] });
 	await ctx.db.delete(organization).where(eq(organization.id, input.groupId));
 	return { success: true };
 }

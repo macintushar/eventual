@@ -30,6 +30,8 @@ export const addMemberSchema = z.object({
 	email: normalizedEmailSchema.optional(),
 	phone: phoneSchema.optional(),
 	weight: memberWeightSchema.optional(),
+	/** Role offered by the invitation; only used when an email is given. */
+	role: z.enum(["admin", "member"]).optional(),
 });
 export const updateMemberWeightSchema = z.object({
 	groupId: z.string().min(1),

@@ -2,6 +2,7 @@ import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 
 import { env } from "#/env";
+import { instrumentDatabase } from "#/server/performance";
 import * as schema from "./schema";
 
 const client = createClient({
@@ -9,5 +10,5 @@ const client = createClient({
 	authToken: env.TURSO_AUTH_TOKEN,
 });
 
-export const db = drizzle(client, { schema });
+export const db = drizzle(instrumentDatabase(client), { schema });
 export type Database = typeof db;

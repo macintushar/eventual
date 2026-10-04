@@ -13,6 +13,14 @@ import { membership } from "./shared";
 export async function getPaymentIntents(ctx: Ctx, input: { groupId: string }) {
 	await membership(ctx, input.groupId);
 	const { transfers } = await getBalances(ctx, input);
+	return paymentIntentsForBalances(ctx, transfers);
+}
+
+/** Reuse an already-authorized summary rather than calculating it twice. */
+export async function paymentIntentsForBalances(
+	ctx: Ctx,
+	transfers: Awaited<ReturnType<typeof getBalances>>["transfers"],
+) {
 	const recipients = [
 		...new Set(
 			transfers

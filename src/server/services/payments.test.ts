@@ -48,6 +48,7 @@ async function fixture() {
 		db,
 		user: users[0],
 		apiKeyId: "test",
+		apiKeyPermissions: null,
 		session: {
 			id: "test",
 			userId: "A",

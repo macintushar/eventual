@@ -6,7 +6,7 @@ import {
 	createCategoryRuleSchema,
 	updateCategoryRuleSchema,
 } from "#/server/schemas/expenses";
-import { id, membership, requireRole } from "./shared";
+import { id, membership, requirePermission } from "./shared";
 
 export function normalizeSearchText(...values: (string | null | undefined)[]) {
 	return values
@@ -115,7 +115,9 @@ export async function createCategoryRule(
 	raw: Parameters<typeof createCategoryRuleSchema.parse>[0],
 ) {
 	const input = createCategoryRuleSchema.parse(raw);
-	requireRole((await membership(ctx, input.groupId)).role, ["owner", "admin"]);
+	requirePermission((await membership(ctx, input.groupId)).role, {
+		category: ["create"],
+	});
 	const [row] = await ctx.db
 		.insert(categoryRule)
 		.values({
@@ -134,7 +136,9 @@ export async function updateCategoryRule(
 	raw: Parameters<typeof updateCategoryRuleSchema.parse>[0],
 ) {
 	const input = updateCategoryRuleSchema.parse(raw);
-	requireRole((await membership(ctx, input.groupId)).role, ["owner", "admin"]);
+	requirePermission((await membership(ctx, input.groupId)).role, {
+		category: ["update"],
+	});
 	const [row] = await ctx.db
 		.update(categoryRule)
 		.set({
@@ -157,7 +161,9 @@ export async function deleteCategoryRule(
 	ctx: Ctx,
 	input: { groupId: string; ruleId: string },
 ) {
-	requireRole((await membership(ctx, input.groupId)).role, ["owner", "admin"]);
+	requirePermission((await membership(ctx, input.groupId)).role, {
+		category: ["delete"],
+	});
 	const rows = await ctx.db
 		.delete(categoryRule)
 		.where(

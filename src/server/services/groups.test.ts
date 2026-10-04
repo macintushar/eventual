@@ -77,6 +77,7 @@ async function fixture() {
 		db,
 		user: users[0],
 		apiKeyId: "test",
+		apiKeyPermissions: null,
 		session: {
 			id: "test",
 			userId: "A",
@@ -192,8 +193,8 @@ test("new expenses use the member weights shown in the composer", async () => {
 	try {
 		const [group] = await listGroupsWithMembers(f.ctx);
 		assert.deepEqual(group?.members, [
-			{ userId: "A", name: "A", weight: 2 },
-			{ userId: "B", name: "B", weight: 3 },
+			{ userId: "A", name: "A", image: null, weight: 2 },
+			{ userId: "B", name: "B", image: null, weight: 3 },
 		]);
 		const participants = [
 			{ userId: "A", input: null, weight: 99 },
