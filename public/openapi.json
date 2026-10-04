@@ -5467,6 +5467,7 @@
                         "enum": [
                           "transactional",
                           "management",
+                          "full",
                           "custom",
                           "legacy"
                         ]
@@ -5543,6 +5544,7 @@
                     "enum": [
                       "transactional",
                       "management",
+                      "full",
                       "custom"
                     ]
                   },
@@ -5636,6 +5638,7 @@
                           "enum": [
                             "transactional",
                             "management",
+                            "full",
                             "custom",
                             "legacy"
                           ]
