@@ -8,6 +8,7 @@ import * as schema from "#/db/schema";
 import { channelIdentity } from "#/db/schema";
 import type { Ctx } from "#/server/context";
 import { listMembers } from "#/server/services/members";
+import { shortcutMembers } from "#/server/services/shortcut";
 
 const NUMBER = "+919876543210";
 
@@ -106,6 +107,45 @@ test("hidden contact details are withheld from other members", async () => {
 		assert.equal(a?.phone, NUMBER, "your own number stays");
 		assert.equal(b?.email, null);
 		assert.equal(b?.phone, null);
+	} finally {
+		client.close();
+	}
+});
+
+/**
+ * Shortcuts tells same-named members apart by email. With both emails hidden
+ * the labels must still differ, or one member drops out of the picker.
+ */
+test("same-named members with hidden emails both stay pickable", async () => {
+	const { client, db, ctx } = await fixture();
+	try {
+		const now = new Date();
+		await db.insert(schema.user).values({
+			id: "C",
+			name: "Sam",
+			email: "c@test.invalid",
+			emailVerified: true,
+			createdAt: now,
+			updatedAt: now,
+		});
+		await db.insert(schema.member).values({
+			id: "G-C",
+			organizationId: "G",
+			userId: "C",
+			role: "member",
+			createdAt: now,
+		});
+		await db
+			.update(schema.user)
+			.set({ name: "Sam", isEmailPublic: false })
+			.where(eq(schema.user.id, "B"));
+		await db
+			.update(schema.user)
+			.set({ isEmailPublic: false })
+			.where(eq(schema.user.id, "C"));
+
+		const picker = await shortcutMembers(ctx, { groupId: "G" });
+		assert.deepEqual(Object.values(picker).sort(), ["A", "B", "C"]);
 	} finally {
 		client.close();
 	}

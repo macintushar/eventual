@@ -45,7 +45,8 @@ export async function shortcutMembers(ctx: Ctx, input: { groupId: string }) {
 	return labelled(
 		[...me, ...others],
 		(row) => (row.userId === ctx.user.id ? `Me (${row.name})` : row.name),
-		(row) => `${row.name} (${row.email})`,
+		// A hidden email comes back null, so the user id keeps the label unique.
+		(row) => `${row.name} (${row.email ?? row.userId})`,
 		(row) => row.userId,
 	);
 }
