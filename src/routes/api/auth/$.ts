@@ -4,9 +4,9 @@ import { eq } from "drizzle-orm";
 import { db } from "#/db";
 import { user } from "#/db/schema";
 import { auth, presentedApiKey } from "#/lib/auth";
+import { getAppLogger } from "#/lib/logging";
 import { canImpersonate, type Permissions } from "#/lib/permissions";
 import { pendingVerificationCookie } from "#/server/pending-verification";
-import { getAppLogger } from "#/lib/logging";
 
 /**
  * Better Auth treats a valid API key as its owner's session

@@ -4,8 +4,8 @@ import { eq } from "drizzle-orm";
 import { type Database, db } from "#/db";
 import { user } from "#/db/schema";
 import { auth, presentedApiKey } from "#/lib/auth";
-import type { Permissions } from "#/lib/permissions";
 import { getAppLogger } from "#/lib/logging";
+import type { Permissions } from "#/lib/permissions";
 import { AppError } from "#/server/errors";
 
 export type AuthSession = NonNullable<

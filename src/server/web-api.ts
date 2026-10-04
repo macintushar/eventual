@@ -4,6 +4,7 @@ import { db } from "#/db";
 import { channelIdentity, user } from "#/db/schema";
 import { env } from "#/env";
 import { auth, presentedApiKey } from "#/lib/auth";
+import { withNext } from "#/lib/auth-redirect";
 import {
 	apiKeyMode,
 	FULL_ACCESS_MAX_DAYS,
@@ -11,7 +12,6 @@ import {
 	type Permissions,
 	validateKeyPermissions,
 } from "#/lib/permissions";
-import { withNext } from "#/lib/auth-redirect";
 import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
 import { getLegalInfo } from "#/server/legal";

@@ -22,15 +22,15 @@ import {
 } from "#/components/group-exit-dialogs";
 import { RoleLock, RoleNote } from "#/components/role-lock";
 import { SettingsRow, SettingsSection } from "#/components/settings-section";
-import { Badge } from "#/components/ui/badge";
-import { Button } from "#/components/ui/button";
-import { Checkbox } from "#/components/ui/checkbox";
 import {
 	Accordion,
 	AccordionContent,
 	AccordionItem,
 	AccordionTrigger,
 } from "#/components/ui/accordion";
+import { Badge } from "#/components/ui/badge";
+import { Button } from "#/components/ui/button";
+import { Checkbox } from "#/components/ui/checkbox";
 import { Field, FieldLabel } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import {
