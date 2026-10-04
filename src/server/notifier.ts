@@ -1,6 +1,7 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 import type { Database } from "#/db";
 import { channelIdentity, user } from "#/db/schema";
+import { getAppLogger } from "#/lib/logging";
 import {
 	type ChannelAdapter,
 	emailChannel,
@@ -47,6 +48,11 @@ export function createNotifier(
 						}),
 					);
 			}
+			getAppLogger("notifications").info("Notification dispatch completed", {
+				kind,
+				deliveryCount: deliveries.length,
+				skipped: deliveries.length === 0,
+			});
 			return { skipped: deliveries.length === 0, deliveries };
 		},
 	};

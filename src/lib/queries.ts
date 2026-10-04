@@ -2,6 +2,7 @@ import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 
 import {
 	getActivityFn,
+	getCategoryBackfillFn,
 	getComposerFn,
 	getDashboardFn,
 	getExpenseFn,
@@ -15,6 +16,7 @@ import {
 	getInvitationFn,
 	getLegalInfoFn,
 	getMyActivityFn,
+	getMyInvitationsFn,
 	getPendingVerificationFn,
 	getRecurringFn,
 	getSessionFn,
@@ -127,6 +129,17 @@ export const groupPageQueryOptions = (groupId: string) =>
 		queryFn: ({ signal }) => getGroupPageFn({ data: { groupId }, signal }),
 	});
 
+/** Under the group key, so any category or expense write refreshes it. */
+export const categoryBackfillQueryOptions = (
+	groupId: string,
+	ruleId?: string,
+) =>
+	queryOptions({
+		queryKey: ["group", groupId, "category-backfill", ruleId ?? null] as const,
+		queryFn: ({ signal }) =>
+			getCategoryBackfillFn({ data: { groupId, ruleId }, signal }),
+	});
+
 export const expenseQueryOptions = (expenseId: string) =>
 	queryOptions({
 		queryKey: ["expense", expenseId] as const,
@@ -162,6 +175,12 @@ export const expensePageQueryOptions = (
 				signal,
 			}),
 	});
+
+/** Under the `invitation` prefix, so accepting or revoking refreshes it. */
+export const myInvitationsQueryOptions = queryOptions({
+	queryKey: ["invitation", "mine"] as const,
+	queryFn: ({ signal }) => getMyInvitationsFn(signal),
+});
 
 export const invitationQueryOptions = (invitationId: string) =>
 	queryOptions({

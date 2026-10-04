@@ -38,6 +38,7 @@ export async function invalidateForMutation(
 	}
 	if (name.startsWith("category.") || name.startsWith("reminder."))
 		resources.add("settings");
+	if (name.startsWith("category.")) resources.add("expenses");
 	if (name.startsWith("recurring.")) resources.add("recurring");
 	// Legacy aggregate reads remain compatible while other clients migrate.
 	resources.add("page");
@@ -50,7 +51,11 @@ export async function invalidateForMutation(
 			if (root === "composer" || root === "groups") return membership;
 			if (root === "activity") return financial || membership;
 			if (root === "invitation")
-				return name.startsWith("invitation.") || name === "member.add";
+				return (
+					name.startsWith("invitation.") ||
+					name === "member.add" ||
+					name === "member.updateGuest"
+				);
 			if (root === "session") return name === "reminder.preferences.update";
 			if (root === "expense")
 				return (

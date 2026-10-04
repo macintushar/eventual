@@ -14,3 +14,14 @@ export function safeAuthRedirect(value: string | undefined) {
 		return "/app";
 	}
 }
+
+/**
+ * Carries the post-authentication destination through email verification, so
+ * someone who signs up from an invite link lands back on the invite.
+ */
+export function withNext(path: string, next: string | undefined) {
+	const target = safeAuthRedirect(next);
+	return target === "/app"
+		? path
+		: `${path}?next=${encodeURIComponent(target)}`;
+}

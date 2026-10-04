@@ -1,9 +1,13 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import * as Sentry from "@sentry/tanstackstart-react";
+
+import { configureLogging } from "#/lib/logging-config";
 
 const dsn = process.env.SENTRY_DSN;
 
 Sentry.init({
 	dsn,
+	enableLogs: true,
 	enabled: Boolean(dsn),
 	environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
 	release: process.env.VERCEL_GIT_COMMIT_SHA,
@@ -23,4 +27,12 @@ Sentry.init({
 		}
 		return event;
 	},
+});
+
+configureLogging({
+	contextLocalStorage: new AsyncLocalStorage<Record<string, unknown>>(),
+	runtime: "server",
+	production: process.env.NODE_ENV === "production",
+	sentryEnabled: Boolean(dsn),
+	level: process.env.LOG_LEVEL,
 });

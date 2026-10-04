@@ -45,9 +45,15 @@ test("scroll append keeps rows and position, makes one list request and no summa
 	await openGroup(page);
 	await expect(rows(page)).toHaveCount(30);
 	expect(
-		requests.some((url) =>
-			/\/(settings|settlements|invitations|page)(\?|$)/.test(url),
-		),
+		requests.some((url) => {
+			// The shell independently loads /me/invitations for its banner; only
+			// group-tab requests would violate the lazy-loading contract here.
+			const path = new URL(url).pathname;
+			return (
+				path.includes("/groups/G/") &&
+				/\/(settings|settlements|invitations|page)$/.test(path)
+			);
+		}),
 	).toBeFalsy();
 	const first = await ids(page);
 	let release = () => {};

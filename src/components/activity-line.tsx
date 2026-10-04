@@ -16,6 +16,7 @@ import {
 	Shield,
 	Trash2,
 	UserMinus,
+	UserPen,
 	UserPlus,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -52,6 +53,7 @@ export const activityIcons: Record<ActivityType, LucideIcon> = {
 	"member.removed": UserMinus,
 	"member.left": LogOut,
 	"member.role_changed": Shield,
+	"member.updated": UserPen,
 	"expense.created": Receipt,
 	"expense.updated": ReceiptText,
 	"expense.deleted": Trash2,
@@ -105,7 +107,14 @@ function sentence(item: ActivityItem, nameOf: (userId: string) => string) {
 				</>
 			);
 		case "member.joined":
-			return <>{actor} joined the group</>;
+			return str(meta.replacedGuestName) ? (
+				<>
+					{actor} joined the group and took over{" "}
+					{strong(str(meta.replacedGuestName))}'s expenses
+				</>
+			) : (
+				<>{actor} joined the group</>
+			);
 		case "member.removed":
 			return (
 				<>
@@ -119,6 +128,15 @@ function sentence(item: ActivityItem, nameOf: (userId: string) => string) {
 				<>
 					{actor} changed {strong(nameOf(str(meta.userId)))} from{" "}
 					{str(meta.from)} to {str(meta.to)}
+				</>
+			);
+		case "member.updated":
+			return (
+				<>
+					{actor} updated {strong(nameOf(str(meta.userId)))}'s{" "}
+					{Array.isArray(meta.fields) && meta.fields.length
+						? meta.fields.join(" and ")
+						: "details"}
 				</>
 			);
 		case "expense.created":

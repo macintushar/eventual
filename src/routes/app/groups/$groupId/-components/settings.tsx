@@ -9,10 +9,12 @@ import {
 	LogOut,
 	Plus,
 	Settings,
+	Tags,
 	Trash2,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { CategoryReviewDialog } from "#/components/category-review-dialog";
 import {
 	ArchiveGroupDialog,
 	DeleteGroupDialog,
@@ -22,6 +24,13 @@ import { RoleLock, RoleNote } from "#/components/role-lock";
 import { SettingsRow, SettingsSection } from "#/components/settings-section";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
+import { Checkbox } from "#/components/ui/checkbox";
+import {
+	Accordion,
+	AccordionContent,
+	AccordionItem,
+	AccordionTrigger,
+} from "#/components/ui/accordion";
 import { Field, FieldLabel } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import {
@@ -33,6 +42,7 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import { Spinner } from "#/components/ui/spinner";
+import { builtInCategories, builtInCategory } from "#/lib/categories";
 import { can } from "#/lib/permissions";
 import { groupSettingsQueryOptions } from "#/lib/queries";
 import {
@@ -90,6 +100,8 @@ export function SettingsTab({
 	const categoryRules = settings.data?.categoryRules ?? [];
 	const [rulePattern, setRulePattern] = useState("");
 	const [ruleCategory, setRuleCategory] = useState("");
+	const [ruleApplyToExisting, setRuleApplyToExisting] = useState(true);
+	const ruleBuiltIn = rulePattern.trim() ? builtInCategory(rulePattern) : null;
 	const [reminderUser, setReminderUser] = useState(
 		data.group.members.find((member) => member.userId !== data.user.id)
 			?.userId ?? data.user.id,
@@ -232,9 +244,46 @@ export function SettingsTab({
 				<SettingsRow
 					layout="stacked"
 					title="Category rules"
-					description="New expenses whose description contains the phrase get the category automatically."
+					description="New expenses whose description contains the phrase get the category automatically. Common expenses are already covered by built-in keywords; your rules run first, so they can also override them."
 				>
 					<div className="flex flex-col gap-4">
+						<CategoryReviewDialog
+							groupId={groupId}
+							execute={execute}
+							trigger={
+								<Button variant="outline" className="self-start">
+									<Tags data-icon="inline-start" />
+									Review categories
+								</Button>
+							}
+						/>
+						<Accordion
+							type="single"
+							collapsible
+							className="rounded-xl border px-4"
+						>
+							<AccordionItem value="built-in">
+								<AccordionTrigger className="text-sm">
+									Built-in keywords
+								</AccordionTrigger>
+								<AccordionContent>
+									<dl className="grid gap-2 text-sm sm:grid-cols-[auto_1fr] sm:gap-x-4">
+										{builtInCategories.map(([category, keywords]) => (
+											<div key={category} className="contents">
+												<dt className="font-medium">{category}</dt>
+												<dd className="text-muted-foreground">
+													{keywords.join(", ")}
+												</dd>
+											</div>
+										))}
+									</dl>
+									<p className="mt-3 text-xs text-muted-foreground">
+										These match whole words, so “bus” doesn't match “business”.
+										Anything else is filed under Other.
+									</p>
+								</AccordionContent>
+							</AccordionItem>
+						</Accordion>
 						{categoryRules.length > 0 ? (
 							<ul className="divide-y rounded-xl border">
 								{categoryRules.map((rule) => (
@@ -252,6 +301,20 @@ export function SettingsTab({
 											<span className="sr-only">sets category to </span>
 											<Badge variant="secondary">{rule.category}</Badge>
 										</span>
+										<CategoryReviewDialog
+											groupId={groupId}
+											ruleId={rule.id}
+											execute={execute}
+											trigger={
+												<Button
+													size="sm"
+													variant="ghost"
+													aria-label={`Apply rule for “${rule.pattern}” to existing expenses`}
+												>
+													Apply to existing
+												</Button>
+											}
+										/>
 										{canDeleteRule ? (
 											<Button
 												size="icon-sm"
@@ -285,19 +348,25 @@ export function SettingsTab({
 								onSubmit={async (event) => {
 									event.preventDefault();
 									if (!rulePattern.trim() || !ruleCategory.trim()) return;
-									const ok = await run(
-										{
-											action: "category.create",
-											input: {
-												groupId,
-												pattern: rulePattern,
-												category: ruleCategory,
-												priority: 0,
-											},
+									const outcome = await execute({
+										action: "category.create",
+										input: {
+											groupId,
+											pattern: rulePattern,
+											category: ruleCategory,
+											priority: 0,
+											applyToExisting: ruleApplyToExisting,
 										},
-										"Category rule added",
-									);
-									if (ok) {
+									});
+									if (outcome.ok) {
+										const { recategorized } = outcome.result as {
+											recategorized: number;
+										};
+										toast.success(
+											recategorized
+												? `Category rule added. ${recategorized} existing ${recategorized === 1 ? "expense" : "expenses"} updated.`
+												: "Category rule added",
+										);
 										setRulePattern("");
 										setRuleCategory("");
 									}
@@ -331,6 +400,30 @@ export function SettingsTab({
 									<Plus data-icon="inline-start" />
 									Add rule
 								</Button>
+								<Field orientation="horizontal" className="gap-2 sm:col-span-3">
+									<Checkbox
+										id="category-apply-existing"
+										checked={ruleApplyToExisting}
+										onCheckedChange={(value) =>
+											setRuleApplyToExisting(value === true)
+										}
+									/>
+									<FieldLabel
+										htmlFor="category-apply-existing"
+										className="font-normal"
+									>
+										Also update existing expenses that match
+									</FieldLabel>
+								</Field>
+								{ruleBuiltIn ? (
+									<p className="text-sm text-muted-foreground sm:col-span-3">
+										{!ruleCategory.trim() ||
+										ruleCategory.trim().toLowerCase() ===
+											ruleBuiltIn.category.toLowerCase()
+											? `Already covered: “${ruleBuiltIn.keyword}” is a built-in keyword for ${ruleBuiltIn.category}. You don't need a rule for it.`
+											: `This overrides the built-in ${ruleBuiltIn.category} category for “${ruleBuiltIn.keyword}”.`}
+									</p>
+								) : null}
 							</form>
 						)}
 					</div>

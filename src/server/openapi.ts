@@ -149,6 +149,14 @@ export function openApiDocument(origin?: string) {
 			response: createdApiKeySchema,
 		},
 		"apiKey.delete": { response: z.object({ success: z.literal(true) }) },
+		"site.get": {
+			response: z.object({
+				origin: z.string(),
+				supportEmail: z.string().nullable(),
+				googleSignIn: z.boolean(),
+				statusPageUrl: z.string().nullable(),
+			}),
+		},
 	};
 	const webEndpoints = [
 		["/v1/health", "get", "health", true],

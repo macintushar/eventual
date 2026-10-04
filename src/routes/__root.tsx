@@ -11,6 +11,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AnalyticsProvider } from "#/components/analytics-provider";
 import { AppThemeProvider, THEME_COLORS } from "#/components/theme";
 import { Toaster } from "#/components/ui/sonner";
+import { siteQueryOptions } from "#/lib/queries";
 import appCss from "../styles.css?url";
 
 export interface RouterContext {
@@ -57,6 +58,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 	}),
 	component: RootComponent,
 	shellComponent: RootDocument,
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(siteQueryOptions),
 });
 
 function RootComponent() {

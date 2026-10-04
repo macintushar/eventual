@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { getAppLogger } from "#/lib/logging";
 
 /**
  * Copies text and reports failure as a toast, returning whether it worked.
@@ -14,8 +15,10 @@ import { toast } from "sonner";
 export async function copyToClipboard(value: string, label: string) {
 	try {
 		await navigator.clipboard.writeText(value);
+		getAppLogger("clipboard").debug("Clipboard copy completed");
 		return true;
 	} catch {
+		getAppLogger("clipboard").warning("Clipboard copy failed");
 		toast.error("Copy failed", {
 			description: `The ${label} could not be copied. Select it and copy it manually.`,
 		});

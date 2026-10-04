@@ -2,6 +2,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { invalidateForMutation } from "#/lib/mutation-invalidation";
+import { getAppLogger } from "#/lib/logging";
+
 import {
 	apiKeysQueryOptions,
 	dashboardQueryOptions,
@@ -29,7 +31,12 @@ function messageFrom(error: unknown, fallback: string) {
 export function useAppMutation() {
 	const queryClient = useQueryClient();
 	const mutation = useMutation({
-		mutationFn: (data: MutationInput) => mutateFn({ data }),
+		mutationFn: (data: MutationInput) => {
+			getAppLogger("mutations").debug("App mutation requested", {
+				operation: data.action,
+			});
+			return mutateFn({ data });
+		},
 		onSuccess: async (result, data) => {
 			await invalidateForMutation(queryClient, data, result);
 		},

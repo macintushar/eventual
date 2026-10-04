@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/tanstackstart-react";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { ErrorScreen, NotFoundScreen } from "#/components/error-page";
+import { getAppLogger } from "#/lib/logging";
 import { createQueryClient } from "#/lib/query-client";
 import { routeTree } from "./routeTree.gen";
 
@@ -26,6 +27,9 @@ export function getRouter() {
 	});
 	setupRouterSsrQueryIntegration({ router, queryClient });
 	if (!router.isServer) {
+		router.subscribe("onResolved", () =>
+			getAppLogger("router").debug("Navigation resolved"),
+		);
 		Sentry.addIntegration(
 			Sentry.tanstackRouterBrowserTracingIntegration(router),
 		);

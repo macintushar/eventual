@@ -5,6 +5,7 @@ import TransactionalEmail, {
 	type TransactionalEmailProps,
 } from "#/emails/transactional";
 import { env } from "#/env";
+import { getAppLogger } from "#/lib/logging";
 
 export async function sendEmail(
 	to: string,
@@ -28,11 +29,12 @@ export async function sendEmail(
 		{ idempotencyKey },
 	);
 	if (error || !data) {
-		console.error("Email provider rejected delivery", {
+		getAppLogger("email").warning("Email provider rejected delivery", {
 			kind: props.kind,
 			code: error?.name,
 		});
 		throw new Error("Email could not be sent. Please try again later.");
 	}
+	getAppLogger("email").info("Email delivered", { kind: props.kind });
 	return data.id;
 }

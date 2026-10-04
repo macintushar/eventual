@@ -46,6 +46,7 @@ const config = defineConfig(({ mode }) => {
 				})
 			: [];
 	return {
+		logLevel: process.env.E2E ? "error" : "info",
 		resolve: { tsconfigPaths: true },
 		server: {
 			watch: { ignored: devWatchIgnored },

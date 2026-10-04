@@ -531,12 +531,8 @@ export async function setSharePaid(
 	input: { expenseId: string; userId: string },
 	paid: boolean,
 ) {
+	// getExpense checks membership; any member can mark any share paid.
 	const current = await getExpense(ctx, { expenseId: input.expenseId });
-	if (ctx.user.id !== input.userId && ctx.user.id !== current.paidByUserId)
-		throw new AppError(
-			"FORBIDDEN",
-			"Only the share owner or expense payer can change this paid status",
-		);
 	const share = current.shares.find((row) => row.userId === input.userId);
 	if (!share) throw new AppError("NOT_FOUND", "Expense share not found");
 	const members = await listMembers(ctx, { groupId: current.organizationId });
@@ -550,11 +546,6 @@ export async function setSharePaid(
 		});
 		if (!latest || !latestShare)
 			throw new AppError("NOT_FOUND", "Expense share not found");
-		if (ctx.user.id !== input.userId && ctx.user.id !== latest.paidByUserId)
-			throw new AppError(
-				"FORBIDDEN",
-				"Only the share owner or expense payer can change this paid status",
-			);
 		if (Boolean(latestShare.paidAt) === paid) return;
 		const balances = await readBalances(tx, latest.organizationId, members);
 		const invalid = validateSharePayment(balances.transfers, {

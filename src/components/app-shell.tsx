@@ -12,6 +12,8 @@ import {
 } from "#/components/command-palette";
 import { ComposerProvider } from "#/components/composer";
 import { AppDock } from "#/components/dock";
+import { PendingInvitationsBanner } from "#/components/pending-invitations-banner";
+import { StatusPageCallout, useStatusPageUrl } from "#/components/status-page";
 import { ThemeToggle } from "#/components/theme";
 import { Wordmark } from "#/components/wordmark";
 import { cn } from "#/lib/utils";
@@ -76,6 +78,36 @@ function useHeaderMotion() {
 const InAppShell = createContext(false);
 
 /**
+ * The signed-in tagline stays desktop-only, matching the dock on a phone.
+ * A published status page is the exception: that callout has to stay reachable
+ * without scrolling past a desktop-only footer.
+ */
+function AppFooter() {
+	const statusPageUrl = useStatusPageUrl();
+
+	return (
+		<footer
+			className={cn(
+				"page-wrap py-8 text-xs text-muted-foreground",
+				statusPageUrl ? undefined : "hidden sm:block",
+			)}
+		>
+			<div
+				className={cn(
+					"flex flex-wrap items-center gap-3",
+					statusPageUrl && "justify-end sm:justify-between",
+				)}
+			>
+				<span className={statusPageUrl ? "hidden sm:inline" : undefined}>
+					Eventual · Exact splits, down to the smallest unit.
+				</span>
+				<StatusPageCallout />
+			</div>
+		</footer>
+	);
+}
+
+/**
  * Whether a masthead is already on the page. Error and not-found screens are
  * rendered by a boundary on every route, inside this shell for signed-in pages
  * and bare in the document everywhere else, so they read this to decide between
@@ -122,11 +154,12 @@ export function AppShell({
 							</div>
 						</header>
 
-						<main className="page-wrap flex-1 py-6 sm:py-8">{children}</main>
+						<main className="page-wrap flex-1 py-6 sm:py-8">
+							<PendingInvitationsBanner />
+							{children}
+						</main>
 
-						<footer className="page-wrap hidden py-8 text-xs text-muted-foreground sm:block">
-							Eventual · Exact splits, down to the smallest unit.
-						</footer>
+						<AppFooter />
 
 						<AppDock user={user} />
 					</div>

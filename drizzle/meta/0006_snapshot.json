@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "384d8952-ebd6-4700-beec-162fcfb2f449",
+  "id": "e163c19e-a875-4275-bc2e-2d88850c4e38",
   "prevId": "f82dc50b-f01c-495a-84c5-53217772500b",
   "tables": {
     "account": {
@@ -196,15 +196,6 @@
           ],
           "isUnique": false
         },
-        "activity_page_idx": {
-          "name": "activity_page_idx",
-          "columns": [
-            "organization_id",
-            "created_at",
-            "id"
-          ],
-          "isUnique": false
-        },
         "activity_created_at_idx": {
           "name": "activity_created_at_idx",
           "columns": [
@@ -283,15 +274,6 @@
           "columns": [
             "user_id",
             "created_at"
-          ],
-          "isUnique": false
-        },
-        "activity_recipient_page_idx": {
-          "name": "activity_recipient_page_idx",
-          "columns": [
-            "user_id",
-            "created_at",
-            "activity_id"
           ],
           "isUnique": false
         }
@@ -794,16 +776,6 @@
             "organization_id"
           ],
           "isUnique": false
-        },
-        "expense_page_idx": {
-          "name": "expense_page_idx",
-          "columns": [
-            "organization_id",
-            "date",
-            "created_at",
-            "id"
-          ],
-          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -1213,6 +1185,13 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "guest_user_id": {
+          "name": "guest_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -1227,6 +1206,13 @@
           "name": "invitation_email_idx",
           "columns": [
             "email"
+          ],
+          "isUnique": false
+        },
+        "invitation_guestUserId_idx": {
+          "name": "invitation_guestUserId_idx",
+          "columns": [
+            "guest_user_id"
           ],
           "isUnique": false
         }
@@ -1256,6 +1242,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "invitation_guest_user_id_user_id_fk": {
+          "name": "invitation_guest_user_id_user_id_fk",
+          "tableFrom": "invitation",
+          "tableTo": "user",
+          "columnsFrom": [
+            "guest_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1764,15 +1763,6 @@
           "name": "settlement_organization_id_idx",
           "columns": [
             "organization_id"
-          ],
-          "isUnique": false
-        },
-        "settlement_page_idx": {
-          "name": "settlement_page_idx",
-          "columns": [
-            "organization_id",
-            "created_at",
-            "id"
           ],
           "isUnique": false
         }

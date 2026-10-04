@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { z } from "zod";
 import {
 	PublicPage,
@@ -7,12 +7,24 @@ import {
 	publicSignedOutActions,
 } from "#/components/public-header";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import { safeAuthRedirect } from "#/lib/auth-redirect";
 import { sessionQueryOptions } from "#/lib/queries";
 
 export const Route = createFileRoute("/verify-email")({
-	validateSearch: z.object({ error: z.string().optional() }),
-	loader: ({ context }) =>
-		context.queryClient.ensureQueryData(sessionQueryOptions),
+	validateSearch: z.object({
+		error: z.string().optional(),
+		next: z.string().optional(),
+	}),
+	loaderDeps: ({ search }) => search,
+	loader: async ({ context, deps }) => {
+		const session =
+			await context.queryClient.ensureQueryData(sessionQueryOptions);
+		// Verification signs the user in, so a signup that started on an invite
+		// goes straight back to it instead of stopping here.
+		if (!deps.error && session && deps.next)
+			throw redirect({ href: safeAuthRedirect(deps.next) });
+		return session;
+	},
 	head: () => ({
 		meta: [
 			{ title: "Email verification · Eventual" },
@@ -23,8 +35,9 @@ export const Route = createFileRoute("/verify-email")({
 });
 
 function VerificationResult() {
-	const { error } = Route.useSearch();
+	const { error, next } = Route.useSearch();
 	const session = useSuspenseQuery(sessionQueryOptions).data;
+	const target = safeAuthRedirect(next);
 	return (
 		<PublicPage
 			user={session?.user ?? null}
@@ -42,12 +55,33 @@ function VerificationResult() {
 				<CardContent className="flex flex-col gap-4">
 					<p>
 						{error
-							? "The link may have expired. Sign in and request another verification email from your account page."
-							: "You can return to Eventual and check your email status on your account page."}
+							? session
+								? "The link may have expired. You can request a new one from your account page."
+								: "The link may have expired. Sign in and we'll send you a new one."
+							: session
+								? "You're all set. Any groups you've been invited to are waiting for you."
+								: "Sign in to continue to Eventual."}
 					</p>
-					<Link to="/app/settings/profile" className="underline">
-						Continue to your account
-					</Link>
+					{session ? (
+						error ? (
+							<Link to="/app/settings/profile" className="underline">
+								Go to your account
+							</Link>
+						) : (
+							// `target` is a sanitized path that may carry its own query.
+							<a href={target} className="underline">
+								Continue to Eventual
+							</a>
+						)
+					) : (
+						<Link
+							to="/login"
+							search={target === "/app" ? {} : { redirect: target }}
+							className="underline"
+						>
+							Sign in
+						</Link>
+					)}
 				</CardContent>
 			</Card>
 		</PublicPage>

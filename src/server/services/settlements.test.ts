@@ -87,7 +87,7 @@ test("USD repayment closes only USD shares, rejects overpayment, and deletion re
 	try {
 		const inr = await f.expense("INR");
 		const usd = await f.expense("USD");
-		await assert.rejects(f.pay("USD", 40000), /cannot pay more/);
+		await assert.rejects(f.pay("USD", 40000), /can't be more than the/);
 		assert.equal((await f.db.query.settlement.findMany()).length, 0);
 		const payment = await f.pay("USD", 20000);
 		assert.ok(payment);
@@ -148,7 +148,7 @@ test("partial repayments reduce the limit; stale submissions and paid toggles ca
 		);
 		await assert.rejects(
 			setSharePaid(f.ctx, { expenseId: expense.id, userId: "A" }, true),
-			/cannot pay more/,
+			/can't be more than the/,
 		);
 		await f.pay("USD", 15000);
 		await assert.rejects(f.pay("USD", 1), /No USD payment/);

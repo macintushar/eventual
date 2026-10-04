@@ -1,11 +1,13 @@
+import "../instrument.server";
 import { and, asc, eq, gt } from "drizzle-orm";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { db } from "#/db";
 import { expense } from "#/db/schema";
+import { getAppLogger } from "#/lib/logging";
 import { normalizeSearchText } from "#/server/services/categories";
 
 await migrate(db, { migrationsFolder: "drizzle" });
-console.log("Database migrations applied");
+getAppLogger("database", "migration").info("Database migrations applied");
 
 // Migration 0004 added `search_text` as '' for existing expenses. Search only
 // reads that column, so backfill it with the same normalization writes use.
@@ -43,4 +45,7 @@ for (;;) {
 	});
 }
 if (backfilled)
-	console.log(`Backfilled search text for ${backfilled} expenses`);
+	getAppLogger("database", "migration").info(
+		"Expense search backfill completed",
+		{ expenseCount: backfilled },
+	);

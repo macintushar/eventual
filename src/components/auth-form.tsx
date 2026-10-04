@@ -27,7 +27,7 @@ import {
 import { Input } from "#/components/ui/input";
 import { Spinner } from "#/components/ui/spinner";
 import { authClient } from "#/lib/auth-client";
-import { safeAuthRedirect } from "#/lib/auth-redirect";
+import { safeAuthRedirect, withNext } from "#/lib/auth-redirect";
 import { fieldError } from "#/lib/form-error";
 import { setLastLoginConsent } from "#/lib/last-login-consent";
 import {
@@ -153,12 +153,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 							name: value.name.trim(),
 							email,
 							password,
-							callbackURL: "/verify-email",
+							// The verification link is the only way back once signup needs
+							// a verified email, so it has to carry the destination.
+							callbackURL: withNext("/verify-email", target),
 						})
 					: await authClient.signIn.email({ email, password });
 			if (result.error) {
 				if (result.error.code === "EMAIL_NOT_VERIFIED") {
-					window.location.assign("/check-email");
+					window.location.assign(withNext("/check-email", target));
 					return;
 				}
 				setError(result.error.message ?? "Authentication failed");
@@ -175,7 +177,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 				// a successful password check can open the pending-verification page.
 				const signIn = await authClient.signIn.email({ email, password });
 				if (signIn.error?.code === "EMAIL_NOT_VERIFIED") {
-					window.location.assign("/check-email");
+					window.location.assign(withNext("/check-email", target));
 					return;
 				}
 				if (signIn.error) {

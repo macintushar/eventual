@@ -76,6 +76,7 @@ export function BalancesTab({
 }) {
 	const history = useInfiniteQuery(settlementsInfiniteOptions(groupId));
 	const settlements = history.data?.pages.flatMap((page) => page.items) ?? [];
+	const [settleFrom, setSettleFrom] = useState(data.user.id);
 	const [settleTo, setSettleTo] = useState(
 		data.balances.transfers.find((row) => row.from.userId === data.user.id)?.to
 			.userId ?? "",
@@ -95,7 +96,7 @@ export function BalancesTab({
 		if (settleRequest > 0) setSettleOpen(true);
 	}, [settleRequest]);
 	const repayment = {
-		fromUserId: data.user.id,
+		fromUserId: settleFrom,
 		toUserId: settleTo,
 		currency: settleCurrency,
 		amountMinor: parseMinor(settleAmount, settleCurrency),
@@ -257,9 +258,10 @@ export function BalancesTab({
 											<strong className="tabular">
 												{formatMinor(transfer.amountMinor, transfer.currency)}
 											</strong>
-											{transfer.from.userId === data.user.id ? (
+											{
 												<>
-													{data.paymentIntents.intents.find(
+													{transfer.from.userId === data.user.id &&
+													data.paymentIntents.intents.find(
 														(intent) =>
 															intent.fromUserId === transfer.from.userId &&
 															intent.toUserId === transfer.to.userId &&
@@ -287,6 +289,7 @@ export function BalancesTab({
 													<Button
 														size="sm"
 														onClick={() => {
+															setSettleFrom(transfer.from.userId);
 															setSettleTo(transfer.to.userId);
 															setSettleCurrency(transfer.currency);
 															setSettleAmount(
@@ -301,7 +304,7 @@ export function BalancesTab({
 														Record payment
 													</Button>
 												</>
-											) : null}
+											}
 										</ItemActions>
 									</Item>
 								))}
@@ -330,6 +333,7 @@ export function BalancesTab({
 												action: "settlement.create",
 												input: {
 													groupId,
+													fromUserId: settleFrom,
 													toUserId: settleTo,
 													amountMinor: repayment.amountMinor,
 													currency: settleCurrency,
@@ -349,11 +353,38 @@ export function BalancesTab({
 									<DialogHeader>
 										<DialogTitle>Record a payment</DialogTitle>
 										<DialogDescription>
-											Record money you actually paid to another member. Matching
-											shares are marked paid automatically.
+											Record money that changed hands, including a payment made
+											to you. Matching shares are marked paid automatically.
 										</DialogDescription>
 									</DialogHeader>
 									<FieldGroup>
+										<Field>
+											<FieldLabel htmlFor="settle-from">Paid by</FieldLabel>
+											<Select
+												value={settleFrom}
+												onValueChange={(value) => {
+													setSettleFrom(value);
+													if (value === settleTo) setSettleTo("");
+												}}
+											>
+												<SelectTrigger id="settle-from" className="w-full">
+													<SelectValue placeholder="Choose member" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectGroup>
+														{data.group.members.map((member) => (
+															<SelectItem
+																key={member.userId}
+																value={member.userId}
+															>
+																{member.name}
+																{member.userId === data.user.id ? " (you)" : ""}
+															</SelectItem>
+														))}
+													</SelectGroup>
+												</SelectContent>
+											</Select>
+										</Field>
 										<Field data-invalid={Boolean(recipientError)}>
 											<FieldLabel htmlFor="settle-to">Paid to</FieldLabel>
 											<Select value={settleTo} onValueChange={setSettleTo}>
@@ -368,9 +399,7 @@ export function BalancesTab({
 												<SelectContent>
 													<SelectGroup>
 														{data.group.members
-															.filter(
-																(member) => member.userId !== data.user.id,
-															)
+															.filter((member) => member.userId !== settleFrom)
 															.map((member) => (
 																<SelectItem
 																	key={member.userId}

@@ -2,6 +2,8 @@ import { redirect } from "@tanstack/react-router";
 import { createIsomorphicFn } from "@tanstack/react-start";
 import type { z } from "zod";
 import { routes } from "#/lib/api-client.gen";
+import { apiErrorMessage } from "#/lib/api-error";
+import { getAppLogger, responseRequestContext } from "#/lib/logging";
 import type { MutationInput, MutationOperation } from "#/server/operations";
 import type { updateProfileSchema } from "#/server/schemas";
 import type { createApiKeySchema } from "#/server/schemas/account";
@@ -93,17 +95,35 @@ const currentPath = createIsomorphicFn()
 	.client(() => `${window.location.pathname}${window.location.search}`);
 
 async function apiRequest<T>(
+	operation: string,
 	method: string,
 	path: string,
 	body?: unknown,
 	signal?: AbortSignal,
 ): Promise<T> {
-	const response = await performRequest(method, path, body, signal);
+	const logger = getAppLogger("api-client").with({ method, operation });
+	const startedAt = performance.now();
+	logger.debug("API request started");
+	let response: Response;
+	try {
+		response = await performRequest(method, path, body, signal);
+	} catch (error) {
+		logger.warning(
+			signal?.aborted ? "API request cancelled" : "API transport failed",
+			{ errorType: error instanceof Error ? error.name : "Unknown" },
+		);
+		throw error;
+	}
+	logger[response.ok ? "debug" : "warning"]("API response received", {
+		status: response.status,
+		...responseRequestContext(response),
+		durationMs: Math.round(performance.now() - startedAt),
+	});
 	const result = await response.json();
 	if (!response.ok) {
 		if (
 			response.status === 401 &&
-			path !== "/api/v1/pending-verification/send"
+			!path.startsWith("/api/v1/pending-verification/send")
 		) {
 			const destination = await currentPath();
 			if (import.meta.env.SSR)
@@ -112,10 +132,10 @@ async function apiRequest<T>(
 				`/login?redirect=${encodeURIComponent(destination)}`,
 			);
 		}
-		throw Object.assign(
-			new Error(result?.error?.message ?? "API request failed"),
-			{ status: response.status, details: result?.error },
-		);
+		throw Object.assign(new Error(apiErrorMessage(result?.error)), {
+			status: response.status,
+			details: result?.error,
+		});
 	}
 	if (method !== "GET" && !import.meta.env.SSR) cacheRevision++;
 	return result as T;
@@ -129,6 +149,7 @@ function operationRequest<T>(
 	const route = routes[name];
 	const path = routePath(route.path, input);
 	return apiRequest<T>(
+		name,
 		route.method,
 		path,
 		route.method === "GET" ? undefined : input,
@@ -142,6 +163,7 @@ type MutationResult = Awaited<ReturnType<MutationOperation["handler"]>>;
 
 export const getGroupContextFn = (groupId: string, signal?: AbortSignal) =>
 	apiRequest<Awaited<ReturnType<WebApi["groupContext"]>>>(
+		"app.groupContext",
 		"GET",
 		`/api/v1/app/groups/${encodeURIComponent(groupId)}/context`,
 		undefined,
@@ -149,6 +171,7 @@ export const getGroupContextFn = (groupId: string, signal?: AbortSignal) =>
 	);
 export const getGroupSummaryFn = (groupId: string, signal?: AbortSignal) =>
 	apiRequest<Awaited<ReturnType<WebApi["groupSummary"]>>>(
+		"app.groupSummary",
 		"GET",
 		`/api/v1/app/groups/${encodeURIComponent(groupId)}/financial-summary`,
 		undefined,
@@ -156,6 +179,7 @@ export const getGroupSummaryFn = (groupId: string, signal?: AbortSignal) =>
 	);
 export const getGroupSettingsFn = (groupId: string, signal?: AbortSignal) =>
 	apiRequest<Awaited<ReturnType<WebApi["groupSettings"]>>>(
+		"app.groupSettings",
 		"GET",
 		`/api/v1/app/groups/${encodeURIComponent(groupId)}/settings`,
 		undefined,
@@ -163,6 +187,7 @@ export const getGroupSettingsFn = (groupId: string, signal?: AbortSignal) =>
 	);
 export const getGroupDirectoryFn = (signal?: AbortSignal) =>
 	apiRequest<Awaited<ReturnType<WebApi["groupDirectory"]>>>(
+		"app.groupDirectory",
 		"GET",
 		"/api/v1/app/group-directory",
 		undefined,
@@ -201,6 +226,7 @@ export const getSettlementPageFn = (
 
 export const getDashboardFn = (signal?: AbortSignal) =>
 	apiRequest<Awaited<ReturnType<WebApi["dashboard"]>>>(
+		"dashboard.get",
 		"GET",
 		"/api/v1/app/dashboard",
 		undefined,
@@ -209,6 +235,7 @@ export const getDashboardFn = (signal?: AbortSignal) =>
 
 export const getComposerFn = (signal?: AbortSignal) =>
 	apiRequest<Awaited<ReturnType<WebApi["composer"]>>>(
+		"composer.get",
 		"GET",
 		"/api/v1/app/composer",
 		undefined,
@@ -223,6 +250,7 @@ export const getGroupPageFn = ({
 	signal?: AbortSignal;
 }) =>
 	apiRequest<Awaited<ReturnType<WebApi["groupPage"]>>>(
+		"group.page",
 		"GET",
 		`/api/v1/app/groups/${encodeURIComponent(data.groupId)}/page`,
 		undefined,
@@ -281,6 +309,26 @@ export const searchExpensesFn = ({
 		signal,
 	);
 
+export const getCategoryBackfillFn = ({
+	data,
+	signal,
+}: {
+	data: { groupId: string; ruleId?: string };
+	signal?: AbortSignal;
+}) =>
+	operationRequest<Awaited<ReturnType<Services["previewCategoryBackfill"]>>>(
+		"category.backfillPreview",
+		data,
+		signal,
+	);
+
+export const getMyInvitationsFn = (signal?: AbortSignal) =>
+	operationRequest<Awaited<ReturnType<Services["listMyInvitations"]>>>(
+		"invitation.mine",
+		{},
+		signal,
+	);
+
 export const getInvitationFn = ({
 	data,
 	signal,
@@ -299,6 +347,7 @@ export const mutateFn = ({ data }: { data: MutationInput }) =>
 
 export const getSessionFn = (signal?: AbortSignal) =>
 	apiRequest<Awaited<ReturnType<WebApi["session"]>>>(
+		"session.get",
 		"GET",
 		"/api/v1/session",
 		undefined,
@@ -307,20 +356,25 @@ export const getSessionFn = (signal?: AbortSignal) =>
 
 export const getPendingVerificationFn = (signal?: AbortSignal) =>
 	apiRequest<{ email: string } | null>(
+		"verification.pending",
 		"GET",
 		"/api/v1/pending-verification",
 		undefined,
 		signal,
 	);
 
-export const sendPendingVerificationFn = () =>
+export const sendPendingVerificationFn = (next?: string) =>
 	apiRequest<{ sent: boolean; retryAt: string }>(
+		"verification.send",
 		"POST",
-		"/api/v1/pending-verification/send",
+		next
+			? `/api/v1/pending-verification/send?next=${encodeURIComponent(next)}`
+			: "/api/v1/pending-verification/send",
 	);
 
 export const getLegalInfoFn = (signal?: AbortSignal) =>
 	apiRequest<import("#/server/legal").LegalInfo>(
+		"legal.get",
 		"GET",
 		"/api/v1/legal",
 		undefined,
@@ -332,10 +386,17 @@ export const getSiteFn = (signal?: AbortSignal) =>
 		origin: string;
 		supportEmail: string | null;
 		googleSignIn: boolean;
-	}>("GET", "/api/v1/site", undefined, signal);
+		statusPageUrl: string | null;
+	}>("site.get", "GET", "/api/v1/site", undefined, signal);
 
 export const listApiKeysFn = (signal?: AbortSignal) =>
-	apiRequest<ApiKeySummary[]>("GET", "/api/v1/me/api-keys", undefined, signal);
+	apiRequest<ApiKeySummary[]>(
+		"api-key.list",
+		"GET",
+		"/api/v1/me/api-keys",
+		undefined,
+		signal,
+	);
 
 export const createApiKeyFn = ({
 	data,
@@ -343,6 +404,7 @@ export const createApiKeyFn = ({
 	data: z.input<typeof createApiKeySchema>;
 }) =>
 	apiRequest<{ key: string; record: ApiKeySummary }>(
+		"api-key.create",
 		"POST",
 		"/api/v1/me/api-keys",
 		data,
@@ -350,6 +412,7 @@ export const createApiKeyFn = ({
 
 export const deleteApiKeyFn = ({ data }: { data: { keyId: string } }) =>
 	apiRequest<{ success: true }>(
+		"api-key.delete",
 		"DELETE",
 		`/api/v1/me/api-keys/${encodeURIComponent(data.keyId)}`,
 	);
@@ -360,6 +423,7 @@ export const updateProfileFn = ({
 	data: z.input<typeof updateProfileSchema>;
 }) =>
 	apiRequest<Awaited<ReturnType<WebApi["profile"]>>>(
+		"profile.update",
 		"PATCH",
 		"/api/v1/me/profile",
 		data,

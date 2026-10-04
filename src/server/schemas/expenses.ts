@@ -56,12 +56,24 @@ export const createCategoryRuleSchema = categoryRulesSchema.extend({
 	pattern: z.string().trim().min(1).max(200),
 	category: categorySchema,
 	priority: z.number().int().safe().default(0),
+	/** Also recategorize existing expenses this rule now decides. */
+	applyToExisting: z.boolean().default(false),
 });
-export const updateCategoryRuleSchema = createCategoryRuleSchema.extend({
-	ruleId: idSchema,
-});
+export const updateCategoryRuleSchema = createCategoryRuleSchema
+	.omit({ applyToExisting: true })
+	.extend({ ruleId: idSchema });
 export const deleteCategoryRuleSchema = categoryRulesSchema.extend({
 	ruleId: idSchema,
+});
+export const categoryBackfillSchema = categoryRulesSchema.extend({
+	/** Only expenses this rule decides; otherwise every rule and built-in keyword. */
+	ruleId: idSchema.optional(),
+});
+export const applyCategoriesSchema = categoryRulesSchema.extend({
+	changes: z
+		.array(z.object({ expenseId: idSchema, category: categorySchema }))
+		.min(1)
+		.max(5000),
 });
 export const suggestCategorySchema = categoryRulesSchema.extend({
 	description: z.string().trim().min(1).max(200),

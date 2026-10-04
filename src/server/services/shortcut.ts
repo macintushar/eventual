@@ -72,7 +72,7 @@ export async function quickExpense(
 		notes: "Logged from Apple Shortcuts",
 		amountMinor,
 		currency: input.currency,
-		paidByUserId: input.paidByUserId,
+		paidByUserId: input.paidByUserId ?? ctx.user.id,
 		splitMethod: "even",
 		date: new Date(),
 		participants: members.map((row) => ({ userId: row.userId, input: null })),

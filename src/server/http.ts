@@ -6,6 +6,7 @@ import { ZodError } from "zod";
 import { idempotencyKey } from "#/db/schema";
 import { presentedApiKey } from "#/lib/auth";
 import { canImpersonate } from "#/lib/permissions";
+import { getAppLogger } from "#/lib/logging";
 import { buildContext, type Ctx } from "#/server/context";
 import { reportError } from "#/server/error-reporting";
 import { AppError, errorStatus } from "#/server/errors";
@@ -24,6 +25,10 @@ export async function handle(action: () => Promise<unknown>) {
 	try {
 		return Response.json(await action());
 	} catch (error) {
+		if (error instanceof ZodError || error instanceof AppError)
+			getAppLogger("api").warning("API request rejected", {
+				code: error instanceof AppError ? error.code : "VALIDATION",
+			});
 		if (error instanceof ZodError)
 			return Response.json(
 				{

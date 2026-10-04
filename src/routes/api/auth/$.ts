@@ -6,6 +6,7 @@ import { user } from "#/db/schema";
 import { auth, presentedApiKey } from "#/lib/auth";
 import { canImpersonate, type Permissions } from "#/lib/permissions";
 import { pendingVerificationCookie } from "#/server/pending-verification";
+import { getAppLogger } from "#/lib/logging";
 
 /**
  * Better Auth treats a valid API key as its owner's session
@@ -42,20 +43,29 @@ async function refuseApiKey(request: Request) {
 }
 
 async function handleGet(request: Request) {
-	return (await refuseApiKey(request)) ?? auth.handler(request);
+	return (await refuseApiKey(request)) ?? handleAuth(request);
+}
+
+async function handleAuth(request: Request) {
+	const response = await auth.handler(request);
+	getAppLogger("auth")[response.ok ? "info" : "warning"](
+		"Authentication response",
+		{ status: response.status },
+	);
+	return response;
 }
 
 async function handlePost(request: Request) {
 	const refused = await refuseApiKey(request);
 	if (refused) return refused;
 	if (new URL(request.url).pathname !== "/api/auth/sign-in/email")
-		return auth.handler(request);
+		return handleAuth(request);
 
 	const body = await request
 		.clone()
 		.json()
 		.catch(() => null);
-	const response = await auth.handler(request);
+	const response = await handleAuth(request);
 	if (response.status !== 403 || typeof body?.email !== "string")
 		return response;
 	const error = await response

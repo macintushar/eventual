@@ -5,13 +5,16 @@ import {
 	Copy,
 	Minus,
 	MoreHorizontal,
+	PencilLine,
 	Plus,
 	UserMinus,
 	UserPlus,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { emailInGroup, type GroupPeople } from "#/components/add-person-dialog";
 import { ConfirmDialog } from "#/components/confirm-dialog";
+import { EditGuestDialog } from "#/components/edit-guest-dialog";
 import { MemberAvatar } from "#/components/member-avatar";
 import { MemberProfileDialog } from "#/components/member-profile";
 import { RoleLock } from "#/components/role-lock";
@@ -235,6 +238,19 @@ function MemberActions({
 
 	const body = (
 		<div className="flex flex-col gap-5">
+			{member.isGuest && can(myRole, "member", "update") ? (
+				<EditGuestDialog
+					groupId={groupId}
+					guest={member}
+					execute={execute}
+					trigger={
+						<Button variant="outline">
+							<PencilLine data-icon="inline-start" />
+							Edit name, email and phone
+						</Button>
+					}
+				/>
+			) : null}
 			<WeightStepper member={member} groupId={groupId} execute={execute} />
 			{canChangeRole ? (
 				<div className="flex flex-col gap-2">
@@ -333,7 +349,11 @@ function MemberActions({
 						<span className="flex min-w-0 flex-col">
 							<SheetTitle>{member.name}</SheetTitle>
 							<SheetDescription className="truncate text-xs">
-								{member.isGuest ? "Guest" : member.email}
+								{member.isGuest
+									? member.invitedEmail
+										? `Guest · invited ${member.invitedEmail}`
+										: "Guest"
+									: member.email}
 							</SheetDescription>
 						</span>
 					</SheetHeader>
@@ -366,9 +386,11 @@ function MemberActions({
 
 function AddPersonDialog({
 	groupId,
+	people,
 	execute,
 }: {
 	groupId: string;
+	people: GroupPeople;
 	execute: Execute;
 }) {
 	const [open, setOpen] = useState(false);
@@ -383,6 +405,7 @@ function AddPersonDialog({
 	const [copied, setCopied] = useState(false);
 	const weightValue = weight.trim() === "" ? 1 : Number(weight);
 	const hasEmail = Boolean(email.trim());
+	const overlap = emailInGroup(people, email);
 	const valid =
 		Boolean(name.trim()) && Number.isInteger(weightValue) && weightValue > 0;
 
@@ -398,6 +421,7 @@ function AddPersonDialog({
 	};
 
 	const submit = async () => {
+		if (overlap) return;
 		setSubmitting(true);
 		const outcome = await execute({
 			action: "member.add",
@@ -533,6 +557,11 @@ function AddPersonDialog({
 								<FieldDescription>
 									Optional. Leave blank for someone who won't use the app.
 								</FieldDescription>
+								{overlap ? (
+									<p role="alert" className="text-sm text-destructive">
+										{overlap}
+									</p>
+								) : null}
 							</Field>
 							{hasEmail ? (
 								<Field>
@@ -607,7 +636,10 @@ function AddPersonDialog({
 							)}
 						</FieldGroup>
 						<DialogFooter>
-							<Button disabled={!valid || submitting} onClick={submit}>
+							<Button
+								disabled={!valid || submitting || Boolean(overlap)}
+								onClick={submit}
+							>
 								{submitting ? <Spinner data-icon="inline-start" /> : null}
 								{hasEmail ? "Add & invite" : "Add person"}
 							</Button>
@@ -656,7 +688,11 @@ export function MembersTab({
 						<RolesInfo />
 					</div>
 					{canAdd ? (
-						<AddPersonDialog groupId={groupId} execute={execute} />
+						<AddPersonDialog
+							groupId={groupId}
+							people={{ myRole, members: data.group.members, invitations }}
+							execute={execute}
+						/>
 					) : (
 						<RoleLock
 							permissions={{ member: ["create"] }}
@@ -691,7 +727,11 @@ export function MembersTab({
 												) : null}
 											</span>
 											<span className="truncate text-sm text-muted-foreground">
-												{member.isGuest ? "Guest" : member.email}
+												{member.isGuest
+													? member.invitedEmail
+														? `Guest · invited ${member.invitedEmail}`
+														: "Guest"
+													: member.email}
 											</span>
 										</span>
 										<span className="sr-only">, view profile</span>
@@ -752,9 +792,36 @@ export function MembersTab({
 								key={invite.id}
 								className="flex items-center gap-3 py-3 ps-5 pe-4 sm:ps-6"
 							>
-								<span className="min-w-0 flex-1 truncate text-sm font-medium">
-									{invite.email}
+								<span className="flex min-w-0 flex-1 flex-col">
+									<span className="truncate text-sm font-medium">
+										{invite.email}
+									</span>
+									{invite.guestUserId ? (
+										<span className="truncate text-xs text-muted-foreground">
+											Joins as{" "}
+											{data.group.members.find(
+												(row) => row.userId === invite.guestUserId,
+											)?.name ?? "a guest"}
+										</span>
+									) : null}
 								</span>
+								<Button
+									size="sm"
+									variant="ghost"
+									aria-label={`Copy invite link for ${invite.email}`}
+									onClick={async () => {
+										if (
+											await copyToClipboard(
+												`${window.location.origin}/invite/${invite.id}`,
+												"invite link",
+											)
+										)
+											toast.success("Invite link copied");
+									}}
+								>
+									<Copy data-icon="inline-start" />
+									Copy link
+								</Button>
 								<Badge variant="secondary" className="capitalize">
 									{invite.role}
 								</Badge>

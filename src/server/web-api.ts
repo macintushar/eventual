@@ -11,6 +11,7 @@ import {
 	type Permissions,
 	validateKeyPermissions,
 } from "#/lib/permissions";
+import { withNext } from "#/lib/auth-redirect";
 import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
 import { getLegalInfo } from "#/server/legal";
@@ -345,7 +346,13 @@ export async function sendPendingVerification(request: Request) {
 	if (recent?.value === "sent")
 		return { sent: false, retryAt: recent.expiresAt.toISOString() };
 	await auth.api.sendVerificationEmail({
-		body: { email: found.email, callbackURL: "/verify-email" },
+		body: {
+			email: found.email,
+			callbackURL: withNext(
+				"/verify-email",
+				new URL(request.url).searchParams.get("next") ?? undefined,
+			),
+		},
 		headers: request.headers,
 	});
 	const delivery = await verificationSendStatus(found.id);
@@ -365,5 +372,6 @@ export function siteInfo() {
 		supportEmail: env.SUPPORT_EMAIL,
 		// Mirrors the provider registration in #/lib/auth.
 		googleSignIn: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+		statusPageUrl: env.STATUS_PAGE_URL,
 	};
 }
