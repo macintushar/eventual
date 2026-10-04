@@ -1,0 +1,307 @@
+/*
+ * Scalar, dressed as Eventual. See DESIGN.md.
+ *
+ * Scalar sets its theme on `.light-mode` / `.dark-mode` inside its own cascade
+ * layers. These rules are unlayered and target the same elements, so they win
+ * without !important. Each variable points at an app token, and the tokens
+ * flip with `.dark` on <html>, so one block covers both themes.
+ */
+
+:root {
+	/* 7px base → 14px cards (--radius-lg), matching the app's paper corners. */
+	--scalar-radius: 7px;
+	--scalar-radius-max: 22px;
+	--scalar-border-width: 1px;
+	--scalar-font: var(--font-sans);
+	--scalar-font-code:
+		ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+		monospace;
+	--scalar-heading-1: 2.5rem;
+	--scalar-page-description: 1.0625rem;
+	--scalar-heading-2: 1.75rem;
+	--scalar-heading-3: 1.25rem;
+	/* Scalar measures its sticky sidebar and section offsets from this. */
+	--scalar-custom-header-height: 4rem;
+}
+
+@media (width >= 40rem) {
+	:root {
+		--scalar-custom-header-height: 5rem;
+	}
+}
+
+.light-mode,
+.dark-mode {
+	/* Canvas, paper and inset wells. */
+	--scalar-background-1: var(--background);
+	--scalar-background-2: var(--paper);
+	--scalar-background-3: var(--muted);
+	--scalar-background-accent: color-mix(
+		in oklab,
+		var(--accent-blue) 14%,
+		transparent
+	);
+
+	--scalar-color-1: var(--foreground);
+	--scalar-color-2: var(--muted-foreground);
+	--scalar-color-3: color-mix(
+		in oklab,
+		var(--muted-foreground) 78%,
+		var(--background)
+	);
+	--scalar-border-color: var(--border);
+
+	/* Blue is an accent: focus rings and markers, never a fill. */
+	--scalar-color-accent: var(--ring);
+	--scalar-focus-color: var(--ring);
+
+	/* The dark pill (inverted to paper-white in dark mode). */
+	--scalar-button-1: var(--primary);
+	--scalar-button-1-hover: color-mix(
+		in oklab,
+		var(--primary) 85%,
+		var(--background)
+	);
+	--scalar-button-1-color: var(--primary-foreground);
+
+	/* Links keep the ink colour; blue lives in the underline like tape. */
+	--scalar-link-color: var(--foreground);
+	--scalar-link-color-hover: var(--foreground);
+	--scalar-text-decoration: underline;
+	--scalar-text-decoration-hover: underline;
+	--scalar-text-decoration-color: var(--accent-blue);
+	--scalar-text-decoration-color-hover: currentColor;
+
+	--scalar-scrollbar-color: color-mix(
+		in oklab,
+		var(--foreground) 18%,
+		transparent
+	);
+	--scalar-scrollbar-color-active: color-mix(
+		in oklab,
+		var(--foreground) 36%,
+		transparent
+	);
+
+	/* Soft desk shadows rather than floating chrome. */
+	--scalar-shadow-1: var(--shadow-sm);
+	--scalar-shadow-2: 0 0 0 1px var(--border), var(--shadow-lg);
+
+	--scalar-tooltip-background: var(--foreground);
+	--scalar-tooltip-color: var(--background);
+
+	/* The sidebar is the canvas; the active page is a paper tab on it. */
+	--scalar-sidebar-background-1: var(--background);
+	--scalar-sidebar-color-1: var(--foreground);
+	--scalar-sidebar-color-2: var(--muted-foreground);
+	--scalar-sidebar-border-color: var(--border);
+	--scalar-sidebar-item-hover-background: color-mix(
+		in oklab,
+		var(--paper) 70%,
+		transparent
+	);
+	--scalar-sidebar-item-hover-color: var(--foreground);
+	--scalar-sidebar-item-active-background: var(--paper);
+	--scalar-sidebar-color-active: var(--foreground);
+	--scalar-sidebar-indent-border: var(--border);
+	--scalar-sidebar-indent-border-hover: var(--input);
+	--scalar-sidebar-indent-border-active: var(--accent-blue);
+	--scalar-sidebar-search-background: var(--paper);
+	--scalar-sidebar-search-color: var(--muted-foreground);
+	--scalar-sidebar-search-border-color: var(--border);
+
+	/*
+   * Scalar reuses these for HTTP methods and status codes. They take the
+   * brand's prop colours, darkened until they read as text: tape blue for
+   * GET, badge purple for POST, cardboard for PATCH. Red stays the
+   * destructive colour for DELETE and error codes, which is its one job.
+   */
+	--scalar-color-blue: #1c5f8f;
+	--scalar-color-green: var(--accent-purple);
+	--scalar-color-yellow: #85603a;
+	--scalar-color-orange: #85603a;
+	--scalar-color-purple: var(--accent-purple);
+	--scalar-color-red: var(--destructive);
+	--scalar-color-query: #1c5f8f;
+	--scalar-color-alert: #85603a;
+	--scalar-color-danger: var(--destructive);
+	--scalar-background-alert: color-mix(
+		in oklab,
+		var(--accent-warm) 14%,
+		var(--paper)
+	);
+	--scalar-background-danger: color-mix(
+		in oklab,
+		var(--destructive) 10%,
+		var(--paper)
+	);
+}
+
+.dark .light-mode,
+.dark .dark-mode,
+.dark.dark-mode {
+	--scalar-color-blue: #7cc0ec;
+	--scalar-color-green: #a9aaf0;
+	--scalar-color-yellow: #dcb991;
+	--scalar-color-orange: #dcb991;
+	--scalar-color-purple: #a9aaf0;
+	--scalar-color-query: #7cc0ec;
+	--scalar-color-alert: #dcb991;
+}
+
+/* ---------------------------------------------------------------------------
+ * Page chrome
+ * ------------------------------------------------------------------------- */
+
+.api-docs {
+	min-height: 100dvh;
+	background: var(--background);
+}
+
+/* The site masthead, pinned so the reference scrolls beneath it. */
+.api-docs-masthead {
+	position: sticky;
+	top: 0;
+	z-index: 30;
+	height: var(--scalar-custom-header-height);
+	background: var(--background);
+	border-bottom: 1px solid var(--border);
+}
+
+.api-docs-masthead > header {
+	height: 100%;
+}
+
+/* The reference runs edge to edge, so the masthead does too. */
+.api-docs-masthead > header {
+	width: 100%;
+	padding-inline: 1rem;
+}
+
+@media (width >= 40rem) {
+	.api-docs-masthead > header {
+		padding-inline: 1.5rem 2rem;
+	}
+}
+
+/* ---------------------------------------------------------------------------
+ * Type: Inter Tight carries the statements, as everywhere else.
+ * ------------------------------------------------------------------------- */
+
+.api-docs .scalar-app .section-header-label,
+.api-docs .scalar-app .markdown h2 {
+	font-family: var(--font-display);
+	font-weight: 500;
+	letter-spacing: -0.02em;
+	text-wrap: balance;
+}
+
+.api-docs .scalar-app h1.section-header-label {
+	font-size: clamp(2.25rem, 4vw, 3.5rem);
+	line-height: 0.95;
+	letter-spacing: -0.035em;
+}
+
+.api-docs .scalar-app h2.section-header-label {
+	font-size: clamp(1.75rem, 3vw, 2.25rem);
+	line-height: 1.05;
+	letter-spacing: -0.03em;
+}
+
+.api-docs .scalar-app .markdown h2 {
+	font-size: 1.5rem;
+	line-height: 1.1;
+}
+
+/* Section headings follow the same tape-strip kicker as the rest of the app. */
+.api-docs .scalar-app .markdown h2::before {
+	content: "";
+	display: inline-block;
+	vertical-align: 0.2em;
+	width: 1.25rem;
+	height: 0.5rem;
+	margin-right: 0.625rem;
+	border-radius: 2px;
+	background: color-mix(in oklab, var(--accent-blue) 75%, transparent);
+	transform: rotate(-4deg);
+}
+
+.api-docs .scalar-app .markdown p,
+.api-docs .scalar-app .markdown li {
+	text-wrap: pretty;
+}
+
+/* ---------------------------------------------------------------------------
+ * Paper: cards and code sit on the canvas like sheets on a desk.
+ * ------------------------------------------------------------------------- */
+
+.api-docs .scalar-app .scalar-card {
+	background: var(--paper);
+	border-radius: var(--radius-xl);
+	box-shadow: var(--shadow-sm);
+}
+
+.api-docs .scalar-app .scalar-card-header,
+.api-docs .scalar-app .scalar-card-content:not(.scalar-card-footer) {
+	background: var(--paper);
+}
+
+.api-docs .scalar-app .markdown pre {
+	background: var(--paper);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-xs);
+}
+
+.api-docs .scalar-app .markdown table {
+	background: var(--paper);
+}
+
+/* Inline code reads as a small paper chip, like `code` in the app. */
+.api-docs .scalar-app .markdown :not(pre) > code {
+	background: var(--muted);
+	border: 1px solid var(--border);
+	border-radius: 7px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Sidebar
+ * ------------------------------------------------------------------------- */
+
+/* Group headings become kickers: muted, small, with a strip of tape. */
+.api-docs .scalar-app .group\/sidebar-section > .group\/button {
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+	font-weight: 500;
+	color: var(--muted-foreground);
+}
+
+.api-docs .scalar-app .group\/sidebar-section > .group\/button::before {
+	content: "";
+	flex: none;
+	width: 1rem;
+	height: 0.4rem;
+	border-radius: 2px;
+	background: color-mix(in oklab, var(--accent-blue) 75%, transparent);
+	transform: rotate(-4deg);
+}
+
+.api-docs
+	.scalar-app
+	.group\/sidebar-section
+	> .group\/button
+	> .scalar-sidebar-indent {
+	display: none;
+}
+
+/* The open page is a paper tab lifted off the canvas. */
+.api-docs .scalar-app aside a[aria-current="page"],
+.api-docs .scalar-app aside .group\/button[aria-selected="true"] {
+	box-shadow: var(--shadow-xs);
+}
+
+/* Primary actions are pills, as everywhere else. */
+.api-docs .scalar-app .show-api-client-button {
+	border-radius: 9999px;
+	padding-inline: 0.875rem;
+}

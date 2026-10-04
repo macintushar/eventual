@@ -8,6 +8,32 @@ import viteReact from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig, loadEnv } from "vite";
 
+/**
+ * Paths the dev server must not treat as source.
+ *
+ * Neither chokidar nor Vite reads .gitignore, so every directory a tool writes
+ * into the project has to be listed. Playwright rewrites its HTML report,
+ * traces and storage state on every run; without this the browser full-reloads
+ * whenever it touches one of those files, detaching elements part-way through an
+ * assertion. The build output and the local SQLite database churn for the same
+ * reason.
+ *
+ * Applied twice on purpose: Vite and Nitro each keep their own watcher, and
+ * either one reacting is enough to reload the page.
+ */
+const devWatchIgnored = [
+	"**/local.db",
+	"**/local.db-*",
+	"**/*.db-wal",
+	"**/*.db-shm",
+	"**/playwright-report",
+	"**/playwright-report/**",
+	"**/test-results",
+	"**/test-results/**",
+	"**/.output",
+	"**/.output/**",
+];
+
 const config = defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), "");
 	const sentryBuildPlugins =
@@ -22,9 +48,7 @@ const config = defineConfig(({ mode }) => {
 	return {
 		resolve: { tsconfigPaths: true },
 		server: {
-			watch: {
-				ignored: ["**/local.db", "**/local.db-*", "**/*.db-wal", "**/*.db-shm"],
-			},
+			watch: { ignored: devWatchIgnored },
 		},
 		optimizeDeps: {
 			include: [
@@ -37,6 +61,7 @@ const config = defineConfig(({ mode }) => {
 		plugins: [
 			devtools(),
 			nitro({
+				watchOptions: { ignored: devWatchIgnored },
 				routeRules: {
 					"/": { prerender: true },
 					"/docs": { prerender: true },
