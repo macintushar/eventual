@@ -1,11 +1,10 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { History } from "lucide-react";
-import { useEffect } from "react";
-import { toast } from "sonner";
 
 import { AppBreadcrumb } from "#/components/app-breadcrumb";
 import { EmptyState } from "#/components/empty-state";
+import { HistoryContinuation } from "#/components/history-continuation";
 import { PersonalActivityRow } from "#/components/personal-activity";
 import { Button } from "#/components/ui/button";
 import { Spinner } from "#/components/ui/spinner";
@@ -13,8 +12,10 @@ import { myActivityInfiniteOptions } from "#/lib/queries";
 
 export const Route = createFileRoute("/app/activity")({
 	head: () => ({ meta: [{ title: "Activity · Eventual" }] }),
+	// A failed first page shows the page's own "Try again" instead of the
+	// route error screen.
 	loader: ({ context }) =>
-		context.queryClient.ensureInfiniteQueryData(myActivityInfiniteOptions),
+		context.queryClient.prefetchInfiniteQuery(myActivityInfiniteOptions),
 	component: ActivityPage,
 });
 
@@ -27,15 +28,6 @@ function ActivityPage() {
 		...(activity.data?.pages.map((page) => page.names) ?? []),
 	);
 
-	useEffect(() => {
-		if (!activity.isFetchNextPageError) return;
-		toast.error(
-			activity.error instanceof Error
-				? activity.error.message
-				: "Could not load activity",
-		);
-	}, [activity.isFetchNextPageError, activity.error]);
-
 	return (
 		<div className="col-form flex flex-col gap-6">
 			<AppBreadcrumb
@@ -44,7 +36,7 @@ function ActivityPage() {
 			/>
 			<div>
 				<p className="island-kicker">Across all your groups</p>
-				<h1 className="display-title mt-2 flex flex-wrap items-center gap-3 text-3xl font-bold sm:text-4xl">
+				<h1 className="display-title mt-2 flex flex-wrap items-center gap-3 text-3xl sm:text-4xl">
 					Activity
 					{activity.isFetching && !activity.isFetchingNextPage ? (
 						<span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -66,12 +58,13 @@ function ActivityPage() {
 				</p>
 			) : activity.isError && items.length === 0 ? (
 				<EmptyState
+					role="alert"
 					icon={History}
-					title="Activity didn't load"
+					title="Couldn't load activity"
 					description={
 						activity.error instanceof Error
 							? activity.error.message
-							: "Could not load activity."
+							: "Check your connection, then try again."
 					}
 					action={
 						<Button variant="outline" onClick={() => void activity.refetch()}>
@@ -98,21 +91,7 @@ function ActivityPage() {
 							</li>
 						))}
 					</ol>
-					{activity.hasNextPage ? (
-						<Button
-							variant="outline"
-							className="m-2 w-[calc(100%-1rem)]"
-							disabled={activity.isFetchingNextPage}
-							onClick={() => {
-								void activity.fetchNextPage();
-							}}
-						>
-							{activity.isFetchingNextPage ? (
-								<Spinner data-icon="inline-start" />
-							) : null}
-							{activity.isFetchingNextPage ? "Loading…" : "Load more"}
-						</Button>
-					) : null}
+					<HistoryContinuation query={activity} label="activity" />
 				</section>
 			)}
 		</div>

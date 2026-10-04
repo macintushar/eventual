@@ -3,6 +3,14 @@ import type { z } from "zod";
 import type { Operation, OperationName } from "#/server/operations";
 
 export const routes = {
+	"expense.page": {
+		method: "GET",
+		path: "/v2/groups/:groupId/expenses",
+	},
+	"settlement.page": {
+		method: "GET",
+		path: "/v2/groups/:groupId/settlements",
+	},
 	"group.list": {
 		method: "GET",
 		path: "/v1/groups",

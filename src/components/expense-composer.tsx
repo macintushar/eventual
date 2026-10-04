@@ -4,12 +4,10 @@ import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Amount } from "#/components/amount";
-import { CurrencySelect } from "#/components/currency-select";
 import { EmptyState } from "#/components/empty-state";
 import { MemberAvatar } from "#/components/member-avatar";
 import { type Option, OptionCombobox } from "#/components/option-combobox";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
-import { Button } from "#/components/ui/button";
 import { Checkbox } from "#/components/ui/checkbox";
 import { DatePicker } from "#/components/ui/date-picker";
 import {
@@ -35,19 +33,29 @@ import {
 	ItemMedia,
 	ItemTitle,
 } from "#/components/ui/item";
-import { Separator } from "#/components/ui/separator";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+} from "#/components/ui/select";
 import { StepDialog } from "#/components/ui/step-dialog";
 import { type Step, useStepper } from "#/components/ui/stepper";
 import { Textarea } from "#/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
 import { useAppMutation } from "#/lib/app-mutation";
-import { currencyDecimals, currencySymbol } from "#/lib/currencies";
+import { currencies, currencyDecimals, currencySymbol } from "#/lib/currencies";
 import { atNoon, formatLongDate } from "#/lib/dates";
 import { formatMinor, fromMinor, parseMinor } from "#/lib/money";
 import { cn } from "#/lib/utils";
 import { computeShares, type SplitMethod } from "#/server/domain/split";
 
-export type ComposerMember = { userId: string; name: string; weight: number };
+export type ComposerMember = {
+	userId: string;
+	name: string;
+	image?: string | null;
+	weight: number;
+};
 export type ComposerGroup = {
 	id: string;
 	name: string;
@@ -66,19 +74,39 @@ export type ExpenseDraft = {
 	shares: { userId: string; splitInput: number | null }[];
 };
 
+/*
+ * The `even` method always honours each member's group weight. When everyone
+ * in the group has the same weight that is simply an even split, so it is
+ * named for what it does rather than for the mechanism behind it.
+ */
 const methodHelp: Record<SplitMethod, string> = {
 	even: "Uses each selected member's group weight. Weight 2 pays twice as much as weight 1.",
 	exact: "Type each person's exact amount. They must add up to the total.",
-	shares: "Set a ratio for this expense — 2 shares pays twice as much as 1.",
+	shares: "Set a ratio for this expense — 2 pays twice as much as 1.",
 	percent: "Percentages of the total. They must add up to 100%.",
 };
+const EVEN_HELP = "Everyone selected pays the same amount.";
 
 const methodLabel: Record<SplitMethod, string> = {
 	even: "By group weight",
 	exact: "Exact amounts",
-	shares: "By shares",
+	shares: "By ratio",
 	percent: "By percentage",
 };
+const EVEN_LABEL = "Split evenly";
+
+/** Short names for the method switch, where four have to fit in a row. */
+const methodToggle: Record<Exclude<SplitMethod, "even">, string> = {
+	exact: "Exact",
+	shares: "Ratio",
+	percent: "Percent",
+};
+
+const currencyOptions = currencies.map(({ code, name }) => ({
+	code,
+	name,
+	symbol: currencySymbol(code),
+}));
 
 const GROUP_STEP: Step = {
 	id: "group",
@@ -92,11 +120,10 @@ const LATER_STEPS: Step[] = [
 		title: "Details",
 		description: "What was paid, and by whom.",
 	},
-	{ id: "split", title: "Split", description: "Who owes what." },
 	{
-		id: "review",
-		title: "Review",
-		description: "One last look before it lands.",
+		id: "split",
+		title: "Split",
+		description: "Who owes what. The amounts shown are what gets saved.",
 	},
 ];
 
@@ -220,9 +247,6 @@ export function ExpenseComposer({
 	);
 	const save = useAppMutation();
 	const [splitChanged, setSplitChanged] = useState(false);
-	const [reviewedPreview, setReviewedPreview] = useState<
-		ReturnType<typeof computeShares>
-	>([]);
 
 	/*
 	 * Payer and participants are member ids, so they cannot outlive a change of
@@ -286,6 +310,13 @@ export function ExpenseComposer({
 		}
 	}
 
+	// Every member on the same weight means the weighted split is an even one.
+	const weighted = members.some(
+		(member) => member.weight !== members[0]?.weight,
+	);
+	const nameMethod = (value: SplitMethod) =>
+		value === "even" && !weighted ? EVEN_LABEL : methodLabel[value];
+
 	// Nothing typed yet, so there is nothing to be wrong about.
 	const pristine = amount.trim() === "";
 	const nameOf = (userId: string) =>
@@ -299,6 +330,7 @@ export function ExpenseComposer({
 			<MemberAvatar
 				name={member.name}
 				seed={member.userId}
+				image={member.image}
 				className="size-5 text-[9px]"
 			/>
 		),
@@ -323,12 +355,20 @@ export function ExpenseComposer({
 		}
 		if (stepper.id === "split") {
 			if (selected.size === 0) return "Pick at least one person.";
-			return invalid;
+			if (invalid) return invalid;
+			if (totalMinor <= 0 || preview.length === 0)
+				return `Enter a valid ${currency} amount.`;
+			return "";
 		}
 		return "";
 	})();
 
-	const submit = async () => {
+	/*
+	 * Takes the split exactly as it is on screen. The server recomputes it and
+	 * rejects the save if the two differ — a member's group weight changed
+	 * while this was open — so nobody is charged an amount they never saw.
+	 */
+	const submit = async (shown: ReturnType<typeof computeShares>) => {
 		const base = {
 			description,
 			notes: notes || null,
@@ -337,11 +377,11 @@ export function ExpenseComposer({
 			paidByUserId: payer,
 			splitMethod: method,
 			date,
-			participants: reviewedPreview.map((share) => ({
+			participants: shown.map((share) => ({
 				userId: share.userId,
 				input: share.splitInput,
 			})),
-			reviewedShares: reviewedPreview.map((share) => ({
+			reviewedShares: shown.map((share) => ({
 				userId: share.userId,
 				amountMinor: share.amountMinor,
 			})),
@@ -363,14 +403,19 @@ export function ExpenseComposer({
 				error?.status === 409 &&
 				error.details?.details?.reason === "split_changed"
 			) {
+				// The composer may have been seeded from the group's own context,
+				// so refresh that as well as the full list.
 				await Promise.all([
 					queryClient.invalidateQueries({ queryKey: ["composer"] }),
 					queryClient.invalidateQueries({
 						queryKey: ["group", groupId, "page"],
 					}),
+					queryClient.invalidateQueries({
+						queryKey: ["group", groupId, "context"],
+					}),
 				]);
 				setSplitChanged(true);
-				stepper.goTo(steps.length - 2);
+				stepper.goTo(steps.length - 1);
 			}
 			return;
 		}
@@ -415,8 +460,7 @@ export function ExpenseComposer({
 			onSelectStep={stepper.goTo}
 			onBack={stepper.back}
 			onNext={() => {
-				if (stepper.isLast) return submit();
-				if (stepper.id === "split") setReviewedPreview(preview);
+				if (stepper.isLast) return submit(preview);
 				stepper.next();
 			}}
 			nextLabel={
@@ -462,6 +506,7 @@ export function ExpenseComposer({
 											<MemberAvatar
 												name={member.name}
 												seed={member.userId}
+												image={member.image}
 												className="size-8"
 											/>
 										</ItemMedia>
@@ -511,11 +556,37 @@ export function ExpenseComposer({
 						 * it gets display type and a 56px target. `inputMode="decimal"`
 						 * brings up the numeric keypad instead of the full keyboard.
 						 */}
-						<InputGroup className="h-14 sm:h-12">
-							<InputGroupAddon>
-								<InputGroupText className="text-2xl sm:text-lg">
-									{currencySymbol(currency)}
-								</InputGroupText>
+						<InputGroup className="h-14 has-[>[data-align=inline-start]]:[&>input]:pl-3 sm:h-12">
+							{/*
+							 * The currency rides in the amount box rather than in a field of
+							 * its own: it is part of the number, and nearly everyone keeps
+							 * the default.
+							 */}
+							<InputGroupAddon className="pl-1.5 has-[>button]:ml-0">
+								<Select value={currency} onValueChange={setCurrency}>
+									<SelectTrigger className="h-11 gap-1 rounded-[calc(var(--radius-md)-6px)] border-0 bg-muted px-2 text-foreground shadow-none sm:h-9 dark:bg-muted">
+										<span className="sr-only">Currency: </span>
+										<span className="tabular text-xl font-semibold sm:text-base">
+											{currencySymbol(currency)}
+										</span>
+										<span className="text-xs font-medium text-muted-foreground">
+											{currency}
+										</span>
+									</SelectTrigger>
+									<SelectContent position="popper" align="start">
+										{currencyOptions.map((option) => (
+											<SelectItem key={option.code} value={option.code}>
+												<span className="tabular w-8 font-semibold">
+													{option.symbol}
+												</span>
+												<span>{option.code}</span>
+												<span className="text-muted-foreground">
+													{option.name}
+												</span>
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
 							</InputGroupAddon>
 							<InputGroupInput
 								id={`${fieldId}-amount`}
@@ -527,15 +598,6 @@ export function ExpenseComposer({
 								className="tabular text-2xl font-semibold sm:text-lg"
 							/>
 						</InputGroup>
-					</Field>
-
-					<Field>
-						<FieldLabel htmlFor={`${fieldId}-currency`}>Currency</FieldLabel>
-						<CurrencySelect
-							id={`${fieldId}-currency`}
-							value={currency}
-							onValueChange={setCurrency}
-						/>
 						<FieldDescription>
 							Splits and repayments stay in this currency. Changing it does not
 							convert the amount.
@@ -581,6 +643,20 @@ export function ExpenseComposer({
 
 			{stepper.id === "split" ? (
 				<div className="flex flex-col gap-4">
+					{/* What is being split, so the split can be checked against it
+					    without stepping back. */}
+					<p className="flex flex-wrap items-baseline gap-x-2 text-sm text-muted-foreground">
+						<span className="font-medium text-foreground">
+							{description || "Untitled"}
+						</span>
+						<span className="font-semibold text-foreground">
+							<Amount minor={totalMinor} currency={currency} />
+						</span>
+						<span>· paid by {nameOf(payer)}</span>
+						<span>· {formatLongDate(date)}</span>
+						{group ? <span>· {group.name}</span> : null}
+					</p>
+
 					<ToggleGroup
 						type="single"
 						variant="outline"
@@ -593,17 +669,26 @@ export function ExpenseComposer({
 						className="grid w-full grid-cols-2 sm:grid-cols-4"
 						aria-label="Split method"
 					>
-						<ToggleGroupItem value="even">Group weights</ToggleGroupItem>
-						<ToggleGroupItem value="exact">Exact</ToggleGroupItem>
-						<ToggleGroupItem value="shares">Shares</ToggleGroupItem>
-						<ToggleGroupItem value="percent">Percent</ToggleGroupItem>
+						<ToggleGroupItem value="even">{nameMethod("even")}</ToggleGroupItem>
+						<ToggleGroupItem value="exact">
+							{methodToggle.exact}
+						</ToggleGroupItem>
+						<ToggleGroupItem value="shares">
+							{methodToggle.shares}
+						</ToggleGroupItem>
+						<ToggleGroupItem value="percent">
+							{methodToggle.percent}
+						</ToggleGroupItem>
 					</ToggleGroup>
-					<p className="text-sm text-muted-foreground">{methodHelp[method]}</p>
+					<p className="text-sm text-muted-foreground">
+						{method === "even" && !weighted ? EVEN_HELP : methodHelp[method]}
+					</p>
 					{splitChanged ? (
 						<Alert role="alert">
 							<AlertTitle>Group weights changed</AlertTitle>
 							<AlertDescription>
-								Check the updated amounts, then continue to review.
+								The amounts below have been updated. Check them, then add the
+								expense again.
 							</AlertDescription>
 						</Alert>
 					) : null}
@@ -637,6 +722,7 @@ export function ExpenseComposer({
 											<MemberAvatar
 												name={member.name}
 												seed={member.userId}
+												image={member.image}
 												className="size-8"
 											/>
 										</ItemMedia>
@@ -674,7 +760,7 @@ export function ExpenseComposer({
 																? "Amount"
 																: method === "percent"
 																	? "Percent"
-																	: "Shares"
+																	: "Ratio"
 														} for ${member.name}`}
 														inputMode="decimal"
 														className="tabular h-9"
@@ -734,70 +820,10 @@ export function ExpenseComposer({
 									`Assigned exactly ${formatMinor(totalMinor, currency)}`}
 						</AlertTitle>
 						<AlertDescription>
-							{selected.size} {selected.size === 1 ? "person" : "people"}
+							{nameMethod(method)} · {selected.size}{" "}
+							{selected.size === 1 ? "person" : "people"}
 						</AlertDescription>
 					</Alert>
-				</div>
-			) : null}
-
-			{stepper.id === "review" ? (
-				<div className="flex flex-col gap-4">
-					<div>
-						<p className="island-kicker">{methodLabel[method]}</p>
-						<p className="display-title text-3xl font-bold">
-							{description || "Untitled"}
-						</p>
-						<p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
-							<span className="text-xl font-bold text-foreground">
-								<Amount minor={totalMinor} currency={currency} />
-							</span>
-							<span>· paid by {nameOf(payer)}</span>
-							<span>· {formatLongDate(date)}</span>
-							{group ? <span>· {group.name}</span> : null}
-						</p>
-					</div>
-
-					<Separator />
-
-					<ItemGroup>
-						{reviewedPreview.map((share) => (
-							<Item key={share.userId} size="sm" className="flex-nowrap">
-								<ItemMedia>
-									<MemberAvatar
-										name={nameOf(share.userId)}
-										seed={share.userId}
-										className="size-8"
-									/>
-								</ItemMedia>
-								<ItemContent className="min-w-0">
-									<ItemTitle className="w-full min-w-0">
-										<span className="truncate">{nameOf(share.userId)}</span>
-									</ItemTitle>
-								</ItemContent>
-								<ItemActions>
-									<span className="font-semibold">
-										<Amount minor={share.amountMinor} currency={currency} />
-									</span>
-								</ItemActions>
-							</Item>
-						))}
-					</ItemGroup>
-
-					{notes.trim() ? (
-						<>
-							<Separator />
-							<p className="text-sm text-muted-foreground">{notes}</p>
-						</>
-					) : null}
-
-					<Button
-						type="button"
-						variant="outline"
-						className="press w-fit"
-						onClick={() => stepper.goTo(steps.length - 2)}
-					>
-						Change the split
-					</Button>
 				</div>
 			) : null}
 		</StepDialog>

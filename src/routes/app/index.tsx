@@ -7,13 +7,7 @@ import { useComposer } from "#/components/composer";
 import { EmptyState } from "#/components/empty-state";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "#/components/ui/card";
+import { Card, CardContent } from "#/components/ui/card";
 import {
 	Item,
 	ItemActions,
@@ -23,6 +17,7 @@ import {
 } from "#/components/ui/item";
 import { Spinner } from "#/components/ui/spinner";
 import { dashboardQueryOptions } from "#/lib/queries";
+import { cn } from "#/lib/utils";
 
 export const Route = createFileRoute("/app/")({
 	loader: ({ context }) =>
@@ -45,17 +40,21 @@ function Dashboard() {
 				.filter((row) => row.currency === currency)
 				.reduce((sum, row) => sum + Math.max(-row.amountMinor, 0), 0),
 		}));
+	const allSquare = totals.every((row) => row.owed === 0 && row.owing === 0);
 
 	return (
 		<div className="flex flex-col gap-6 sm:gap-8">
-			<Card className="island-shell rise-in overflow-hidden rounded-3xl py-0">
-				<CardContent className="grid gap-5 p-5 sm:gap-6 sm:p-7 md:grid-cols-[1.4fr_1fr] md:items-center">
+			<Card className="island-shell overflow-hidden rounded-3xl py-0">
+				<CardContent
+					className={cn(
+						"grid gap-5 p-5 sm:gap-6 sm:p-7",
+						!allSquare && "md:grid-cols-[1.4fr_1fr] md:items-center",
+					)}
+				>
 					<div>
 						<p className="island-kicker">Your running total</p>
-						<h1 className="display-title mt-2 flex flex-wrap items-center gap-3 text-[2.125rem] font-bold sm:text-5xl">
-							{crossGroupBalances.length === 0
-								? "You're all square"
-								: "Your balances"}
+						<h1 className="display-title mt-2 flex flex-wrap items-center gap-3 text-[2.125rem] sm:text-5xl">
+							{allSquare ? "You're all square" : "Your balances"}
 						</h1>
 						<p className="mt-2 text-sm text-muted-foreground sm:text-base">
 							Welcome back, {user.name.split(" ")[0]}. Across{" "}
@@ -68,42 +67,40 @@ function Dashboard() {
 							) : null}
 						</p>
 					</div>
-					<dl className="grid grid-cols-2 gap-3">
-						<Card className="py-0">
-							<CardHeader className="gap-1 p-4">
-								<CardDescription>Owed to you</CardDescription>
-								<CardTitle className="text-xl">
-									{totals.length
-										? totals.map((row) => (
-												<Amount
-													key={row.currency}
-													minor={row.owed}
-													currency={row.currency}
-													className="block text-positive"
-												/>
-											))
-										: "—"}
-								</CardTitle>
-							</CardHeader>
-						</Card>
-						<Card className="py-0">
-							<CardHeader className="gap-1 p-4">
-								<CardDescription>You owe</CardDescription>
-								<CardTitle className="text-xl">
-									{totals.length
-										? totals.map((row) => (
-												<Amount
-													key={row.currency}
-													minor={row.owing}
-													currency={row.currency}
-													className="block text-negative"
-												/>
-											))
-										: "—"}
-								</CardTitle>
-							</CardHeader>
-						</Card>
-					</dl>
+					{allSquare ? null : (
+						<dl className="grid grid-cols-2 gap-3">
+							<Card className="py-0">
+								<div className="flex flex-col gap-1 p-4">
+									<dt className="text-sm text-muted-foreground">Owed to you</dt>
+									<dd className="text-xl leading-none font-semibold">
+										{totals.map((row) => (
+											<Amount
+												key={row.currency}
+												minor={row.owed}
+												currency={row.currency}
+												className="block text-positive"
+											/>
+										))}
+									</dd>
+								</div>
+							</Card>
+							<Card className="py-0">
+								<div className="flex flex-col gap-1 p-4">
+									<dt className="text-sm text-muted-foreground">You owe</dt>
+									<dd className="text-xl leading-none font-semibold">
+										{totals.map((row) => (
+											<Amount
+												key={row.currency}
+												minor={row.owing}
+												currency={row.currency}
+												className="block text-negative"
+											/>
+										))}
+									</dd>
+								</div>
+							</Card>
+						</dl>
+					)}
 				</CardContent>
 			</Card>
 
@@ -170,7 +167,7 @@ function Dashboard() {
 				</div>
 				{groups.length ? (
 					<ul className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-						{groups.map((group, index) => {
+						{groups.map((group) => {
 							const outstanding = group.balances.filter(
 								(row) => row.balanceMinor !== 0,
 							);
@@ -184,8 +181,7 @@ function Dashboard() {
 									<Link
 										to="/app/groups/$groupId"
 										params={{ groupId: group.id }}
-										className="feature-card rise-in flex h-full items-center gap-4 rounded-2xl p-4 no-underline sm:flex-col sm:items-stretch sm:gap-4 sm:p-6"
-										style={{ "--i": index } as React.CSSProperties}
+										className="feature-card flex h-full items-center gap-4 rounded-2xl p-4 no-underline sm:flex-col sm:items-stretch sm:gap-4 sm:p-6"
 									>
 										<div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-none sm:gap-2">
 											<div className="flex items-center gap-2">
@@ -197,7 +193,7 @@ function Dashboard() {
 													aria-hidden="true"
 												/>
 											</div>
-											<h3 className="display-title truncate text-xl font-bold">
+											<h3 className="display-title truncate text-xl">
 												{group.name}
 											</h3>
 										</div>

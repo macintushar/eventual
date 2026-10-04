@@ -186,7 +186,7 @@ function sentence(item: ActivityItem, nameOf: (userId: string) => string) {
 		case "settlement.deleted":
 			return (
 				<>
-					{actor} deleted a settlement of{" "}
+					{actor} deleted a payment of{" "}
 					<span className="tabular">
 						{formatMinor(num(meta.amountMinor), str(meta.currency) || "INR")}
 					</span>

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
-
+import { invalidateForMutation } from "#/lib/mutation-invalidation";
 import {
 	apiKeysQueryOptions,
 	dashboardQueryOptions,
@@ -15,46 +15,10 @@ import {
 } from "#/lib/web-api-client";
 import type { MutationInput } from "#/server/operations";
 
+export { invalidateForMutation } from "#/lib/mutation-invalidation";
+
 function messageFrom(error: unknown, fallback: string) {
 	return error instanceof Error ? error.message : fallback;
-}
-
-function idOf(input: object, key: string) {
-	const value = (input as Record<string, unknown>)[key];
-	return typeof value === "string" ? value : undefined;
-}
-
-/** Drop every cached read the write could have changed. Prefixes cover detail and list queries. */
-export async function invalidateForMutation(
-	queryClient: ReturnType<typeof useQueryClient>,
-	data: MutationInput,
-) {
-	const input = data.input;
-	const groupId = idOf(input, "groupId");
-	const expenseId = idOf(input, "expenseId");
-	const name = data.action;
-	const writesApp =
-		name.startsWith("group.") ||
-		name.startsWith("member.") ||
-		name.startsWith("invitation.") ||
-		name.startsWith("expense.") ||
-		name.startsWith("share.") ||
-		name.startsWith("settlement.") ||
-		name.startsWith("category.") ||
-		name.startsWith("reminder.") ||
-		name.startsWith("recurring.");
-
-	const keys: Array<readonly unknown[]> = [];
-	if (writesApp) {
-		keys.push(["dashboard"], ["composer"], ["activity"]);
-		keys.push(groupId ? ["group", groupId] : ["group"]);
-	}
-	if (expenseId) keys.push(["expense", expenseId]);
-	if (name.startsWith("invitation.")) keys.push(["invitation"]);
-
-	await Promise.all(
-		keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
-	);
 }
 
 /**
@@ -66,8 +30,8 @@ export function useAppMutation() {
 	const queryClient = useQueryClient();
 	const mutation = useMutation({
 		mutationFn: (data: MutationInput) => mutateFn({ data }),
-		onSuccess: async (_result, data) => {
-			await invalidateForMutation(queryClient, data);
+		onSuccess: async (result, data) => {
+			await invalidateForMutation(queryClient, data, result);
 		},
 	});
 
@@ -112,16 +76,27 @@ export function useUpdateProfile() {
 	return useMutation({
 		mutationFn: (data: Parameters<typeof updateProfileFn>[0]["data"]) =>
 			updateProfileFn({ data }),
-		onSuccess: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: sessionQueryOptions.queryKey,
-				}),
-				queryClient.invalidateQueries({
-					queryKey: dashboardQueryOptions.queryKey,
-				}),
-			]);
-			// The shell reads the user from the route guard, not the query.
+		onSuccess: async (saved) => {
+			// The response is the saved profile, so write it straight into the
+			// session instead of refetching it — that would resend the photo
+			// the browser just uploaded.
+			queryClient.setQueryData(sessionQueryOptions.queryKey, (current) =>
+				current ? { ...current, user: { ...current.user, ...saved } } : current,
+			);
+			// Your name and photo also appear on group, composer and activity
+			// reads. Mark them stale; only the ones on screen refetch, which from
+			// settings is none of them.
+			await Promise.all(
+				[
+					dashboardQueryOptions.queryKey,
+					["composer"],
+					["groups"],
+					["group"],
+					["activity"],
+				].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+			);
+			// The shell reads the user from the route guard's context. Re-running
+			// the guard reads the session cache written above, not the network.
 			await router.invalidate();
 		},
 	});
@@ -130,7 +105,7 @@ export function useUpdateProfile() {
 export function useCreateApiKey() {
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: (data: { name: string; expiresIn: number | null }) =>
+		mutationFn: (data: Parameters<typeof createApiKeyFn>[0]["data"]) =>
 			createApiKeyFn({ data }),
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({

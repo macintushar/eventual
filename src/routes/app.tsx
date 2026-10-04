@@ -7,7 +7,10 @@ import { claimAccountCache } from "#/lib/session";
 export const Route = createFileRoute("/app")({
 	head: () => ({ meta: [{ name: "robots", content: "noindex" }] }),
 	beforeLoad: async ({ context, location }) => {
-		const auth = await context.queryClient.fetchQuery(sessionQueryOptions);
+		// Cached, not refetched per navigation: every API call already sends
+		// the user to /login on a 401, so a stale copy can't let anyone in.
+		// Profile edits write the cache directly (see `useUpdateProfile`).
+		const auth = await context.queryClient.ensureQueryData(sessionQueryOptions);
 		if (!auth)
 			throw redirect({ to: "/login", search: { redirect: location.href } });
 		claimAccountCache(context.queryClient, auth.user.id);

@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Amount } from "#/components/amount";
 import { AppBreadcrumb } from "#/components/app-breadcrumb";
+import { useCommands } from "#/components/command-palette";
 import { ExpenseComposer } from "#/components/expense-composer";
 import { MemberAvatar } from "#/components/member-avatar";
 import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
@@ -40,7 +41,11 @@ import { Separator } from "#/components/ui/separator";
 import { Spinner } from "#/components/ui/spinner";
 import { useAppMutation } from "#/lib/app-mutation";
 import { formatMinor } from "#/lib/money";
-import { expenseQueryOptions, groupPageQueryOptions } from "#/lib/queries";
+import {
+	expenseQueryOptions,
+	groupContextQueryOptions,
+	groupSummaryQueryOptions,
+} from "#/lib/queries";
 import { validateSharePayment } from "#/lib/settlements";
 import { isApiNotFound } from "#/lib/web-api-client";
 
@@ -54,7 +59,10 @@ export const Route = createFileRoute(
 					expenseQueryOptions(params.expenseId),
 				),
 				context.queryClient.ensureQueryData(
-					groupPageQueryOptions(params.groupId),
+					groupContextQueryOptions(params.groupId),
+				),
+				context.queryClient.ensureQueryData(
+					groupSummaryQueryOptions(params.groupId),
 				),
 			]);
 		} catch (error) {
@@ -65,10 +73,14 @@ export const Route = createFileRoute(
 	component: ExpenseDetail,
 });
 
+/*
+ * Same names as the composer. `even` always honours group weights, so it is
+ * "Split evenly" only while every member carries the same weight.
+ */
 const methodLabel = {
-	even: "Split evenly",
+	even: "By group weight",
 	exact: "Exact amounts",
-	shares: "By shares",
+	shares: "By ratio",
 	percent: "By percentage",
 } as const;
 
@@ -77,7 +89,12 @@ function ExpenseDetail() {
 	const { data: expense, isFetching } = useSuspenseQuery(
 		expenseQueryOptions(expenseId),
 	);
-	const { data: page } = useSuspenseQuery(groupPageQueryOptions(groupId));
+	const { data: context } = useSuspenseQuery(groupContextQueryOptions(groupId));
+	const { data: summary } = useSuspenseQuery(groupSummaryQueryOptions(groupId));
+	const page = { ...context, ...summary };
+	const weighted = page.group.members.some(
+		(member) => member.weight !== page.group.members[0]?.weight,
+	);
 	const navigate = useNavigate();
 	const { run, isPending } = useAppMutation();
 	const [deleteOpen, setDeleteOpen] = useState(false);
@@ -86,6 +103,34 @@ function ExpenseDetail() {
 	// Every open starts from the expense as it stands, not from whatever the last
 	// abandoned edit left behind.
 	const [editToken, setEditToken] = useState(0);
+
+	function edit() {
+		setEditToken((old) => old + 1);
+		setEditOpen(true);
+	}
+
+	// A locked expense has neither button, so it offers nothing here either.
+	useCommands(
+		expense.description,
+		expense.locked
+			? []
+			: [
+					{
+						id: "expense.edit",
+						title: "Edit expense",
+						icon: Pencil,
+						keywords: ["change", "amount", "split", "resplit"],
+						run: edit,
+					},
+					{
+						id: "expense.delete",
+						title: "Delete expense…",
+						icon: Trash2,
+						keywords: ["remove"],
+						run: () => setDeleteOpen(true),
+					},
+				],
+	);
 
 	async function toggle(userId: string, paid: boolean) {
 		await run(
@@ -111,9 +156,11 @@ function ExpenseDetail() {
 			<Card className="island-shell">
 				<CardHeader>
 					<CardDescription className="island-kicker">
-						{methodLabel[expense.splitMethod]}
+						{expense.splitMethod === "even" && !weighted
+							? "Split evenly"
+							: methodLabel[expense.splitMethod]}
 					</CardDescription>
-					<CardTitle className="display-title flex flex-wrap items-center gap-3 text-[2.125rem] font-bold sm:text-4xl">
+					<CardTitle className="display-title flex flex-wrap items-center gap-3 text-[2.125rem] sm:text-4xl">
 						{expense.description}
 						{isFetching || isPending ? (
 							<span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -149,7 +196,7 @@ function ExpenseDetail() {
 				<Alert className="border-warning/40 bg-warning/10 text-warning [&>svg]:text-warning">
 					<Lock aria-hidden="true" />
 					<AlertTitle className="font-semibold">Locked</AlertTitle>
-					<AlertDescription className="text-warning/90">
+					<AlertDescription className="text-warning">
 						{expense.lockedBy
 							.map(
 								(row) =>
@@ -171,7 +218,7 @@ function ExpenseDetail() {
 
 			<Card className="island-shell">
 				<CardHeader>
-					<CardTitle>Shares</CardTitle>
+					<CardTitle>Who owes what</CardTitle>
 					<CardDescription>
 						A share can be toggled by the person who owes it, or by the payer.
 					</CardDescription>
@@ -199,7 +246,11 @@ function ExpenseDetail() {
 								 */
 								<Item key={share.id} size="sm" className="flex-nowrap">
 									<ItemMedia>
-										<MemberAvatar name={share.user.name} seed={share.userId} />
+										<MemberAvatar
+											name={share.user.name}
+											seed={share.userId}
+											image={share.user.image}
+										/>
 									</ItemMedia>
 									<ItemContent className="min-w-0">
 										<ItemTitle className="w-full min-w-0">
@@ -280,13 +331,7 @@ function ExpenseDetail() {
 					) : null}
 
 					<div className="flex flex-wrap gap-2">
-						<Button
-							className="press"
-							onClick={() => {
-								setEditToken((old) => old + 1);
-								setEditOpen(true);
-							}}
-						>
+						<Button className="press" onClick={edit}>
 							<Pencil data-icon="inline-start" />
 							Edit expense
 						</Button>

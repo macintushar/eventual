@@ -3,13 +3,29 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
 import { Tabs as TabsPrimitive } from "radix-ui";
-import type * as React from "react";
+import * as React from "react";
 
 function Tabs({
 	className,
 	orientation = "horizontal",
+	onValueChange,
 	...props
 }: React.ComponentProps<typeof TabsPrimitive.Root>) {
+	/*
+	 * Radix picks a tab on mousedown and again when the trigger takes focus, so
+	 * with the default `automatic` activation one click fires onValueChange
+	 * twice before a controlled `value` has moved. Callers that read it to
+	 * drive a navigation can't absorb the repeat: the second request re-runs
+	 * the route loader and opens a second view transition, which aborts the one
+	 * already in flight — the page flashes and the router's promise rejects
+	 * with "Transition was skipped". Collapse the repeat, and forget it once
+	 * the value lands so the next real change still gets through.
+	 */
+	const requested = React.useRef<string | undefined>(undefined);
+	React.useEffect(() => {
+		if (requested.current !== props.value) requested.current = undefined;
+	}, [props.value]);
+
 	return (
 		<TabsPrimitive.Root
 			data-slot="tabs"
@@ -19,6 +35,11 @@ function Tabs({
 				"group/tabs flex gap-2 data-[orientation=horizontal]:flex-col",
 				className,
 			)}
+			onValueChange={(value) => {
+				if (requested.current === value) return;
+				requested.current = value;
+				onValueChange?.(value);
+			}}
 			{...props}
 		/>
 	);

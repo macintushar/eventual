@@ -4,7 +4,11 @@ import type { z } from "zod";
 import { routes } from "#/lib/api-client.gen";
 import type { MutationInput, MutationOperation } from "#/server/operations";
 import type { updateProfileSchema } from "#/server/schemas";
-import type { listExpensesSchema } from "#/server/schemas/expenses";
+import type { createApiKeySchema } from "#/server/schemas/account";
+import type {
+	expensePageSchema,
+	listExpensesSchema,
+} from "#/server/schemas/expenses";
 import type { ApiKeySummary } from "#/server/web-api";
 
 export type { ApiKeySummary } from "#/server/web-api";
@@ -135,6 +139,65 @@ function operationRequest<T>(
 type WebApi = typeof import("#/server/web-api");
 type Services = typeof import("#/server/services/app");
 type MutationResult = Awaited<ReturnType<MutationOperation["handler"]>>;
+
+export const getGroupContextFn = (groupId: string, signal?: AbortSignal) =>
+	apiRequest<Awaited<ReturnType<WebApi["groupContext"]>>>(
+		"GET",
+		`/api/v1/app/groups/${encodeURIComponent(groupId)}/context`,
+		undefined,
+		signal,
+	);
+export const getGroupSummaryFn = (groupId: string, signal?: AbortSignal) =>
+	apiRequest<Awaited<ReturnType<WebApi["groupSummary"]>>>(
+		"GET",
+		`/api/v1/app/groups/${encodeURIComponent(groupId)}/financial-summary`,
+		undefined,
+		signal,
+	);
+export const getGroupSettingsFn = (groupId: string, signal?: AbortSignal) =>
+	apiRequest<Awaited<ReturnType<WebApi["groupSettings"]>>>(
+		"GET",
+		`/api/v1/app/groups/${encodeURIComponent(groupId)}/settings`,
+		undefined,
+		signal,
+	);
+export const getGroupDirectoryFn = (signal?: AbortSignal) =>
+	apiRequest<Awaited<ReturnType<WebApi["groupDirectory"]>>>(
+		"GET",
+		"/api/v1/app/group-directory",
+		undefined,
+		signal,
+	);
+export const getRecurringFn = (groupId: string, signal?: AbortSignal) =>
+	operationRequest<Awaited<ReturnType<Services["listRecurringExpenses"]>>>(
+		"recurring.list",
+		{ groupId },
+		signal,
+	);
+export const getGroupInvitationsFn = (groupId: string, signal?: AbortSignal) =>
+	operationRequest<Awaited<ReturnType<Services["listInvitations"]>>>(
+		"invitation.list",
+		{ groupId },
+		signal,
+	);
+export const getExpensePageFn = (
+	data: z.input<typeof expensePageSchema>,
+	signal?: AbortSignal,
+) =>
+	operationRequest<Awaited<ReturnType<Services["listExpensePage"]>>>(
+		"expense.page",
+		data,
+		signal,
+	);
+export const getSettlementPageFn = (
+	data: { groupId: string; cursor?: string },
+	signal?: AbortSignal,
+) =>
+	operationRequest<Awaited<ReturnType<Services["listSettlementPage"]>>>(
+		"settlement.page",
+		data,
+		signal,
+	);
 
 export const getDashboardFn = (signal?: AbortSignal) =>
 	apiRequest<Awaited<ReturnType<WebApi["dashboard"]>>>(
@@ -277,7 +340,7 @@ export const listApiKeysFn = (signal?: AbortSignal) =>
 export const createApiKeyFn = ({
 	data,
 }: {
-	data: { name: string; expiresIn: number | null };
+	data: z.input<typeof createApiKeySchema>;
 }) =>
 	apiRequest<{ key: string; record: ApiKeySummary }>(
 		"POST",

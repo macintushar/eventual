@@ -186,7 +186,7 @@ const categories: FaqCategory[] = [
 				id: "splits",
 				question: "How do splits work?",
 				answer:
-					"Group weights is the default split. Each selected member pays in proportion to their weight in the Members tab; when all weights are 1, the split is equal. Exact takes amounts, shares takes one-off ratios and percent takes percentages. Shares are rounded to the currency's smallest unit so they add up exactly. Untick anyone who shouldn't pay a share.",
+					"The default is Split evenly when all member weights match, or By group weight otherwise. Set each member's Weight in the Members tab. Use Exact amounts, By ratio for a one-off ratio, or By percentage. Untick anyone sitting this out and check the live per-person preview before adding the expense.",
 			},
 			{
 				id: "locked",
@@ -198,7 +198,7 @@ const categories: FaqCategory[] = [
 				id: "settle",
 				question: "How do I settle up?",
 				answer:
-					"The Balances tab shows who owes whom, simplified into as few transfers as possible. Use Record settlement there when money actually moves. Eventual keeps each currency separate.",
+					"The Balances tab shows who owes whom, simplified into as few transfers as possible. Use Record payment there when money actually moves. Eventual keeps each currency separate.",
 			},
 		],
 	},
@@ -217,13 +217,13 @@ const categories: FaqCategory[] = [
 				id: "shortcut",
 				question: "How do I log an expense from my iPhone?",
 				answer:
-					"The Apple Shortcut logs a split using group member weights in three taps: pick the group, who paid, and the amount. You can fine-tune the split later in the app. Get it from Integrations.",
+					"The Apple Shortcut logs a split using group member weights in three taps: pick the group, who paid, and the amount. You can fine-tune the split later in the app. Get it from Settings → API keys → Integration docs.",
 			},
 			{
 				id: "mcp",
 				question: "Can an AI assistant log expenses for me?",
 				answer:
-					"Yes. Create an API key under your account, then connect Eventual as an MCP server. Ask it to log a dinner or tell you who owes what. Setup lives on Integrations.",
+					"Yes. Create a key in Settings → API keys, then open Integration docs to connect Eventual as an MCP server. Ask it to log a dinner or tell you who owes what.",
 			},
 		],
 	},
@@ -401,7 +401,7 @@ function HelpIndex() {
 					<p className="mt-2 text-muted-foreground">
 						{supportEmail
 							? "Email us and we'll reply as soon as we can."
-							: "Setting up the Shortcut or an AI assistant? Integrations has the full walkthrough."}
+							: "Setting up the Shortcut or an AI assistant? Open Integration docs for the walkthrough."}
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-3">
@@ -419,7 +419,7 @@ function HelpIndex() {
 						asChild
 					>
 						<Link to="/docs">
-							Set up integrations
+							Integration docs
 							<ArrowRight data-icon="inline-end" />
 						</Link>
 					</Button>
