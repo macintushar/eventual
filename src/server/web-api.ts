@@ -216,42 +216,32 @@ export async function session(request: Request) {
 
 export async function profile(ctx: Ctx, input: unknown) {
 	const { phone, ...fields } = updateProfileSchema.parse(input);
-	const [row] = await ctx.db
-		.update(user)
-		.set({ ...fields, updatedAt: new Date() })
-		.where(eq(user.id, ctx.user.id))
-		.returning({
-			name: user.name,
-			image: user.image,
-			upiVpa: user.upiVpa,
-			wiseTag: user.wiseTag,
-			emailReminders: user.emailReminders,
-			bio: user.bio,
-			isEmailPublic: user.isEmailPublic,
-			isPhonePublic: user.isPhonePublic,
-		});
-	if (!row) throw new AppError("NOT_FOUND", "Account not found");
-	return { ...row, phone: await savePhone(ctx, phone) };
+	// Refused before anything is written, so a rejected number leaves the whole
+	// profile as it was rather than half-saved.
+	if (phone) await assertPhoneFree(ctx, phone);
+	return ctx.db.transaction(async (tx) => {
+		const [row] = await tx
+			.update(user)
+			.set({ ...fields, updatedAt: new Date() })
+			.where(eq(user.id, ctx.user.id))
+			.returning({
+				name: user.name,
+				image: user.image,
+				upiVpa: user.upiVpa,
+				wiseTag: user.wiseTag,
+				emailReminders: user.emailReminders,
+				bio: user.bio,
+				isEmailPublic: user.isEmailPublic,
+				isPhonePublic: user.isPhonePublic,
+			});
+		if (!row) throw new AppError("NOT_FOUND", "Account not found");
+		return { ...row, phone: await savePhone(tx, ctx.user.id, phone) };
+	});
 }
 
-/**
- * A user's number is a `channel_identity`, the same row a guest is added with,
- * so one profile read covers both. Kept to one row per channel: a number is
- * replaced, never accumulated, and `null` removes it.
- */
-async function savePhone(ctx: Ctx, phone: string | null | undefined) {
-	if (phone === undefined) return readPhone(ctx.user.id);
-	await ctx.db
-		.delete(channelIdentity)
-		.where(
-			and(
-				eq(channelIdentity.userId, ctx.user.id),
-				eq(channelIdentity.channel, "phone"),
-			),
-		);
-	if (!phone) return null;
-	// The address is unique across every channel row, so a number already held
-	// by somebody else has to be refused rather than silently reassigned.
+/** The address is unique across every channel row, so a number already held
+ * by somebody else has to be refused rather than silently reassigned. */
+async function assertPhoneFree(ctx: Ctx, phone: string) {
 	const held = await ctx.db.query.channelIdentity.findFirst({
 		where: and(
 			eq(channelIdentity.channel, "phone"),
@@ -263,9 +253,31 @@ async function savePhone(ctx: Ctx, phone: string | null | undefined) {
 			"CONFLICT",
 			"That number is already linked to another account",
 		);
-	await ctx.db.insert(channelIdentity).values({
+}
+
+/**
+ * A user's number is a `channel_identity`, the same row a guest is added with,
+ * so one profile read covers both. Kept to one row per channel: a number is
+ * replaced, never accumulated, and `null` removes it.
+ */
+async function savePhone(
+	tx: Pick<Ctx["db"], "delete" | "insert">,
+	userId: string,
+	phone: string | null | undefined,
+) {
+	if (phone === undefined) return readPhone(userId);
+	await tx
+		.delete(channelIdentity)
+		.where(
+			and(
+				eq(channelIdentity.userId, userId),
+				eq(channelIdentity.channel, "phone"),
+			),
+		);
+	if (!phone) return null;
+	await tx.insert(channelIdentity).values({
 		id: id(),
-		userId: ctx.user.id,
+		userId,
 		channel: "phone",
 		address: phone,
 	});

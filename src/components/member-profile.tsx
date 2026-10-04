@@ -25,7 +25,8 @@ import { copyToClipboard } from "#/lib/clipboard";
 export type MemberProfile = {
 	userId: string;
 	name: string;
-	email: string;
+	/** Null when they hid it from the group; the server withholds it. */
+	email: string | null;
 	image: string | null;
 	upiVpa: string | null;
 	wiseTag: string | null;
@@ -83,7 +84,7 @@ function contactDetails(member: MemberProfile): Detail[] {
 					media: <Phone />,
 				}
 			: null,
-		!member.isGuest && member.isEmailPublic !== false
+		member.email && !member.isGuest && member.isEmailPublic !== false
 			? {
 					key: "email",
 					label: "Email",

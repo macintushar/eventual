@@ -45,7 +45,8 @@ export type GroupPeople = {
 	members: {
 		userId: string;
 		name: string;
-		email: string;
+		/** Null when the member hid it; the server still refuses a duplicate. */
+		email: string | null;
 		isGuest: boolean;
 		invitedEmail: string | null;
 	}[];

@@ -91,15 +91,23 @@ export async function listMembers(ctx: Ctx, input: { groupId: string }) {
 					),
 			])
 		: [[], []];
-	return rows.map((row) => ({
-		...row,
-		phone: row.isGuest
+	return rows.map((row) => {
+		const phone = row.isGuest
 			? (phones.find((phone) => phone.userId === row.userId)?.address ?? null)
-			: row.phone,
-		invitedEmail:
+			: row.phone;
+		const invitedEmail =
 			invites.find((invite) => invite.guestUserId === row.userId)?.email ??
-			null,
-	}));
+			null;
+		// The visibility toggles are enforced here, not only in the profile UI,
+		// so a hidden address never leaves the server. Your own row keeps both.
+		if (row.userId === ctx.user.id) return { ...row, phone, invitedEmail };
+		return {
+			...row,
+			email: row.isEmailPublic ? row.email : null,
+			phone: row.isPhonePublic ? phone : null,
+			invitedEmail,
+		};
+	});
 }
 
 async function assertCanExit(ctx: Ctx, groupId: string, userId: string) {

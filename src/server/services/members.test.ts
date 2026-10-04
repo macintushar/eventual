@@ -83,3 +83,30 @@ test("member rows carry bio, the channel phone and both visibility toggles", asy
 		client.close();
 	}
 });
+
+/**
+ * The toggles are enforced on the server: another member's hidden email and
+ * number never reach the response, while your own row keeps both.
+ */
+test("hidden contact details are withheld from other members", async () => {
+	const { client, db, ctx } = await fixture();
+	try {
+		await db
+			.update(schema.user)
+			.set({ isEmailPublic: false, isPhonePublic: false });
+		await db.insert(channelIdentity).values([
+			{ id: "ci1", userId: "A", channel: "phone", address: NUMBER },
+			{ id: "ci2", userId: "B", channel: "phone", address: "+919800000000" },
+		]);
+
+		const members = await listMembers(ctx, { groupId: "G" });
+		const a = members.find((row) => row.userId === "A");
+		const b = members.find((row) => row.userId === "B");
+		assert.equal(a?.email, "a@test.invalid", "your own email stays");
+		assert.equal(a?.phone, NUMBER, "your own number stays");
+		assert.equal(b?.email, null);
+		assert.equal(b?.phone, null);
+	} finally {
+		client.close();
+	}
+});
