@@ -38,7 +38,11 @@ export async function invalidateForMutation(
 	}
 	if (name.startsWith("category.") || name.startsWith("reminder."))
 		resources.add("settings");
-	if (name.startsWith("category.")) resources.add("expenses");
+	if (name.startsWith("category.")) {
+		resources.add("expenses");
+		// Suggestions are computed from the rules, so they go stale with them.
+		resources.add("category-backfill");
+	}
 	if (name.startsWith("recurring.")) resources.add("recurring");
 	// Legacy aggregate reads remain compatible while other clients migrate.
 	resources.add("page");

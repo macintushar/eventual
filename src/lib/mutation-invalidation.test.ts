@@ -18,6 +18,7 @@ test("financial writes refresh only affected groups and never a disabled compose
 			["group", "G", "financial-summary"],
 			["group", "other", "financial-summary"],
 			["group", "G", "settings"],
+			["group", "G", "category-backfill", null],
 			["composer"],
 			["dashboard"],
 		]) {
@@ -43,7 +44,10 @@ test("financial writes refresh only affected groups and never a disabled compose
 			action: "category.delete",
 			input: { groupId: "G", ruleId: "R" },
 		});
-		assert.deepEqual(calls, ["group/G/settings"]);
+		assert.deepEqual(calls.sort(), [
+			"group/G/category-backfill/",
+			"group/G/settings",
+		]);
 	} finally {
 		for (const cleanup of cleanups) cleanup();
 		client.clear();
