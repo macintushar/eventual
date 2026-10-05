@@ -114,6 +114,13 @@ function PrivacyPolicy() {
 					never sent to analytics or error tools. The only other cookie is the
 					one that keeps you signed in.
 				</p>
+				<p>
+					The login screen also offers a "remember how I signed in last" toggle.
+					Leave it off and nothing extra is stored. Turn it on and we keep a
+					cookie holding a word like "email" or "google", so the screen can
+					point at the button you used last time. It never holds your address or
+					password, and turning the toggle off clears it.
+				</p>
 			</LegalSection>
 
 			<LegalSection id="use" title="How it's used">

@@ -187,7 +187,7 @@ const categories: FaqCategory[] = [
 				id: "splits",
 				question: "How do splits work?",
 				answer:
-					"Group weights is the default split. Each selected member pays in proportion to their weight in the Members tab; when all weights are 1, the split is equal. Exact takes amounts, shares takes one-off ratios and percent takes percentages. Shares are rounded to the currency's smallest unit so they add up exactly. Untick anyone who shouldn't pay a share.",
+					"The default is Split evenly when all member weights match, or By group weight otherwise. Set each member's Weight in the Members tab. Use Exact amounts, By ratio for a one-off ratio, or By percentage. Untick anyone sitting this out and check the live per-person preview before adding the expense.",
 			},
 			{
 				id: "locked",
@@ -199,7 +199,7 @@ const categories: FaqCategory[] = [
 				id: "settle",
 				question: "How do I settle up?",
 				answer:
-					"The Balances tab shows who owes whom, simplified into as few transfers as possible. Use Record settlement there when money actually moves. Eventual keeps each currency separate.",
+					"The Balances tab shows who owes whom, simplified into as few transfers as possible. Use Record payment there when money actually moves. Eventual keeps each currency separate.",
 			},
 		],
 	},
@@ -218,13 +218,13 @@ const categories: FaqCategory[] = [
 				id: "shortcut",
 				question: "How do I log an expense from my iPhone?",
 				answer:
-					"Install the Apple Shortcut from Integrations, then press the Action Button or ask Siri and just type an amount — it splits evenly across the group and you can fine-tune later in the app. It also reads bank SMS alerts: share the message to the shortcut, copy it before running, or set a Messages automation for your bank's sender to log them automatically.",
+					"Install the Apple Shortcut from Integration docs, then press the Action Button or ask Siri and just type an amount — it splits using group member weights and you can fine-tune later in the app. It also reads bank SMS alerts: share the message to the shortcut, copy it before running, or set a Messages automation for your bank's sender to log them automatically.",
 			},
 			{
 				id: "mcp",
 				question: "Can an AI assistant log expenses for me?",
 				answer:
-					"Yes. Create an API key under your account, then connect Eventual as an MCP server. Ask it to log a dinner or tell you who owes what. Setup lives on Integrations.",
+					"Yes. Create a key in Settings → API keys, then open Integration docs to connect Eventual as an MCP server. Ask it to log a dinner or tell you who owes what.",
 			},
 		],
 	},
@@ -403,7 +403,7 @@ function HelpIndex() {
 					<p className="mt-2 text-muted-foreground">
 						{supportEmail
 							? "Email us and we'll reply as soon as we can."
-							: "Setting up the Shortcut or an AI assistant? Integrations has the full walkthrough."}
+							: "Setting up the Shortcut or an AI assistant? Open Integration docs for the walkthrough."}
 						{statusPageUrl
 							? " If the app looks down, the status page says whether we're up."
 							: null}
@@ -432,7 +432,7 @@ function HelpIndex() {
 						asChild
 					>
 						<Link to="/docs">
-							Set up integrations
+							Integration docs
 							<ArrowRight data-icon="inline-end" />
 						</Link>
 					</Button>

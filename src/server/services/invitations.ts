@@ -12,12 +12,12 @@ import {
 	membership,
 	type Role,
 	recordActivity,
-	requireRole,
+	requirePermission,
 } from "./shared";
 
 export async function listInvitations(ctx: Ctx, input: { groupId: string }) {
 	const mine = await membership(ctx, input.groupId);
-	requireRole(mine.role, ["owner", "admin"]);
+	requirePermission(mine.role, { invitation: ["read"] });
 	return ctx.db.query.invitation.findMany({
 		where: and(
 			eq(invitation.organizationId, input.groupId),
@@ -32,9 +32,9 @@ export async function createInvitation(
 	input: { groupId: string; email: string; role: Role },
 ) {
 	const mine = await membership(ctx, input.groupId);
-	requireRole(mine.role, ["owner", "admin"]);
-	if (input.role === "owner" && mine.role !== "owner")
-		throw new AppError("FORBIDDEN", "Only owners can invite another owner");
+	requirePermission(mine.role, { invitation: ["create"] });
+	if (input.role === "owner")
+		throw new AppError("FORBIDDEN", "Each group has one owner");
 	const group = await ctx.db.query.organization.findFirst({
 		where: eq(organization.id, input.groupId),
 	});
@@ -190,7 +190,7 @@ export async function revokeInvitation(
 	});
 	if (!invite) throw new AppError("NOT_FOUND", "Invitation not found");
 	const mine = await membership(ctx, invite.organizationId);
-	requireRole(mine.role, ["owner", "admin"]);
+	requirePermission(mine.role, { invitation: ["cancel"] });
 	await ctx.db.transaction(async (tx) => {
 		await tx
 			.update(invitation)
@@ -208,7 +208,7 @@ export async function revokeInvitation(
 			),
 		);
 	});
-	return { success: true };
+	return { success: true, groupId: invite.organizationId };
 }
 
 export async function acceptInvitation(
@@ -227,7 +227,10 @@ export async function acceptInvitation(
 	if (preview.invitation.email.toLowerCase() !== ctx.user.email.toLowerCase())
 		throw new AppError("FORBIDDEN", "Sign in with the invited email address");
 	const groupId = preview.invitation.organizationId;
-	const role = preview.invitation.role ?? "member";
+	// Each group has one owner. An owner invitation issued before that rule
+	// still lets the person in, as the highest role they can now hold.
+	const invited = preview.invitation.role ?? "member";
+	const role = invited === "owner" ? "admin" : invited;
 	await ctx.db.transaction(async (tx) => {
 		// The guest who stood in for this person becomes them: their shares,
 		// payments and history move to the account. The admin's invitation is the
@@ -269,7 +272,13 @@ export async function acceptInvitation(
 				role,
 				createdAt: new Date(),
 			});
-		else if ((merged || alreadyOwned) && existing.role !== role)
+		// Never demote an owner: an invitation can grant at most admin, and a
+		// group without its owner loses every owner-only control.
+		else if (
+			(merged || alreadyOwned) &&
+			existing.role !== role &&
+			existing.role !== "owner"
+		)
 			await tx.update(member).set({ role }).where(eq(member.id, existing.id));
 		await tx
 			.update(invitation)

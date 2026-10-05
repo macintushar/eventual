@@ -49,6 +49,7 @@ import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
 import { currencySymbol } from "#/lib/currencies";
 import { atNoon, formatLongDate, formatShortDate } from "#/lib/dates";
 import { formatMinor, parseMinor } from "#/lib/money";
+import { canEditRecurring } from "#/lib/permissions";
 import type { MutationInput } from "#/server/operations";
 
 type Recurrence = "daily" | "weekly" | "monthly" | "yearly";
@@ -73,6 +74,7 @@ type Template = {
 	nextRunAt: Date | string;
 	active: boolean;
 	payload: string;
+	createdByUserId: string;
 };
 
 type StoredExpense = {
@@ -107,12 +109,14 @@ export function RecurringExpenses({
 	templates,
 	members,
 	currentUserId,
+	myRole,
 	run,
 }: {
 	groupId: string;
 	templates: Template[];
 	members: Member[];
 	currentUserId: string;
+	myRole: string;
 	run: Run;
 }) {
 	const names = new Map(members.map((member) => [member.userId, member.name]));
@@ -150,6 +154,12 @@ export function RecurringExpenses({
 				{sorted.map((template) => {
 					const expense = storedExpense(template.payload);
 					const label = expense.description ?? "Recurring expense";
+					// Per-row affordance: hidden rather than locked, so the list
+					// reads cleanly for members who didn't set this one up.
+					const editable = canEditRecurring(
+						myRole,
+						template.createdByUserId === currentUserId,
+					);
 					const payer = expense.paidByUserId
 						? (names.get(expense.paidByUserId) ?? "someone")
 						: null;
@@ -185,66 +195,68 @@ export function RecurringExpenses({
 									{formatMinor(expense.amountMinor, expense.currency)}
 								</span>
 							) : null}
-							<span className="flex shrink-0 items-center">
-								<Button
-									size="icon-sm"
-									variant="ghost"
-									className="text-muted-foreground"
-									disabled={busy === template.id}
-									aria-label={
-										template.active ? `Pause ${label}` : `Resume ${label}`
-									}
-									onClick={async () => {
-										setBusy(template.id);
-										await run(
-											{
-												action: "recurring.update",
-												input: {
-													templateId: template.id,
-													active: !template.active,
+							{editable ? (
+								<span className="flex shrink-0 items-center">
+									<Button
+										size="icon-sm"
+										variant="ghost"
+										className="text-muted-foreground"
+										disabled={busy === template.id}
+										aria-label={
+											template.active ? `Pause ${label}` : `Resume ${label}`
+										}
+										onClick={async () => {
+											setBusy(template.id);
+											await run(
+												{
+													action: "recurring.update",
+													input: {
+														templateId: template.id,
+														active: !template.active,
+													},
 												},
-											},
-											template.active
-												? "Recurring expense paused"
-												: "Recurring expense resumed",
-										);
-										setBusy(null);
-									}}
-								>
-									{busy === template.id ? (
-										<Spinner />
-									) : template.active ? (
-										<Pause />
-									) : (
-										<Play />
-									)}
-								</Button>
-								<ConfirmDialog
-									media={<Trash2 />}
-									title={`Delete “${label}”?`}
-									description="Expenses it already added stay in the group. Nothing new is added from now on."
-									confirmLabel="Delete recurring expense"
-									onConfirm={() =>
-										run(
-											{
-												action: "recurring.delete",
-												input: { templateId: template.id },
-											},
-											"Recurring expense deleted",
-										)
-									}
-									trigger={
-										<Button
-											size="icon-sm"
-											variant="ghost"
-											className="text-muted-foreground hover:text-destructive"
-											aria-label={`Delete ${label}`}
-										>
-											<Trash2 />
-										</Button>
-									}
-								/>
-							</span>
+												template.active
+													? "Recurring expense paused"
+													: "Recurring expense resumed",
+											);
+											setBusy(null);
+										}}
+									>
+										{busy === template.id ? (
+											<Spinner />
+										) : template.active ? (
+											<Pause />
+										) : (
+											<Play />
+										)}
+									</Button>
+									<ConfirmDialog
+										media={<Trash2 />}
+										title={`Delete “${label}”?`}
+										description="Expenses it already added stay in the group. Nothing new is added from now on."
+										confirmLabel="Delete recurring expense"
+										onConfirm={() =>
+											run(
+												{
+													action: "recurring.delete",
+													input: { templateId: template.id },
+												},
+												"Recurring expense deleted",
+											)
+										}
+										trigger={
+											<Button
+												size="icon-sm"
+												variant="ghost"
+												className="text-muted-foreground hover:text-destructive"
+												aria-label={`Delete ${label}`}
+											>
+												<Trash2 />
+											</Button>
+										}
+									/>
+								</span>
+							) : null}
 						</li>
 					);
 				})}

@@ -53,6 +53,23 @@ The scheduled job runner runs once per day at 00:00 UTC to stay within Vercel Ho
 
 Vercel project variables are not automatically available in your local shell. Do not run the seed command against production.
 
+## Generated API reference
+
+Test commands: `bun run test` runs unit/service tests; `bun run test:shortcuts` runs shortcut-builder tests. `bun run test:e2e` runs the API, desktop and mobile suites in `tests/e2e`, while `bun run test:e2e:journey` runs the disposable-database journeys in `e2e` using `playwright.journey.config.ts`.
+
+Browse the interactive Scalar API reference at `/api/docs`, powered by the live `/api/openapi.json` endpoint.
+
+The checked-in OpenAPI 3.1 specification is [public/openapi.json](public/openapi.json), served at `/openapi.json`. The existing `/api/openapi.json` endpoint generates the same contracts live, with an absolute server URL for the current origin. Import either JSON document into Swagger UI, Postman, or an OpenAPI-compatible client generator.
+
+```bash
+bun run api:docs:generate  # update public/openapi.json after changing contracts
+bun run api:docs:check     # fail if the checked-in snapshot is missing or stale
+```
+
+Generation uses `src/server/openapi.ts`, the operation registry in `src/server/operations.ts`, and its Zod schemas. It requires no running server, database migrations, or credentials. The snapshot uses a relative `/api` server URL and has no timestamps or environment-specific values. Commit the generated JSON alongside API changes. CI runs the read-only check before tests/build and tells you to regenerate when it differs; it never silently rewrites the snapshot.
+
+This documents versioned REST operations and registered web endpoints, not Better Auth's own `/api/auth/*` routes or MCP protocol messages. Many existing operation response schemas are still `unknown` (rendered as `{}`), so their response fields are not yet fully described. Add explicit output schemas to the registry when building typed external clients; matching the snapshot checks freshness, not full runtime response conformance or backward compatibility.
+
 ## Health check
 
 `GET /health` returns `200 {"status":"ok"}` without authentication. It runs a server function and sets `Cache-Control: no-store`. Use it for an external uptime check. It deliberately does not query Turso; monitor database availability separately with provider alerts or a less frequent check that performs a read through the application.
@@ -94,9 +111,10 @@ EMAIL_REPLY_TO=support@your-verified-domain.com
 Verify the sending domain in Resend and set `BETTER_AUTH_URL` to your public HTTPS origin. Restart the app after changing these values. No database migration is needed. Without both Resend settings, verification and invitation emails are disabled; invitations still produce a shareable link, and sign-in does not require verification. When email sending is configured, users must verify their address before signing in. Signup sends a verification link, including signups made directly through `/api/auth/sign-up/email`. Signup and a correct password for an unverified account open `/check-email`, which sends a link on arrival unless one was sent in the last five minutes.
 
 - Sign in → **Forgot your password?** opens `/forgot-password`. Reset links expire after one hour, can be used once, and lead to `/reset-password`. A successful reset revokes existing sessions.
+- The login screen carries a "Remember how I signed in last" toggle, off by default. Better Auth's `lastLoginMethod` plugin then marks the button that was used, but only writes its cookie where that toggle is on. Turning the toggle off clears the marker as well, so withdrawing removes the data rather than only refusing new writes. Nothing is stored in the `user` table, so this needs no migration.
 - **Settings → Profile** shows email-verification status and a resend action. Verification links expire after one hour and return to `/verify-email`, where verification signs the user in.
 - Password-reset requests return the same generic response for unknown accounts and delivery failures. Better Auth also treats verification delivery as a background notification, so a successful request is not proof of delivery. Failures are logged without email content or tokens; check Resend delivery logs and retry after fixing configuration. There is no automatic retry queue.
-- Reset and verification requests use Better Auth's per-IP rate limits (three per minute in production). Resend idempotency keys deduplicate retries of the same token within its 24-hour window; token values are hashed before being used as keys.
+- Reset and verification requests use Better Auth's per-IP rate limits (three per minute in production). Resend idempotency keys deduplicate retries of the same token within its 24-hour window; token values are hashed before being used as keys. Better Auth keys these limits on the connecting IP, which it reads from `x-forwarded-for` and does not trust when that header holds a chain. If your proxy sends `client, edge` instead of a single address, every visitor shares one bucket, so a handful of attempts anywhere throttles sign-in for everyone; set `advanced.ipAddress.ipAddressHeaders` or `advanced.ipAddress.trustedProxies` if you observe that.
 - `bun run email:dev` previews templates on port 3002. HTML and plain-text versions are rendered at send time.
 
 ## REST API

@@ -52,8 +52,10 @@ test("two people join, split expenses, settle, and net balances across groups", 
 		const inviteDialog = a.page.getByRole("dialog", { name: "Add a person" });
 		await inviteDialog.getByLabel("Name").fill("Blair");
 		await inviteDialog.getByLabel("Email").fill(bEmail);
-		await inviteDialog.getByRole("button", { name: "Add and invite" }).click();
-		const link = inviteDialog.locator("#invite-url");
+		await inviteDialog.getByRole("button", { name: "Add & invite" }).click();
+		const link = a.page
+			.getByRole("dialog", { name: "Share the invite" })
+			.locator("#invite-url");
 		await expect(link).toHaveValue(/\/invite\//);
 		const inviteUrl = await link.inputValue();
 		const invitationId = new URL(inviteUrl).pathname.split("/").at(-1);
@@ -143,7 +145,6 @@ test("two people join, split expenses, settle, and net balances across groups", 
 		await composer.getByLabel("Description").fill("Dinner together");
 		await composer.getByLabel("Amount").fill("200");
 		await composer.getByRole("button", { name: "Continue" }).click();
-		await composer.getByRole("button", { name: "Continue" }).click();
 		await composer.getByRole("button", { name: "Add expense" }).click();
 		await expect(a.page.getByText("Dinner together")).toBeVisible();
 		const expenses = await json<any>(
@@ -179,13 +180,13 @@ test("two people join, split expenses, settle, and net balances across groups", 
 			b.page.getByRole("tab", { name: "Balances" }),
 		);
 		await b.page.getByRole("tab", { name: "Balances" }).click();
-		await b.page.getByRole("button", { name: "Confirm paid" }).click();
+		await b.page.getByRole("button", { name: "Record payment" }).last().click();
 		const settlementDialog = b.page.getByRole("dialog", {
-			name: "Record settlement",
+			name: "Record a payment",
 		});
 		await expect(settlementDialog.getByLabel("Amount")).toHaveValue("100.00");
 		await settlementDialog
-			.getByRole("button", { name: "Record", exact: true })
+			.getByRole("button", { name: "Record payment", exact: true })
 			.click();
 		await expect(b.page.getByText("Everyone is settled up.")).toBeVisible();
 		const payment = (

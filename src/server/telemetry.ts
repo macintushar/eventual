@@ -35,6 +35,11 @@ type AnalyticsEvent = {
 		surface: "web" | "rest" | "mcp" | "shortcut";
 		success: boolean;
 		duration_ms: number;
+		db_query_count?: number;
+		db_duration_ms?: number;
+		db_result_rows?: number;
+		balance_calculation_ms?: number;
+		result_count?: number;
 	};
 	mcp_request_completed: {
 		method: string;
@@ -90,6 +95,12 @@ export function captureEvent<Name extends keyof AnalyticsEvent>(input: {
 			event: input.event,
 			properties: {
 				...input.properties,
+				environment:
+					process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development",
+				release:
+					process.env.VERCEL_GIT_COMMIT_SHA ??
+					process.env.SENTRY_RELEASE ??
+					"local",
 				...(input.anonymous ? { $process_person_profile: false } : {}),
 			},
 		}),

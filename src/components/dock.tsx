@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	Link,
 	useLocation,
@@ -11,97 +11,64 @@ import {
 	CircleHelp,
 	House,
 	LogIn,
+	LogOut,
 	Logs,
-	Plug,
 	Plus,
 	Receipt,
+	Settings,
 	UserRound,
 	UsersRound,
 } from "lucide-react";
-import {
-	AnimatePresence,
-	type MotionValue,
-	motion,
-	useMotionValue,
-	useReducedMotion,
-	useSpring,
-	useTransform,
-} from "motion/react";
-import {
-	createContext,
-	type ReactNode,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { type ReactNode, useState } from "react";
+import { toast } from "sonner";
 import { useComposer } from "#/components/composer";
+import { ConfirmDialog } from "#/components/confirm-dialog";
 import { MemberAvatar } from "#/components/member-avatar";
 import { Button } from "#/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
+import { authClient } from "#/lib/auth-client";
 import { sessionQueryOptions } from "#/lib/queries";
+import { clearSession } from "#/lib/session";
 import { cn } from "#/lib/utils";
 
 const ICON = "size-[1.375rem]";
 
-/* Slot size at rest (the 44px thumb target) and right under the cursor. */
-const SLOT = 44;
-const SLOT_PEAK = 64;
-/* How far either side of the cursor a slot still feels the pull. */
-const REACH = 120;
-const SPRING = { mass: 0.1, stiffness: 170, damping: 14 };
-
-/** Cursor x inside the dock, or Infinity when there is no cursor to follow. */
-const DockPointer = createContext<MotionValue<number> | null>(null);
-/** The slot's current growth, so its glyph can scale with it. */
-const SlotScale = createContext<MotionValue<number> | null>(null);
-
 /**
- * The floating pill. On a mouse, slots swell toward the cursor like the macOS
- * dock; touch never feeds the pointer, so on a phone it stays a still row of
- * thumb targets.
+ * The floating pill: a still row of 44px thumb targets. It used to swell
+ * toward the cursor like the macOS dock, but navigation you do fifty times a
+ * day should not perform for you every time.
  */
 function Dock({
 	menuOpen,
 	children,
 }: {
-	/** An open menu freezes the dock, since Radix swallows the pointer. */
+	/** An open menu hides the slot labels, which would sit on top of it. */
 	menuOpen: boolean;
 	children: ReactNode;
 }) {
-	const pointerX = useMotionValue(Number.POSITIVE_INFINITY);
-	const reduceMotion = useReducedMotion();
-
-	useEffect(() => {
-		if (menuOpen) pointerX.set(Number.POSITIVE_INFINITY);
-	}, [menuOpen, pointerX]);
-
 	return (
-		<DockPointer.Provider value={pointerX}>
-			<nav
-				className="dock"
-				aria-label="Primary"
-				data-menu-open={menuOpen}
-				onPointerMove={(event) => {
-					if (event.pointerType !== "mouse" || reduceMotion || menuOpen) return;
-					pointerX.set(event.clientX);
-				}}
-				onPointerLeave={() => pointerX.set(Number.POSITIVE_INFINITY)}
-			>
-				{children}
-			</nav>
-		</DockPointer.Provider>
+		<nav
+			className="dock group/dock"
+			aria-label="Primary"
+			data-menu-open={menuOpen}
+		>
+			{children}
+		</nav>
 	);
 }
 
 /**
- * One magnifying position in the dock. It owns the size and the hover label;
- * whatever control sits inside fills it.
+ * One fixed 44px position in the dock. It owns the label; whatever control
+ * sits inside fills it. The label names an icon-only slot when a mouse rests
+ * on it or keyboard focus lands in it. It is decoration for sighted users —
+ * the control inside carries its own accessible name.
  */
 function DockSlot({
 	label,
@@ -112,64 +79,21 @@ function DockSlot({
 	className?: string;
 	children: ReactNode;
 }) {
-	const pointerX = useContext(DockPointer);
-	const fallbackX = useMotionValue(Number.POSITIVE_INFINITY);
-	const ref = useRef<HTMLDivElement>(null);
-	const [hovered, setHovered] = useState(false);
-	const reduceMotion = useReducedMotion();
-
-	const distance = useTransform(pointerX ?? fallbackX, (x) => {
-		const bounds = ref.current?.getBoundingClientRect();
-		return bounds
-			? x - bounds.left - bounds.width / 2
-			: Number.POSITIVE_INFINITY;
-	});
-	const size = useSpring(
-		useTransform(distance, [-REACH, 0, REACH], [SLOT, SLOT_PEAK, SLOT]),
-		SPRING,
-	);
-	const scale = useTransform(size, (value) => value / SLOT);
-
 	return (
-		<SlotScale.Provider value={scale}>
-			<motion.div
-				ref={ref}
-				className={cn("dock-slot", className)}
-				style={{ width: size, height: size }}
-				onPointerEnter={(event) => setHovered(event.pointerType === "mouse")}
-				onPointerLeave={() => setHovered(false)}
-				onPointerDown={() => setHovered(false)}
+		<div className={cn("dock-slot group/slot", className)}>
+			<span
+				className={cn(
+					"dock-label -translate-x-1/2 translate-y-1.5 opacity-0 transition-[opacity,translate] duration-150 motion-reduce:translate-y-0",
+					"group-hover/slot:translate-y-0 group-hover/slot:opacity-100",
+					"group-has-[:focus-visible]/slot:translate-y-0 group-has-[:focus-visible]/slot:opacity-100",
+					"group-data-[menu-open=true]/dock:opacity-0",
+				)}
+				aria-hidden="true"
 			>
-				<AnimatePresence>
-					{hovered && (
-						<motion.span
-							className="dock-label"
-							aria-hidden="true"
-							initial={{ opacity: 0, y: reduceMotion ? 0 : 6, x: "-50%" }}
-							animate={{ opacity: 1, y: 0, x: "-50%" }}
-							exit={{ opacity: 0, y: reduceMotion ? 0 : 2, x: "-50%" }}
-							transition={{ duration: 0.16 }}
-						>
-							{label}
-						</motion.span>
-					)}
-				</AnimatePresence>
-				{children}
-			</motion.div>
-		</SlotScale.Provider>
-	);
-}
-
-/** Scales an icon or avatar along with its slot, so it grows rather than floats. */
-function DockGlyph({ children }: { children: ReactNode }) {
-	const scale = useContext(SlotScale);
-	return (
-		<motion.span
-			className="grid place-items-center"
-			style={{ scale: scale ?? 1 }}
-		>
+				{label}
+			</span>
 			{children}
-		</motion.span>
+		</div>
 	);
 }
 
@@ -193,7 +117,7 @@ function DockItem({
 				aria-label={label}
 				aria-current={active ? "page" : undefined}
 			>
-				<DockGlyph>{children}</DockGlyph>
+				{children}
 			</Link>
 		</DockSlot>
 	);
@@ -222,6 +146,8 @@ function ComposeBody({
 	);
 }
 
+type DockUser = { name: string; email: string; image?: string | null };
+
 const COMPOSE_ITEM = "gap-3 rounded-xl p-2.5 [&_svg]:text-foreground";
 
 function profileActive(pathname: string, signedIn: boolean) {
@@ -231,9 +157,9 @@ function profileActive(pathname: string, signedIn: boolean) {
 }
 
 /**
- * The compose menu behind the dock's centre button. Both ways of starting
- * something live here rather than the button guessing from the route — an
- * action you can see is an action you can find again.
+ * The dock's centre button. Inside a group there is only one likely thing to
+ * start, so it opens the expense composer for that group straight away;
+ * everywhere else it opens a menu offering both an expense and a group.
  *
  * Neither one navigates: they open a stepped dialog over whatever you were
  * looking at, so a half-finished expense never costs you your place.
@@ -249,6 +175,20 @@ function ComposeButton({
 }) {
 	const composer = useComposer();
 
+	if (groupId)
+		return (
+			<DockSlot label="New expense" className="mx-0.5">
+				<Button
+					size="icon"
+					className="press size-full rounded-full"
+					aria-label="New expense in this group"
+					onClick={() => composer.expense({ groupId })}
+				>
+					<Plus className={ICON} aria-hidden="true" />
+				</Button>
+			</DockSlot>
+		);
+
 	return (
 		<DropdownMenu open={open} onOpenChange={onOpenChange}>
 			<DockSlot label="New" className="mx-0.5">
@@ -258,17 +198,16 @@ function ComposeButton({
 						className="press size-full rounded-full"
 						aria-label="New expense or group"
 					>
-						<DockGlyph>
-							{/* The plus turns into a close mark, so the button reads as the
-							    same object in both states rather than swapping icons. */}
-							<Plus
-								className={cn(
-									ICON,
-									"transition-transform duration-200 ease-(--ease-out-soft) motion-reduce:transition-none",
-									open && "rotate-45",
-								)}
-							/>
-						</DockGlyph>
+						{/* The plus turns into a close mark, so the button reads as the
+						    same object in both states rather than swapping icons. */}
+						<Plus
+							aria-hidden="true"
+							className={cn(
+								ICON,
+								"transition-transform duration-200 ease-(--ease-out-soft) motion-reduce:transition-none",
+								open && "rotate-45",
+							)}
+						/>
 					</Button>
 				</DropdownMenuTrigger>
 			</DockSlot>
@@ -279,20 +218,14 @@ function ComposeButton({
 				sideOffset={14}
 				className="dock-menu"
 			>
-				{/* The composer carries its own group step now, so this is offered
-				    everywhere — inside a group it just arrives preselected. */}
 				<DropdownMenuItem
 					className={COMPOSE_ITEM}
-					onSelect={() => composer.expense({ groupId })}
+					onSelect={() => composer.expense()}
 				>
 					<ComposeBody
 						icon={<Receipt className="size-[1.125rem]" />}
 						title="New expense"
-						hint={
-							groupId
-								? "Split a cost with this group"
-								: "Pick a group and split"
-						}
+						hint="Pick a group and split"
 					/>
 				</DropdownMenuItem>
 
@@ -312,9 +245,37 @@ function ComposeButton({
 }
 
 /**
- * The dock's last slot. Help used to live in every footer; it belongs with
- * who you are, because that is the same place you already reach for settings
- * or sign-in.
+ * Ends the session and drops every account-scoped query with it. Resolves
+ * `false` when sign-out failed, so the confirmation stays up.
+ */
+function useSignOut() {
+	const router = useRouter();
+	const queryClient = useQueryClient();
+
+	return async () => {
+		// Better Auth reports failures on the result rather than by throwing, and
+		// a dropped connection rejects, so both have to be caught: bailing out
+		// silently would leave the menu closed and the session still live.
+		try {
+			const { error } = await authClient.signOut();
+			if (error) throw new Error(error.message);
+		} catch {
+			toast.error("Couldn't sign out", {
+				description: "Check your connection and try again.",
+			});
+			return false;
+		}
+		clearSession(queryClient);
+		await router.navigate({ to: "/" });
+		return true;
+	};
+}
+
+/**
+ * The dock's last slot, and the only account menu in the app. It used to share
+ * the job with an avatar in the masthead's top-right corner — the hardest place
+ * on a phone to reach, and gone whenever the header slid away on scroll — so
+ * who you are, settings, help and sign-out all live down here, under the thumb.
  */
 function ProfileButton({
 	user,
@@ -322,99 +283,155 @@ function ProfileButton({
 	onOpenChange,
 	active,
 }: {
-	user?: { name: string; email: string } | null;
+	user?: DockUser | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	active?: boolean;
 }) {
+	const signOut = useSignOut();
+	const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+
 	return (
-		<DropdownMenu open={open} onOpenChange={onOpenChange}>
-			<DockSlot label="Account">
-				<DropdownMenuTrigger asChild>
-					<button
-						type="button"
-						className="dock-item"
-						data-active={active || open}
-						aria-label="Account menu"
-						aria-current={active ? "page" : undefined}
-					>
-						<DockGlyph>
+		<>
+			<DropdownMenu open={open} onOpenChange={onOpenChange}>
+				<DockSlot label="Account">
+					<DropdownMenuTrigger asChild>
+						<button
+							type="button"
+							className="dock-item"
+							data-active={active || open}
+							aria-label="Account menu"
+							aria-current={active ? "page" : undefined}
+						>
 							{user ? (
 								<MemberAvatar
 									name={user.name}
 									seed={user.email}
+									image={user.image}
 									className="size-[1.625rem] text-[9px]"
 								/>
 							) : (
 								<UserRound className={ICON} aria-hidden="true" />
 							)}
-						</DockGlyph>
-					</button>
-				</DropdownMenuTrigger>
-			</DockSlot>
+						</button>
+					</DropdownMenuTrigger>
+				</DockSlot>
 
-			<DropdownMenuContent
-				side="top"
-				align="end"
-				sideOffset={14}
-				className="dock-menu"
-			>
-				<DropdownMenuItem asChild className={COMPOSE_ITEM}>
-					<Link to="/help">
-						<ComposeBody
-							icon={<CircleHelp className="size-[1.125rem]" />}
-							title="Help"
-							hint="Guides for groups, expenses and splits"
-						/>
-					</Link>
-				</DropdownMenuItem>
+				<DropdownMenuContent
+					side="top"
+					align="end"
+					sideOffset={14}
+					className="dock-menu"
+				>
+					{user && (
+						<>
+							<DropdownMenuLabel className="flex items-center gap-3 p-2.5">
+								<MemberAvatar
+									name={user.name}
+									seed={user.email}
+									image={user.image}
+									className="size-10"
+								/>
+								<span className="flex min-w-0 flex-col gap-0.5">
+									<span className="truncate font-medium">{user.name}</span>
+									<span className="truncate text-xs font-normal text-muted-foreground">
+										{user.email}
+									</span>
+								</span>
+							</DropdownMenuLabel>
+							<DropdownMenuSeparator />
+							{/* Profile and API keys are tabs of one settings page, so one
+							    row reaches both and the menu stays short enough to clear
+							    the dock on a landscape phone. */}
+							<DropdownMenuItem asChild className={COMPOSE_ITEM}>
+								<Link to="/app/settings/profile">
+									<ComposeBody
+										icon={<Settings className="size-[1.125rem]" />}
+										title="Settings"
+										hint="Your profile and API keys"
+									/>
+								</Link>
+							</DropdownMenuItem>
+						</>
+					)}
 
-				{user ? (
 					<DropdownMenuItem asChild className={COMPOSE_ITEM}>
-						<Link to="/app/settings/profile">
+						<Link to="/help">
 							<ComposeBody
-								icon={<UserRound className="size-[1.125rem]" />}
-								title="Account"
-								hint="Your profile and API keys"
+								icon={<CircleHelp className="size-[1.125rem]" />}
+								title="Help"
+								hint="Guides for groups, expenses and splits"
 							/>
 						</Link>
 					</DropdownMenuItem>
-				) : (
-					<DropdownMenuItem asChild className={COMPOSE_ITEM}>
-						<Link to="/login">
-							<ComposeBody
-								icon={<LogIn className="size-[1.125rem]" />}
-								title="Sign in"
-								hint="Log in to your groups"
-							/>
-						</Link>
-					</DropdownMenuItem>
-				)}
-			</DropdownMenuContent>
-		</DropdownMenu>
+
+					{user ? (
+						<>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem
+								variant="destructive"
+								className={COMPOSE_ITEM}
+								onSelect={() => setConfirmingSignOut(true)}
+							>
+								<span className="grid size-10 shrink-0 place-items-center rounded-full bg-destructive/10">
+									<LogOut className="size-[1.125rem]" />
+								</span>
+								<span className="font-medium">Sign out</span>
+							</DropdownMenuItem>
+						</>
+					) : (
+						<DropdownMenuItem asChild className={COMPOSE_ITEM}>
+							<Link to="/login">
+								<ComposeBody
+									icon={<LogIn className="size-[1.125rem]" />}
+									title="Sign in"
+									hint="Log in to your groups"
+								/>
+							</Link>
+						</DropdownMenuItem>
+					)}
+				</DropdownMenuContent>
+			</DropdownMenu>
+
+			{/* Outside the menu, which has already closed by the time this asks. */}
+			<ConfirmDialog
+				open={confirmingSignOut}
+				onOpenChange={setConfirmingSignOut}
+				media={<LogOut />}
+				title="Sign out?"
+				description="You'll need to sign in again to see your groups."
+				confirmLabel="Sign out"
+				onConfirm={signOut}
+			/>
+		</>
 	);
 }
 
 /**
- * Signed-in navigation. The masthead only carries identity and the theme, so
- * the destinations live down here where a thumb already is, with the one thing
+ * Signed-in navigation. The masthead only carries the wordmark and the theme,
+ * so the destinations and the account live down here where a thumb already is, with the one thing
  * you open the app to do in the middle.
  */
-export function AppDock({ user }: { user: { name: string; email: string } }) {
+export function AppDock({ user }: { user: DockUser }) {
 	const { groupId } = useParams({ strict: false }) as { groupId?: string };
 	const { pathname } = useLocation();
 	const [composeOpen, setComposeOpen] = useState(false);
+	// Inside a group the button opens the composer directly and has no menu,
+	// so a change of group closes any menu left open as the route changed.
+	const [composeScope, setComposeScope] = useState(groupId);
+	if (composeScope !== groupId) {
+		setComposeScope(groupId);
+		setComposeOpen(false);
+	}
 	const [profileOpen, setProfileOpen] = useState(false);
 
 	const active = profileActive(pathname, true)
 		? "account"
-		: pathname.startsWith("/docs")
-			? "docs"
-			: pathname.startsWith("/app/activity")
-				? "activity"
-				: pathname.startsWith("/app")
-					? "groups"
-					: null;
+		: pathname.startsWith("/app/activity")
+			? "activity"
+			: pathname.startsWith("/app")
+				? "groups"
+				: null;
 
 	return (
 		<>
@@ -439,10 +456,6 @@ export function AppDock({ user }: { user: { name: string; email: string } }) {
 						if (next) setProfileOpen(false);
 					}}
 				/>
-
-				<DockItem to="/docs" active={active === "docs"} label="Integrations">
-					<Plug className={ICON} aria-hidden="true" />
-				</DockItem>
 
 				<ProfileButton
 					user={user}
@@ -475,14 +488,14 @@ export function AppDock({ user }: { user: { name: string; email: string } }) {
 /**
  * Signed-out navigation for the landing page, docs, auth and invite screens.
  * There is nothing to add yet, so the slots are go back, go home, and the
- * account menu — help, plus sign-in or your profile. When a session is already
+ * account menu — help, plus sign-in, or settings and sign-out. When a session is already
  * live — someone reading docs while logged in, or accepting an invite — the
  * third slot uses the same avatar the app dock does.
  */
 export function PublicDock({
 	user: initialUser,
 }: {
-	user?: { name: string; email: string } | null;
+	user?: DockUser | null;
 } = {}) {
 	const router = useRouter();
 	const { pathname } = useLocation();
@@ -506,9 +519,7 @@ export function PublicDock({
 						aria-label="Go back"
 						onClick={() => router.history.back()}
 					>
-						<DockGlyph>
-							<ArrowLeft className={ICON} aria-hidden="true" />
-						</DockGlyph>
+						<ArrowLeft className={ICON} aria-hidden="true" />
 					</button>
 				</DockSlot>
 

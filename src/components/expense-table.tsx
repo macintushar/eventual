@@ -10,6 +10,10 @@ import { useMemo } from "react";
 
 import { Amount } from "#/components/amount";
 import { MemberAvatar } from "#/components/member-avatar";
+import {
+	type MemberProfile,
+	MemberProfileDialog,
+} from "#/components/member-profile";
 import { Badge } from "#/components/ui/badge";
 import {
 	Table,
@@ -31,13 +35,20 @@ export type ExpenseTableRow = {
 	amountMinor: number;
 	currency: string;
 	locked: boolean;
-	payer: { id: string; name: string };
+	payer: { id: string; name: string; image?: string | null };
 };
 
 const features = tableFeatures({ rowSortingFeature });
 
 const helper = createColumnHelper<typeof features, ExpenseTableRow>();
 const EMPTY_ROWS: ExpenseTableRow[] = [];
+
+/**
+ * Below `sm` only Description and Amount get columns, so the amount never
+ * scrolls off a phone screen. Payer and date move into a secondary line under
+ * the description instead.
+ */
+const PHONE_HIDDEN_COLUMNS = new Set(["payer", "date", "category"]);
 
 function SortMark({ sorted }: { sorted: false | "asc" | "desc" }) {
 	if (sorted === "asc") return <ArrowUp className="size-3.5" aria-hidden />;
@@ -47,12 +58,15 @@ function SortMark({ sorted }: { sorted: false | "asc" | "desc" }) {
 
 export function ExpenseTable({
 	rows,
+	members,
 	groupId,
 	fetching = false,
 	sort,
 	onSortChange,
 }: {
 	rows: ExpenseTableRow[];
+	/** The group's member list, so a payer's name can open their profile. */
+	members: MemberProfile[];
 	groupId: string;
 	fetching?: boolean;
 	sort: { id: ExpenseSortBy; desc: boolean };
@@ -67,21 +81,26 @@ export function ExpenseTable({
 					cell: (info) => {
 						const expense = info.row.original;
 						return (
-							<Link
-								to="/app/groups/$groupId/expenses/$expenseId"
-								params={{ groupId, expenseId: expense.id }}
-								className="flex min-w-0 items-center gap-2 rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
-							>
-								<span className="truncate font-medium">
-									{expense.description}
-								</span>
-								{expense.locked ? (
-									<Badge variant="secondary" className="shrink-0">
-										<Lock data-icon="inline-start" />
-										Locked
-									</Badge>
-								) : null}
-							</Link>
+							<div className="min-w-0">
+								<Link
+									to="/app/groups/$groupId/expenses/$expenseId"
+									params={{ groupId, expenseId: expense.id }}
+									className="flex min-w-0 items-center gap-2 rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+								>
+									<span className="truncate font-medium">
+										{expense.description}
+									</span>
+									{expense.locked ? (
+										<Badge variant="secondary" className="shrink-0">
+											<Lock data-icon="inline-start" />
+											Locked
+										</Badge>
+									) : null}
+								</Link>
+								<p className="truncate text-xs text-muted-foreground sm:hidden">
+									{expense.payer.name} · {formatShortDate(expense.date)}
+								</p>
+							</div>
 						);
 					},
 				}),
@@ -89,16 +108,43 @@ export function ExpenseTable({
 					id: "payer",
 					header: "Paid by",
 					sortDescFirst: false,
-					cell: (info) => (
-						<span className="flex items-center gap-2">
+					cell: (info) => {
+						const payer = info.row.original.payer;
+						// The profile needs more than the row carries, so it comes
+						// from the group's member list rather than this query.
+						const member = members.find((row) => row.userId === payer.id);
+						const avatar = (
 							<MemberAvatar
-								name={info.row.original.payer.name}
-								seed={info.row.original.payer.id}
+								name={payer.name}
+								seed={payer.id}
+								image={payer.image}
 								className="size-6 text-[9px]"
 							/>
-							<span className="truncate">{info.getValue()}</span>
-						</span>
-					),
+						);
+						const label = <span className="truncate">{payer.name}</span>;
+						// Without a member row — a person who has since left the
+						// group — the name stays plain text rather than a dead link.
+						return member ? (
+							<MemberProfileDialog
+								member={member}
+								trigger={
+									<button
+										type="button"
+										className="press -m-1 flex max-w-full items-center gap-2 rounded-md p-1 text-start transition-colors hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-1"
+										aria-label={`View ${payer.name}'s profile`}
+									>
+										{avatar}
+										{label}
+									</button>
+								}
+							/>
+						) : (
+							<span className="flex items-center gap-2">
+								{avatar}
+								{label}
+							</span>
+						);
+					},
 				}),
 				helper.accessor((row) => new Date(row.date).getTime(), {
 					id: "date",
@@ -123,7 +169,7 @@ export function ExpenseTable({
 					),
 				}),
 			]),
-		[groupId],
+		[groupId, members],
 	);
 	const data = rows.length ? rows : EMPTY_ROWS;
 	const table = useTable({
@@ -159,11 +205,11 @@ export function ExpenseTable({
 												? "descending"
 												: undefined
 									}
-									className={
-										header.column.id === "amountMinor"
-											? "text-right"
-											: undefined
-									}
+									className={cn(
+										header.column.id === "amountMinor" && "text-right",
+										PHONE_HIDDEN_COLUMNS.has(header.column.id) &&
+											"max-sm:hidden",
+									)}
 								>
 									{header.isPlaceholder ? null : (
 										<button
@@ -199,7 +245,9 @@ export function ExpenseTable({
 								key={cell.id}
 								className={cn(
 									cell.column.id === "amountMinor" && "text-right font-bold",
-									cell.column.id === "description" && "max-w-64",
+									cell.column.id === "description" &&
+										"max-w-64 max-sm:w-full max-sm:max-w-0",
+									PHONE_HIDDEN_COLUMNS.has(cell.column.id) && "max-sm:hidden",
 								)}
 							>
 								<table.FlexRender cell={cell} />

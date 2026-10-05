@@ -1,7 +1,9 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
+	ArrowRight,
 	Bot,
+	Braces,
 	Download,
 	ExternalLink,
 	IndianRupee,
@@ -314,6 +316,7 @@ function DocsPage() {
 			footer={
 				<PublicFooter tagline="Eventual · expenses without the spreadsheet.">
 					<Link to="/help">Help</Link>
+					<Link to="/api/docs">API</Link>
 				</PublicFooter>
 			}
 			mainClassName="gap-8 py-8 sm:gap-10 sm:py-10"
@@ -585,6 +588,40 @@ function DocsPage() {
 								</li>
 							))}
 						</ul>
+					</div>
+				</CardContent>
+			</Card>
+
+			<Card id="api" className="island-shell scroll-mt-8 rounded-3xl">
+				<CardHeader>
+					<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+						<Braces className="size-5 text-primary" aria-hidden="true" />
+						<h2 className="display-title text-2xl leading-none font-bold">
+							REST API
+						</h2>
+						<Badge variant="secondary">OpenAPI 3.1</Badge>
+					</div>
+					<CardDescription>
+						Building something of your own? Everything the app can do, from
+						groups and expenses to balances and settling up, is available over
+						HTTP with the same API key.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="flex flex-col gap-4">
+					<CodeBlock label="Base URL" code={`${origin}/api`} />
+					<div className="flex flex-wrap items-center gap-2">
+						<Button className="press" asChild>
+							<Link to="/api/docs">
+								Open the API reference
+								<ArrowRight data-icon="inline-end" />
+							</Link>
+						</Button>
+						<Button variant="link" size="sm" asChild>
+							<a href="/api/openapi.json" target="_blank" rel="noreferrer">
+								OpenAPI spec (JSON)
+								<ExternalLink data-icon="inline-end" />
+							</a>
+						</Button>
 					</div>
 				</CardContent>
 			</Card>

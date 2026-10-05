@@ -113,7 +113,7 @@ export function StepDialog({
 			>
 				<PopupContainerProvider container={content}>
 					<DialogHeader>
-						<DialogTitle className="display-title text-2xl font-bold">
+						<DialogTitle className="display-title text-2xl">
 							{title}
 						</DialogTitle>
 						{description ? (

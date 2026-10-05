@@ -25,6 +25,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as ApiSplatRouteImport } from './routes/api/$'
+import { Route as ApiDocsRouteImport } from './routes/api/docs'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppActivityRouteImport } from './routes/app/activity'
 import { Route as AppSettingsRouteRouteImport } from './routes/app/settings/route'
@@ -118,6 +119,11 @@ const ApiSplatRoute = ApiSplatRouteImport.update({
   path: '/api/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDocsRoute = ApiDocsRouteImport.update({
+  id: '/api/docs',
+  path: '/api/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -198,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof VerifyEmailRoute
   '/app/settings': typeof AppSettingsRouteRouteWithChildren
   '/api/$': typeof ApiSplatRoute
+  '/api/docs': typeof ApiDocsRoute
   '/app/activity': typeof AppActivityRoute
   '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
@@ -225,6 +232,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/$': typeof ApiSplatRoute
+  '/api/docs': typeof ApiDocsRoute
   '/app/activity': typeof AppActivityRoute
   '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
@@ -256,6 +264,7 @@ export interface FileRoutesById {
   '/verify-email': typeof VerifyEmailRoute
   '/app/settings': typeof AppSettingsRouteRouteWithChildren
   '/api/$': typeof ApiSplatRoute
+  '/api/docs': typeof ApiDocsRoute
   '/app/activity': typeof AppActivityRoute
   '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
@@ -288,6 +297,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/app/settings'
     | '/api/$'
+    | '/api/docs'
     | '/app/activity'
     | '/help/$slug'
     | '/invite/$invitationId'
@@ -315,6 +325,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/verify-email'
     | '/api/$'
+    | '/api/docs'
     | '/app/activity'
     | '/help/$slug'
     | '/invite/$invitationId'
@@ -345,6 +356,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/app/settings'
     | '/api/$'
+    | '/api/docs'
     | '/app/activity'
     | '/help/$slug'
     | '/invite/$invitationId'
@@ -375,6 +387,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ApiSplatRoute: typeof ApiSplatRoute
+  ApiDocsRoute: typeof ApiDocsRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -491,6 +504,13 @@ declare module '@tanstack/react-router' {
       path: '/api/$'
       fullPath: '/api/$'
       preLoaderRoute: typeof ApiSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/docs': {
+      id: '/api/docs'
+      path: '/api/docs'
+      fullPath: '/api/docs'
+      preLoaderRoute: typeof ApiDocsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -643,6 +663,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ApiSplatRoute: ApiSplatRoute,
+  ApiDocsRoute: ApiDocsRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }

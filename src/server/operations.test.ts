@@ -24,7 +24,7 @@ test("registry has unique versioned routes and idempotent mutations", async () =
 	const routes = new Set<string>();
 	const names = new Set<string>();
 	for (const operation of operations) {
-		assert.match(operation.path, /^\/v1\//);
+		assert.match(operation.path, /^\/v[12]\//);
 		assert.equal(names.has(operation.name), false, operation.name);
 		names.add(operation.name);
 		const route = `${operation.method} ${operation.path}`;
@@ -75,6 +75,27 @@ test("OpenAPI projects every registry operation", async () => {
 	);
 });
 
+test("OpenAPI docs name and group every operation", async () => {
+	const { openApiDocument } = await modules();
+	const document = openApiDocument();
+	const paths = document.paths as Record<
+		string,
+		Record<string, { operationId: string; summary?: string; tags: string[] }>
+	>;
+	// Scalar drops any tag missing from x-tagGroups, so an ungrouped tag would
+	// vanish from /api/docs without an error.
+	const grouped = new Set<string>(
+		document["x-tagGroups"].flatMap((group) => group.tags),
+	);
+	for (const methods of Object.values(paths)) {
+		for (const entry of Object.values(methods)) {
+			assert.ok(entry.summary, `${entry.operationId} needs a summary`);
+			for (const tag of entry.tags)
+				assert.ok(grouped.has(tag), `${tag} needs a tag group`);
+		}
+	}
+});
+
 test("bodyless mark-paid requests still mark the share paid", async () => {
 	const { operations } = await modules();
 	const operation = operations.find((item) => item.name === "share.paid");
@@ -86,6 +107,65 @@ test("bodyless mark-paid requests still mark the share paid", async () => {
 			}
 		).paid,
 		true,
+	);
+});
+
+test("OpenAPI describes flat query parameters and URL-supplied body fields", async () => {
+	const { openApiDocument } = await modules();
+	const paths = openApiDocument().paths as Record<
+		string,
+		Record<string, Record<string, unknown>>
+	>;
+	const page = paths["/v2/groups/{groupId}/expenses"].get;
+	const parameters = page.parameters as {
+		name: string;
+		in: string;
+		required: boolean;
+		schema: { type?: string; maximum?: number };
+	}[];
+	assert.equal(parameters.filter((item) => item.name === "groupId").length, 1);
+	assert.equal(parameters.find((item) => item.name === "groupId")?.in, "path");
+	assert.equal(
+		parameters.some((item) => item.name === "input"),
+		false,
+	);
+	assert.equal(parameters.find((item) => item.name === "cursor")?.in, "query");
+	assert.equal(
+		parameters.find((item) => item.name === "limit")?.required,
+		false,
+	);
+	assert.equal(
+		parameters.find((item) => item.name === "limit")?.schema.maximum,
+		100,
+	);
+	assert.equal(
+		parameters.find((item) => item.name === "from")?.schema.type,
+		"string",
+	);
+	const create = paths["/v1/groups/{groupId}/expenses"].post.requestBody as {
+		required: boolean;
+		content: {
+			"application/json": {
+				schema: { properties: Record<string, unknown>; required: string[] };
+			};
+		};
+	};
+	assert.equal(create.required, true);
+	assert.equal(
+		"groupId" in create.content["application/json"].schema.properties,
+		false,
+	);
+	assert.equal(
+		create.content["application/json"].schema.required.includes("groupId"),
+		false,
+	);
+	assert.equal(paths["/v1/expenses/{expenseId}"].delete.requestBody, undefined);
+	assert.equal(
+		(
+			paths["/v1/expenses/{expenseId}/shares/{userId}/paid"].post
+				.requestBody as { required: boolean }
+		).required,
+		false,
 	);
 });
 

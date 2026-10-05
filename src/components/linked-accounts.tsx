@@ -11,7 +11,7 @@ import { Spinner } from "#/components/ui/spinner";
 import { authClient } from "#/lib/auth-client";
 import { siteQueryOptions } from "#/lib/queries";
 
-type AuthAccount = { id: string; providerId: string; accountId: string };
+type AuthAccount = { id: string; providerId: string };
 
 export function LinkedAccounts() {
 	const { googleSignIn } = useSuspenseQuery(siteQueryOptions).data;
@@ -76,9 +76,10 @@ export function LinkedAccounts() {
 		if (!googleAccount || !otherAccountExists) return false;
 		setWorking(true);
 		try {
+			// Better Auth 1.7 selects the row by its local `id`; the provider's
+			// own account identifier is no longer part of the selector.
 			const { error } = await authClient.unlinkAccount({
-				providerId: googleAccount.providerId,
-				accountId: googleAccount.accountId,
+				accountId: googleAccount.id,
 			});
 			if (error) {
 				toast.error(

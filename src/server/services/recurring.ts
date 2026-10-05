@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "#/db";
 import { expenseTemplate, job, member, organization, user } from "#/db/schema";
+import { canEditRecurring } from "#/lib/permissions";
 import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
 import {
@@ -141,8 +142,10 @@ async function editableTemplate(ctx: Ctx, templateId: string) {
 	if (!template) throw new AppError("NOT_FOUND", "Recurring expense not found");
 	const membershipRow = await membership(ctx, template.organizationId);
 	if (
-		template.createdByUserId !== ctx.user.id &&
-		!["owner", "admin"].includes(membershipRow.role)
+		!canEditRecurring(
+			membershipRow.role,
+			template.createdByUserId === ctx.user.id,
+		)
 	)
 		throw new AppError(
 			"FORBIDDEN",
@@ -186,14 +189,14 @@ export async function deleteRecurringExpense(
 	input: { templateId: string },
 ) {
 	return ctx.db.transaction(async (tx) => {
-		await editableTemplate(
+		const template = await editableTemplate(
 			{ ...ctx, db: transactionDatabase(tx) },
 			input.templateId,
 		);
 		await tx
 			.delete(expenseTemplate)
 			.where(eq(expenseTemplate.id, input.templateId));
-		return { success: true };
+		return { success: true, groupId: template.organizationId };
 	});
 }
 
@@ -253,6 +256,7 @@ export async function materializeRecurringExpense(
 					db: transactionDatabase(tx),
 					user: creator,
 					apiKeyId: null,
+					apiKeyPermissions: null,
 					session: {
 						id: `job:${claimed.id}`,
 						userId: creator.id,

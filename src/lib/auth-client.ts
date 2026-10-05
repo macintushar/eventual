@@ -1,6 +1,11 @@
-import { organizationClient } from "better-auth/client/plugins";
+import {
+	lastLoginMethodClient,
+	organizationClient,
+} from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { getAppLogger } from "#/lib/logging";
+
+import { ac, admin, member, owner } from "#/lib/permissions";
 
 export const authClient = createAuthClient({
 	fetchOptions: {
@@ -16,5 +21,8 @@ export const authClient = createAuthClient({
 			});
 		},
 	},
-	plugins: [organizationClient()],
+	plugins: [
+		organizationClient({ ac, roles: { owner, admin, member } }),
+		lastLoginMethodClient(),
+	],
 });

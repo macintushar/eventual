@@ -37,7 +37,7 @@ export function validateRepayment(
 	if (!input.fromUserId) return "Choose who paid";
 	if (!input.toUserId) return "Choose who was paid";
 	if (input.fromUserId === input.toUserId)
-		return "A settlement must be between two different members";
+		return "A payment must be between two different members";
 	if (
 		input.amountMinor === null ||
 		!Number.isSafeInteger(input.amountMinor) ||
@@ -57,7 +57,7 @@ export function validateSharePayment(
 	input: Repayment & { paid: boolean; hasAllocations: boolean },
 ): string | null {
 	if (input.hasAllocations)
-		return "Delete the linked settlement before changing this share's paid status";
+		return "Delete the linked payment before changing this share's paid status";
 	if (
 		!input.paid ||
 		input.fromUserId === input.toUserId ||

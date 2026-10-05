@@ -71,8 +71,9 @@ test("invitees are guided back to the invite and owners see what failed", async 
 			}),
 		).toBeVisible();
 		await dialog.getByLabel("Email").fill(uniqueEmail("guest"));
+		await dialog.getByRole("button", { name: "Phone and weight" }).click();
 		await dialog.getByLabel("Phone").fill("9876543210");
-		await dialog.getByRole("button", { name: "Add and invite" }).click();
+		await dialog.getByRole("button", { name: "Add & invite" }).click();
 		await expect(
 			owner.page.getByText(
 				"Phone: Include the country code, e.g. +919876543210",
@@ -110,9 +111,10 @@ test("a guest's email can be corrected, their payment recorded, and their accoun
 		const add = owner.page.getByRole("dialog", { name: "Add a person" });
 		await add.getByLabel("Name").fill("Gomathi");
 		await add.getByLabel("Email").fill(uniqueEmail("mistyped"));
-		await add.getByRole("button", { name: "Add and invite" }).click();
-		await expect(add.locator("#invite-url")).toHaveValue(/\/invite\//);
-		await add.getByRole("button", { name: "Done" }).click();
+		await add.getByRole("button", { name: "Add & invite" }).click();
+		const share = owner.page.getByRole("dialog", { name: "Share the invite" });
+		await expect(share.locator("#invite-url")).toHaveValue(/\/invite\//);
+		await share.getByRole("button", { name: "Done" }).click();
 		const members = await json<any[]>(
 			owner.context,
 			"GET",
@@ -134,19 +136,23 @@ test("a guest's email can be corrected, their payment recorded, and their accoun
 		await owner.page.waitForLoadState("networkidle");
 		await waitForHydration(owner.page, "main button");
 		await owner.page.getByRole("tab", { name: "Balances" }).click();
-		await owner.page.getByRole("button", { name: "Confirm paid" }).click();
+		await owner.page
+			.getByRole("button", { name: "Record payment" })
+			.last()
+			.click();
 		const settle = owner.page.getByRole("dialog", {
-			name: "Record settlement",
+			name: "Record a payment",
 		});
 		await expect(settle.getByLabel("Paid by")).toContainText("Gomathi");
-		await settle.getByRole("button", { name: "Record" }).click();
+		await settle.getByRole("button", { name: "Record payment" }).click();
 		await expect(owner.page.getByText("Everyone is settled up.")).toBeVisible();
 
 		// The address was wrong: fix it, which re-issues the invitation.
 		const realEmail = uniqueEmail("gomathi");
 		await owner.page.getByRole("tab", { name: "Members" }).click();
+		await owner.page.getByRole("button", { name: "Manage Gomathi" }).click();
 		await owner.page
-			.getByRole("button", { name: "Edit Gomathi's details" })
+			.getByRole("button", { name: "Edit name, email and phone" })
 			.click();
 		const edit = owner.page.getByRole("dialog", { name: "Edit Gomathi" });
 		await edit.getByLabel("Email").fill(realEmail);

@@ -33,7 +33,12 @@ try {
 	else {
 		const tests = spawnSync(
 			"bunx",
-			["playwright", "test", ...process.argv.slice(2)],
+			[
+				"playwright",
+				"test",
+				"--config=playwright.journey.config.ts",
+				...process.argv.slice(2),
+			],
 			{
 				env,
 				stdio: "inherit",

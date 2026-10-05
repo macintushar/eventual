@@ -6,13 +6,21 @@ import {
 	getComposerFn,
 	getDashboardFn,
 	getExpenseFn,
+	getExpensePageFn,
+	getGroupContextFn,
+	getGroupDirectoryFn,
+	getGroupInvitationsFn,
 	getGroupPageFn,
+	getGroupSettingsFn,
+	getGroupSummaryFn,
 	getInvitationFn,
 	getLegalInfoFn,
 	getMyActivityFn,
 	getMyInvitationsFn,
 	getPendingVerificationFn,
+	getRecurringFn,
 	getSessionFn,
+	getSettlementPageFn,
 	getSiteFn,
 	listApiKeysFn,
 	searchExpensesFn,
@@ -21,6 +29,83 @@ import type { ExpenseSortBy } from "#/server/schemas/expenses";
 
 const staticStaleTime = 10 * 60_000;
 export const expensePageSize = 30;
+
+// History lists catch up on their own when the tab regains focus or the
+// network returns, at most once a minute. An infinite query refetches every
+// loaded page in sequence from the first cursor, so rows other people added
+// appear without a manual refresh and the cursors stay consistent.
+const historyOptions = {
+	staleTime: 60_000,
+	refetchOnWindowFocus: true,
+	refetchOnReconnect: true,
+};
+export const groupContextQueryOptions = (groupId: string) =>
+	queryOptions({
+		queryKey: ["group", groupId, "context"] as const,
+		queryFn: ({ signal }) => getGroupContextFn(groupId, signal),
+	});
+export const groupSummaryQueryOptions = (groupId: string) =>
+	queryOptions({
+		queryKey: ["group", groupId, "financial-summary"] as const,
+		queryFn: ({ signal }) => getGroupSummaryFn(groupId, signal),
+	});
+export const groupSettingsQueryOptions = (groupId: string) =>
+	queryOptions({
+		queryKey: ["group", groupId, "settings"] as const,
+		queryFn: ({ signal }) => getGroupSettingsFn(groupId, signal),
+	});
+export const recurringQueryOptions = (groupId: string) =>
+	queryOptions({
+		queryKey: ["group", groupId, "recurring"] as const,
+		queryFn: ({ signal }) => getRecurringFn(groupId, signal),
+	});
+export const groupInvitationsQueryOptions = (groupId: string) =>
+	queryOptions({
+		queryKey: ["group", groupId, "invitations"] as const,
+		queryFn: ({ signal }) => getGroupInvitationsFn(groupId, signal),
+	});
+export const groupDirectoryQueryOptions = queryOptions({
+	queryKey: ["groups", "directory"] as const,
+	queryFn: ({ signal }) => getGroupDirectoryFn(signal),
+});
+export const expensesInfiniteOptions = (
+	groupId: string,
+	search = "",
+	sortBy: ExpenseSortBy = "date",
+	sortDirection: "asc" | "desc" = "desc",
+) =>
+	infiniteQueryOptions({
+		...historyOptions,
+		queryKey: [
+			"group",
+			groupId,
+			"expenses",
+			{ search, sortBy, sortDirection, limit: expensePageSize },
+		] as const,
+		initialPageParam: undefined as string | undefined,
+		queryFn: ({ pageParam, signal }) =>
+			getExpensePageFn(
+				{
+					groupId,
+					search: search || undefined,
+					sortBy,
+					sortDirection,
+					cursor: pageParam,
+					limit: expensePageSize,
+				},
+				signal,
+			),
+		getNextPageParam: (last) => last.nextCursor ?? undefined,
+	});
+export const settlementsInfiniteOptions = (groupId: string) =>
+	infiniteQueryOptions({
+		...historyOptions,
+		queryKey: ["group", groupId, "settlements"] as const,
+		initialPageParam: undefined as string | undefined,
+		queryFn: ({ pageParam, signal }) =>
+			getSettlementPageFn({ groupId, cursor: pageParam }, signal),
+		getNextPageParam: (last) => last.nextCursor ?? undefined,
+	});
 
 export const sessionQueryOptions = queryOptions({
 	queryKey: ["session"] as const,
@@ -127,6 +212,7 @@ export const pendingVerificationQueryOptions = queryOptions({
 });
 
 export const myActivityInfiniteOptions = infiniteQueryOptions({
+	...historyOptions,
 	queryKey: ["activity", "mine"] as const,
 	queryFn: ({ pageParam, signal }) =>
 		getMyActivityFn({ data: { cursor: pageParam }, signal }),
@@ -136,6 +222,7 @@ export const myActivityInfiniteOptions = infiniteQueryOptions({
 
 export const groupActivityInfiniteOptions = (groupId: string) =>
 	infiniteQueryOptions({
+		...historyOptions,
 		queryKey: ["group", groupId, "activity"] as const,
 		queryFn: ({ pageParam, signal }) =>
 			getActivityFn({ data: { groupId, cursor: pageParam }, signal }),

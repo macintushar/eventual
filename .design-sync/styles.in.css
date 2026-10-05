@@ -1,0 +1,7 @@
+@import "../src/styles.css";
+@source "../src";
+
+/* Safelist: utilities the design agent will reach for that app code happens not to use. */
+@source inline("{bg,text,border,ring}-{background,foreground,card,card-foreground,popover,primary,primary-foreground,secondary,muted,muted-foreground,accent,destructive,positive,negative,warning,border,tape,note,note-ink,badge,cardboard}");
+@source inline("{p,px,py,m,mx,my,gap}-{0,1,2,3,4,5,6,8,10,12}");
+@source inline("{flex,grid,block,inline-flex,flex-col,flex-row,flex-wrap,items-center,items-start,items-end,justify-between,justify-center,w-full,min-w-0,truncate,font-medium,font-semibold,font-display,font-hand,text-xs,text-sm,text-base,text-lg,text-xl,text-2xl,rounded-md,rounded-lg,rounded-xl,rounded-full,border,shadow-xs,shadow-sm,shadow-md,shadow-lg}");

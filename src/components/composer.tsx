@@ -9,12 +9,15 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { ExpenseComposer } from "#/components/expense-composer";
+import {
+	type ComposerGroup,
+	ExpenseComposer,
+} from "#/components/expense-composer";
 import { GroupComposer } from "#/components/group-composer";
 import { Button } from "#/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "#/components/ui/dialog";
 import { Spinner } from "#/components/ui/spinner";
-import { composerQueryOptions } from "#/lib/queries";
+import { composerQueryOptions, groupContextQueryOptions } from "#/lib/queries";
 
 type Composer = {
 	/** Start a group. */
@@ -70,10 +73,41 @@ export function ComposerProvider({
 	const [shown, setShown] = useState(false);
 	const [token, setToken] = useState(0);
 	const tokenRef = useRef(0);
+	const expenseOpen = shown && open.kind === "expense";
+	const contextGroupId = open.kind === "expense" ? open.groupId : undefined;
 	const groupsQuery = useQuery({
 		...composerQueryOptions,
-		enabled: open.kind === "expense",
+		enabled: expenseOpen,
 	});
+	/*
+	 * Opened from inside a group, the page has almost always loaded that
+	 * group's members already. Seeding the composer with them means it opens at
+	 * once, and a slow or failed fetch of every group only matters for the
+	 * group step, not for adding an expense to the group you are looking at.
+	 */
+	const contextQuery = useQuery({
+		...groupContextQueryOptions(contextGroupId ?? ""),
+		enabled: expenseOpen && Boolean(contextGroupId),
+	});
+	const seedGroup: ComposerGroup | undefined =
+		// An archived group takes no new expenses, and the full list leaves it out.
+		contextGroupId && contextQuery.data && !contextQuery.data.group.archivedAt
+			? {
+					id: contextQuery.data.group.id,
+					name: contextQuery.data.group.name,
+					members: contextQuery.data.group.members,
+				}
+			: undefined;
+	// The group you're in always counts, even when a cached list predates
+	// joining it or the full list hasn't arrived yet.
+	const composerGroups = groupsQuery.data
+		? seedGroup &&
+			!groupsQuery.data.groups.some((group) => group.id === seedGroup.id)
+			? [seedGroup, ...groupsQuery.data.groups]
+			: groupsQuery.data.groups
+		: seedGroup
+			? [seedGroup]
+			: undefined;
 
 	const close = useCallback(() => setShown(false), []);
 
@@ -113,7 +147,7 @@ export function ComposerProvider({
 			) : null}
 
 			{open.kind === "expense" ? (
-				groupsQuery.isError ? (
+				groupsQuery.isError && !seedGroup ? (
 					<Dialog open={shown} onOpenChange={close}>
 						<DialogContent className="gap-3 sm:max-w-xl">
 							<DialogTitle>Couldn't load your groups</DialogTitle>
@@ -133,14 +167,14 @@ export function ComposerProvider({
 							</Button>
 						</DialogContent>
 					</Dialog>
-				) : groupsQuery.data ? (
+				) : composerGroups ? (
 					<ExpenseComposer
 						key={`expense-${token}`}
 						open={shown}
 						onOpenChange={(next) => {
 							if (!next) close();
 						}}
-						groups={groupsQuery.data.groups}
+						groups={composerGroups}
 						currentUserId={currentUserId}
 						defaultGroupId={open.groupId}
 						onCreateGroup={composer.group}

@@ -5,7 +5,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 import { buildContext, type Ctx } from "#/server/context";
 import { AppError, errorStatus } from "#/server/errors";
-import { enforceOperationScope } from "#/server/http";
+import { enforceOperationScope, keyAllows } from "#/server/http";
 import { mcpWireShape } from "#/server/mcp-schema";
 import { executeOperation, operations } from "#/server/operations";
 import { captureEvent } from "#/server/telemetry";
@@ -35,6 +35,9 @@ function createMcpServer(ctx: Ctx) {
 	);
 	for (const operation of operations) {
 		if (!("mcp" in operation) || !operation.mcp) continue;
+		// A key only sees the tools its scopes allow, so an agent never plans
+		// around a tool that would refuse it. The handler still checks.
+		if (!keyAllows(ctx, operation)) continue;
 		server.registerTool(
 			operation.mcp.tool,
 			{
@@ -42,7 +45,7 @@ function createMcpServer(ctx: Ctx) {
 				inputSchema: mcpWireShape(operation.input),
 			},
 			async (input) => {
-				await enforceOperationScope(ctx, operation);
+				enforceOperationScope(ctx, operation);
 				return text(await executeOperation(operation, ctx, input, "mcp"));
 			},
 		);

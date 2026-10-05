@@ -277,7 +277,7 @@ test("any member can record a repayment between other members", async () => {
 				{ expenseId: expense.id, userId: guest.userId },
 				false,
 			),
-			/linked settlement/,
+			/linked payment/,
 		);
 		// Outsiders still can't touch the group.
 		const outsider = {
@@ -330,8 +330,8 @@ test("an unmatched email cannot claim a guest through their phone", async () => 
 	}
 });
 
-test("correcting an invitation preserves its admin or owner role", async () => {
-	for (const role of ["admin", "owner"] as const) {
+test("correcting an invitation preserves its admin role", async () => {
+	for (const role of ["admin"] as const) {
 		const f = await fixture();
 		try {
 			const guest = await addMember(f.owner, {
@@ -478,6 +478,28 @@ test("a guest who claimed their account can still accept their invitation", asyn
 	}
 });
 
+test("a guest cannot be added as a second owner", async () => {
+	const f = await fixture();
+	try {
+		await assert.rejects(
+			addMember(f.owner, {
+				groupId: "G",
+				name: "Guest",
+				email: "typo@example.com",
+				role: "owner",
+			}),
+			/Each group has one owner/,
+		);
+		assert.equal((await f.db.query.invitation.findMany()).length, 0);
+	} finally {
+		f.client.close();
+	}
+});
+
+/**
+ * Owner invitations can no longer be created, but ones issued before the
+ * one-owner rule may still be pending, so the reissue guard still matters.
+ */
 test("an admin cannot redirect an owner invitation", async () => {
 	const f = await fixture();
 	try {
@@ -485,8 +507,9 @@ test("an admin cannot redirect an owner invitation", async () => {
 			groupId: "G",
 			name: "Guest",
 			email: "typo@example.com",
-			role: "owner",
+			role: "admin",
 		});
+		await f.db.update(schema.invitation).set({ role: "owner" });
 		await f.db
 			.update(schema.member)
 			.set({ role: "admin" })
@@ -502,6 +525,74 @@ test("an admin cannot redirect an owner invitation", async () => {
 		const pending = await f.db.query.invitation.findFirst();
 		assert.equal(pending?.email, "typo@example.com");
 		assert.equal(pending?.status, "pending");
+	} finally {
+		f.client.close();
+	}
+});
+
+test("a pending owner invitation joins as admin, never a second owner", async () => {
+	const f = await fixture();
+	try {
+		await addMember(f.owner, {
+			groupId: "G",
+			name: "Guest",
+			email: "x@example.com",
+			role: "admin",
+		});
+		// Stands in for an owner invitation issued before the one-owner rule.
+		await f.db.update(schema.invitation).set({ role: "owner" });
+		const pending = await f.db.query.invitation.findFirst();
+		assert.ok(pending);
+		await acceptInvitation(f.x, { invitationId: pending.id });
+		const joined = await f.db.query.member.findFirst({
+			where: eq(schema.member.userId, "X"),
+		});
+		assert.equal(joined?.role, "admin");
+		const owners = await f.db.query.member.findMany({
+			where: eq(schema.member.role, "owner"),
+		});
+		assert.equal(owners.length, 1);
+	} finally {
+		f.client.close();
+	}
+});
+
+test("accepting a legacy owner invitation never demotes the current owner", async () => {
+	const f = await fixture();
+	try {
+		const guest = await addMember(f.owner, {
+			groupId: "G",
+			name: "Legacy",
+			email: "legacy@example.com",
+			role: "admin",
+		});
+		assert.ok(guest.invitation);
+		await f.db
+			.update(schema.user)
+			.set({
+				isGuest: false,
+				claimedAt: new Date(),
+				email: "legacy@example.com",
+				emailVerified: true,
+			})
+			.where(eq(schema.user.id, guest.userId));
+		// They became the group's owner while an owner invitation was pending.
+		await f.db.update(schema.invitation).set({ role: "owner" });
+		await f.db
+			.update(schema.member)
+			.set({ role: "owner" })
+			.where(eq(schema.member.userId, guest.userId));
+		const claimed = {
+			...f.owner,
+			user: { ...f.owner.user, id: guest.userId, email: "legacy@example.com" },
+		} as Ctx;
+		await acceptInvitation(claimed, {
+			invitationId: guest.invitation.invitationId,
+		});
+		const row = await f.db.query.member.findFirst({
+			where: eq(schema.member.userId, guest.userId),
+		});
+		assert.equal(row?.role, "owner");
 	} finally {
 		f.client.close();
 	}

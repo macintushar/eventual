@@ -22,6 +22,22 @@ export const user = sqliteTable("user", {
 	upiVpa: text("upi_vpa"),
 	/** Wise handle without the leading `@`. */
 	wiseTag: text("wise_tag"),
+	/**
+	 * A short public note, shown on the member's profile. There is no private
+	 * bio: the field's description says so before anyone writes one.
+	 */
+	bio: text("bio"),
+	/**
+	 * Whether a member's email appears on their profile. Defaults on because
+	 * email has always been visible to the rest of a group; the phone number
+	 * follows the same default so one toggle means the same thing for both.
+	 */
+	isEmailPublic: integer("is_email_public", { mode: "boolean" })
+		.default(true)
+		.notNull(),
+	isPhonePublic: integer("is_phone_public", { mode: "boolean" })
+		.default(true)
+		.notNull(),
 	isGuest: integer("is_guest", { mode: "boolean" }).default(false).notNull(),
 	claimedAt: integer("claimed_at", { mode: "timestamp_ms" }),
 	emailReminders: integer("email_reminders", { mode: "boolean" })
@@ -299,6 +315,12 @@ export const expense = sqliteTable(
 	},
 	(table) => [
 		index("expense_organization_id_idx").on(table.organizationId),
+		index("expense_page_idx").on(
+			table.organizationId,
+			table.date,
+			table.createdAt,
+			table.id,
+		),
 		check("expense_amount_positive", sql`${table.amountMinor} > 0`),
 	],
 );
@@ -354,6 +376,11 @@ export const settlement = sqliteTable(
 	},
 	(table) => [
 		index("settlement_organization_id_idx").on(table.organizationId),
+		index("settlement_page_idx").on(
+			table.organizationId,
+			table.createdAt,
+			table.id,
+		),
 		check("settlement_amount_positive", sql`${table.amountMinor} > 0`),
 	],
 );
@@ -417,6 +444,11 @@ export const activity = sqliteTable(
 	},
 	(table) => [
 		index("activity_organization_id_idx").on(table.organizationId),
+		index("activity_page_idx").on(
+			table.organizationId,
+			table.createdAt,
+			table.id,
+		),
 		index("activity_created_at_idx").on(table.createdAt),
 	],
 );
@@ -454,6 +486,11 @@ export const activityRecipient = sqliteTable(
 		index("activity_recipient_user_created_idx").on(
 			table.userId,
 			table.createdAt,
+		),
+		index("activity_recipient_page_idx").on(
+			table.userId,
+			table.createdAt,
+			table.activityId,
 		),
 	],
 );

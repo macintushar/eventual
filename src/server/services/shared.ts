@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { activity, activityRecipient, member } from "#/db/schema";
+import { type Permissions, roleCan } from "#/lib/permissions";
 import type { Ctx } from "#/server/context";
 import type { Recipient } from "#/server/domain/activity";
 import { AppError } from "#/server/errors";
@@ -19,8 +20,13 @@ export async function membership(ctx: Ctx, organizationId: string) {
 	return row as typeof row & { role: Role };
 }
 
-export function requireRole(role: Role, allowed: Role[]) {
-	if (!allowed.includes(role))
+/**
+ * Gate a service on the caller's group role, using the shared permission
+ * vocabulary from #/lib/permissions — the same statements that define the
+ * owner/admin/member roles and API key scopes.
+ */
+export function requirePermission(role: Role, permissions: Permissions) {
+	if (!roleCan(role, permissions))
 		throw new AppError(
 			"FORBIDDEN",
 			"Your group role does not allow this action",

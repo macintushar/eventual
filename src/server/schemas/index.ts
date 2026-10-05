@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { currencies, isCurrency } from "#/lib/currencies";
+import { phoneSchema } from "#/server/schemas/people";
 
 export const currencySchema = z
 	.string()
@@ -10,6 +11,8 @@ export const currencySchema = z
 
 export const idSchema = z.string().min(1);
 export const roleSchema = z.enum(["owner", "admin", "member"]);
+/** Roles that can be granted. Each group has one owner: whoever created it. */
+export const assignableRoleSchema = z.enum(["admin", "member"]);
 export const splitMethodSchema = z.enum(["even", "exact", "shares", "percent"]);
 export const participantSchema = z.object({
 	userId: idSchema,
@@ -82,7 +85,7 @@ export const settlementIdSchema = z.object({ settlementId: idSchema });
 export const inviteSchema = z.object({
 	groupId: idSchema,
 	email: z.string().email(),
-	role: roleSchema.default("member"),
+	role: assignableRoleSchema.default("member"),
 });
 export const updateMemberSchema = z.object({
 	groupId: idSchema,
@@ -93,9 +96,13 @@ export const memberActionSchema = z.object({
 	groupId: idSchema,
 	userId: idSchema,
 });
+/** Owners must name their successor; everyone else leaves with just the group. */
+export const leaveGroupSchema = groupIdSchema.extend({
+	newOwnerId: idSchema.optional(),
+});
 export const pageSchema = z.object({
 	groupId: idSchema,
-	cursor: z.string().optional(),
+	cursor: z.string().max(2000).optional(),
 	limit: z.coerce.number().int().min(1).max(100).default(30),
 });
 
@@ -143,6 +150,15 @@ export const wiseTagSchema = z
 			),
 	);
 
+/**
+ * A public note shown on the member's profile. Deliberately short — it sits
+ * under a name in a small dialog, not on a page of its own.
+ */
+export const bioSchema = z
+	.string()
+	.trim()
+	.max(280, "Keep your bio to 280 characters");
+
 /** A blank field clears the handle rather than failing to parse. */
 const clearable = <T extends z.ZodType>(schema: T) =>
 	z.preprocess(
@@ -151,12 +167,61 @@ const clearable = <T extends z.ZodType>(schema: T) =>
 		schema.nullable(),
 	);
 
+/**
+ * Uploaded photos are stored inline in `user.image` as a data URL, so the
+ * browser shrinks them first (see `#/lib/avatar-image`). The cap keeps a photo
+ * near 10 KB, because it rides along with the session and every member list.
+ */
+export const AVATAR_MAX_LENGTH = 16_000;
+const avatarDataUrl =
+	/^data:image\/(webp|jpeg|png);base64,([A-Za-z0-9+/]+={0,2})$/;
+
+/** Magic bytes, so the declared type is the real one. */
+function avatarBytesMatch(type: string, base64: string) {
+	const head = Array.from(atob(base64.slice(0, 16)), (char) =>
+		char.charCodeAt(0),
+	);
+	const ascii = String.fromCharCode(...head);
+	if (type === "jpeg") return head[0] === 0xff && head[1] === 0xd8;
+	if (type === "png") return ascii.startsWith("\x89PNG");
+	return ascii.startsWith("RIFF") && ascii.slice(8, 12) === "WEBP";
+}
+
+export const avatarImageSchema = z
+	.string()
+	.max(AVATAR_MAX_LENGTH, "That photo is too large")
+	.refine((value) => {
+		const match = avatarDataUrl.exec(value);
+		return Boolean(match && avatarBytesMatch(match[1], match[2]));
+	}, "Upload a JPEG, PNG or WebP photo");
+
+/** Google's own CDN, which is what sign-in and linking store. */
+const googlePhotoSchema = z
+	.string()
+	.url()
+	.refine(
+		(value) => new URL(value).hostname.endsWith(".googleusercontent.com"),
+		"Unsupported photo URL",
+	);
+
+/** Anything `user.image` may hold. */
+export const storedImageSchema = z.union([
+	avatarImageSchema,
+	googlePhotoSchema,
+]);
+
 /** A patch: only the fields sent are written. */
 export const updateProfileSchema = z.object({
 	name: z.string().trim().min(1, "Enter your name").max(100).optional(),
 	upiVpa: clearable(upiVpaSchema).optional(),
 	wiseTag: clearable(wiseTagSchema).optional(),
-	/** Photos can only be removed until uploads exist. */
-	image: z.null().optional(),
+	/** A browser-shrunk data URL, or `null` to go back to initials. */
+	image: avatarImageSchema.nullable().optional(),
 	emailReminders: z.boolean().optional(),
+	/** Always public; there is nothing to opt out of. */
+	bio: clearable(bioSchema).optional(),
+	/** Stays on `channel_identity`, where a guest's number already lives. */
+	phone: clearable(phoneSchema).optional(),
+	isEmailPublic: z.boolean().optional(),
+	isPhonePublic: z.boolean().optional(),
 });

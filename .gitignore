@@ -15,6 +15,12 @@ mcp-todos.json
 local.db*
 .vercel
 .env*
-playwright-report/
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+.design-sync/dist/
 test-results/
+playwright-report/
 docs/incidents/

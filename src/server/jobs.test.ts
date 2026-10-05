@@ -76,6 +76,7 @@ async function fixture() {
 		db,
 		user,
 		apiKeyId: null,
+		apiKeyPermissions: null,
 		session: {
 			id: "test-session",
 			userId: user.id,

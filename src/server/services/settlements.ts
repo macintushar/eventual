@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
 	expense,
 	expenseShare,
@@ -9,6 +9,12 @@ import { validateRepayment } from "#/lib/settlements";
 import type { Ctx } from "#/server/context";
 import { people } from "#/server/domain/activity";
 import { AppError } from "#/server/errors";
+import {
+	cursorScope,
+	decodePageCursor,
+	encodePageCursor,
+	pageLimit,
+} from "#/server/pagination";
 import type { CreateSettlementInput } from "#/server/schemas";
 import { readBalances } from "./balances";
 import { listMembers } from "./members";
@@ -29,6 +35,43 @@ export async function listSettlements(ctx: Ctx, input: { groupId: string }) {
 		with: { from: true, to: true, allocations: true },
 		orderBy: desc(settlement.createdAt),
 	});
+}
+
+export async function listSettlementPage(
+	ctx: Ctx,
+	input: { groupId: string; cursor?: string; limit?: number },
+) {
+	await membership(ctx, input.groupId);
+	const limit = pageLimit(input.limit);
+	const scope = cursorScope(["settlements", input.groupId]);
+	const clauses = [eq(settlement.organizationId, input.groupId)];
+	if (input.cursor) {
+		const [at, id] = decodePageCursor(input.cursor, scope, [
+			"number",
+			"string",
+		]);
+		clauses.push(
+			sql`(${settlement.createdAt}, ${settlement.id}) < (${at}, ${id})`,
+		);
+	}
+	const rows = await ctx.db.query.settlement.findMany({
+		where: and(...clauses),
+		with: {
+			from: { columns: { id: true, name: true } },
+			to: { columns: { id: true, name: true } },
+		},
+		orderBy: [desc(settlement.createdAt), desc(settlement.id)],
+		limit: limit + 1,
+	});
+	const items = rows.slice(0, limit);
+	const last = items.at(-1);
+	return {
+		items,
+		nextCursor:
+			rows.length > limit && last
+				? encodePageCursor(scope, [last.createdAt.getTime() / 1000, last.id])
+				: null,
+	};
 }
 
 export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
@@ -156,5 +199,5 @@ export async function deleteSettlement(
 		);
 		await tx.delete(settlement).where(eq(settlement.id, row.id));
 	});
-	return { success: true };
+	return { success: true, groupId: row.organizationId };
 }

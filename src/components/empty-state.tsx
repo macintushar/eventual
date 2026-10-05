@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import type { AriaRole, ReactNode } from "react";
 
 import {
 	Empty,
@@ -17,15 +17,18 @@ export function EmptyState({
 	description,
 	action,
 	className,
+	role,
 }: {
 	icon: LucideIcon;
 	title: string;
 	description: string;
 	action?: ReactNode;
 	className?: string;
+	/** "alert" for a failure that appears after the page has loaded. */
+	role?: AriaRole;
 }) {
 	return (
-		<Empty className={cn("border border-dashed", className)}>
+		<Empty role={role} className={cn("border border-dashed", className)}>
 			<EmptyHeader>
 				<EmptyMedia variant="icon">
 					<Icon />

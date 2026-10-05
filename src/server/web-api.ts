@@ -1,9 +1,17 @@
-import { eq } from "drizzle-orm";
-
-import { user } from "#/db/schema";
+import { APIError } from "better-auth/api";
+import { and, eq } from "drizzle-orm";
+import { db } from "#/db";
+import { channelIdentity, user } from "#/db/schema";
 import { env } from "#/env";
-import { auth } from "#/lib/auth";
+import { auth, presentedApiKey } from "#/lib/auth";
 import { withNext } from "#/lib/auth-redirect";
+import {
+	apiKeyMode,
+	FULL_ACCESS_MAX_DAYS,
+	keyPresets,
+	type Permissions,
+	validateKeyPermissions,
+} from "#/lib/permissions";
 import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
 import { getLegalInfo } from "#/server/legal";
@@ -18,6 +26,16 @@ import {
 	createApiKeySchema,
 } from "#/server/schemas/account";
 import * as services from "#/server/services/app";
+import {
+	crossGroupBalancesFromSummaries,
+	readGroupSummaries,
+} from "#/server/services/balances";
+import {
+	groupsFromSummaries,
+	listGroupDirectory,
+} from "#/server/services/groups";
+import { paymentIntentsForBalances } from "#/server/services/payments";
+import { id } from "#/server/services/shared";
 
 export type { ApiKeySummary };
 
@@ -33,6 +51,7 @@ function summarize(key: {
 	expiresAt: Date | string | null;
 	lastRequest: Date | string | null;
 	createdAt: Date | string;
+	permissions?: Record<string, string[]> | null;
 }): ApiKeySummary {
 	return {
 		id: key.id,
@@ -42,10 +61,11 @@ function summarize(key: {
 		expiresAt: toIso(key.expiresAt),
 		lastRequest: toIso(key.lastRequest),
 		createdAt: toIso(key.createdAt) ?? new Date().toISOString(),
+		mode: apiKeyMode(key.permissions ?? null),
 	};
 }
 
-async function cookieHeaders(request: Request) {
+async function cookieSession(request: Request) {
 	if (request.headers.get("x-api-key") || request.headers.get("authorization"))
 		throw new AppError(
 			"FORBIDDEN",
@@ -53,20 +73,68 @@ async function cookieHeaders(request: Request) {
 		);
 	const session = await auth.api.getSession({ headers: request.headers });
 	if (!session) throw new AppError("UNAUTHENTICATED", "Sign in to continue");
+	return session;
+}
+
+async function cookieHeaders(request: Request) {
+	await cookieSession(request);
 	return request.headers;
 }
 
+/**
+ * Who is asking, without the rest of the user row. Pages only need the id and
+ * name, and `image` can be an inline photo that would otherwise ride along on
+ * every dashboard, composer and group response.
+ */
+function viewer(ctx: Ctx) {
+	return { id: ctx.user.id, name: ctx.user.name, email: ctx.user.email };
+}
+
 export async function dashboard(ctx: Ctx) {
-	const [groups, invitations, crossGroupBalances] = await Promise.all([
-		services.listGroups(ctx),
+	const [summaries, invitations] = await Promise.all([
+		readGroupSummaries(ctx),
 		services.listMyInvitations(ctx),
-		services.getCrossGroupBalances(ctx),
 	]);
-	return { groups, invitations, crossGroupBalances, user: ctx.user };
+	const groups = groupsFromSummaries(ctx.user.id, summaries);
+	const crossGroupBalances = crossGroupBalancesFromSummaries(
+		ctx.user.id,
+		summaries,
+	);
+	return { groups, invitations, crossGroupBalances, user: viewer(ctx) };
 }
 
 export async function composer(ctx: Ctx) {
-	return { groups: await services.listGroupsWithMembers(ctx), user: ctx.user };
+	return {
+		groups: await services.listGroupsWithMembers(ctx),
+		user: viewer(ctx),
+	};
+}
+
+export async function groupDirectory(ctx: Ctx) {
+	return { groups: await listGroupDirectory(ctx) };
+}
+
+export async function groupContext(ctx: Ctx, groupId: string) {
+	return {
+		group: await services.getGroup(ctx, { groupId }),
+		user: viewer(ctx),
+	};
+}
+
+export async function groupSummary(ctx: Ctx, groupId: string) {
+	const balances = await services.getBalances(ctx, { groupId });
+	return {
+		balances,
+		paymentIntents: await paymentIntentsForBalances(ctx, balances.transfers),
+	};
+}
+
+export async function groupSettings(ctx: Ctx, groupId: string) {
+	const [reminders, categoryRules] = await Promise.all([
+		services.listReminders(ctx, { groupId }),
+		services.listCategoryRules(ctx, { groupId }),
+	]);
+	return { reminders, categoryRules };
 }
 
 export async function groupPage(ctx: Ctx, groupId: string) {
@@ -77,7 +145,6 @@ export async function groupPage(ctx: Ctx, groupId: string) {
 		balances,
 		settlements,
 		activities,
-		paymentIntents,
 		recurringExpenses,
 		reminders,
 		categoryRules,
@@ -91,11 +158,14 @@ export async function groupPage(ctx: Ctx, groupId: string) {
 		services.getBalances(ctx, input),
 		services.listSettlements(ctx, input),
 		services.listActivity(ctx, input),
-		services.getPaymentIntents(ctx, input),
 		services.listRecurringExpenses(ctx, input),
 		services.listReminders(ctx, input),
 		services.listCategoryRules(ctx, input),
 	]);
+	const paymentIntents = await paymentIntentsForBalances(
+		ctx,
+		balances.transfers,
+	);
 	const invitations =
 		group.myRole === "member" ? [] : await services.listInvitations(ctx, input);
 	return {
@@ -109,28 +179,109 @@ export async function groupPage(ctx: Ctx, groupId: string) {
 		reminders,
 		categoryRules,
 		invitations,
-		user: ctx.user,
+		user: viewer(ctx),
 	};
 }
 
+/** A user's number, from `channel_identity` — the row a guest is added with. */
+async function readPhone(userId: string): Promise<string | null> {
+	const [row] = await db
+		.select({ address: channelIdentity.address })
+		.from(channelIdentity)
+		.where(
+			and(
+				eq(channelIdentity.userId, userId),
+				eq(channelIdentity.channel, "phone"),
+			),
+		)
+		.limit(1);
+	// Checked explicitly rather than with `?.`: `noUncheckedIndexedAccess` is off,
+	// so destructuring types the row as present even when no number was saved.
+	return row ? row.address : null;
+}
+
+/** The browser session, for the app. API keys never have one. */
 export async function session(request: Request) {
+	if (presentedApiKey(request.headers)) return null;
 	const value = await auth.api.getSession({ headers: request.headers });
-	return value ? { user: value.user, session: value.session } : null;
+	if (!value) return null;
+	// The number is a `channel_identity`, not a user column, so the session's
+	// user row cannot carry it. The profile form needs it to show what is saved
+	// rather than an empty field that would clear the number on the next save.
+	return {
+		user: { ...value.user, phone: await readPhone(value.user.id) },
+		session: value.session,
+	};
 }
 
 export async function profile(ctx: Ctx, input: unknown) {
-	const data = updateProfileSchema.parse(input);
-	const [row] = await ctx.db
-		.update(user)
-		.set({ ...data, updatedAt: new Date() })
-		.where(eq(user.id, ctx.user.id))
-		.returning({
-			name: user.name,
-			upiVpa: user.upiVpa,
-			wiseTag: user.wiseTag,
-			emailReminders: user.emailReminders,
-		});
-	return row;
+	const { phone, ...fields } = updateProfileSchema.parse(input);
+	// Refused before anything is written, so a rejected number leaves the whole
+	// profile as it was rather than half-saved.
+	if (phone) await assertPhoneFree(ctx, phone);
+	return ctx.db.transaction(async (tx) => {
+		const [row] = await tx
+			.update(user)
+			.set({ ...fields, updatedAt: new Date() })
+			.where(eq(user.id, ctx.user.id))
+			.returning({
+				name: user.name,
+				image: user.image,
+				upiVpa: user.upiVpa,
+				wiseTag: user.wiseTag,
+				emailReminders: user.emailReminders,
+				bio: user.bio,
+				isEmailPublic: user.isEmailPublic,
+				isPhonePublic: user.isPhonePublic,
+			});
+		if (!row) throw new AppError("NOT_FOUND", "Account not found");
+		return { ...row, phone: await savePhone(tx, ctx.user.id, phone) };
+	});
+}
+
+/** The address is unique across every channel row, so a number already held
+ * by somebody else has to be refused rather than silently reassigned. */
+async function assertPhoneFree(ctx: Ctx, phone: string) {
+	const held = await ctx.db.query.channelIdentity.findFirst({
+		where: and(
+			eq(channelIdentity.channel, "phone"),
+			eq(channelIdentity.address, phone),
+		),
+	});
+	if (held && held.userId !== ctx.user.id)
+		throw new AppError(
+			"CONFLICT",
+			"That number is already linked to another account",
+		);
+}
+
+/**
+ * A user's number is a `channel_identity`, the same row a guest is added with,
+ * so one profile read covers both. Kept to one row per channel: a number is
+ * replaced, never accumulated, and `null` removes it.
+ */
+async function savePhone(
+	tx: Pick<Ctx["db"], "delete" | "insert">,
+	userId: string,
+	phone: string | null | undefined,
+) {
+	if (phone === undefined) return readPhone(userId);
+	await tx
+		.delete(channelIdentity)
+		.where(
+			and(
+				eq(channelIdentity.userId, userId),
+				eq(channelIdentity.channel, "phone"),
+			),
+		);
+	if (!phone) return null;
+	await tx.insert(channelIdentity).values({
+		id: id(),
+		userId,
+		channel: "phone",
+		address: phone,
+	});
+	return phone;
 }
 
 export async function listApiKeys(request: Request) {
@@ -143,15 +294,45 @@ export async function listApiKeys(request: Request) {
 }
 
 export async function createApiKey(request: Request, input: unknown) {
-	const headers = await cookieHeaders(request);
+	const session = await cookieSession(request);
 	const data = createApiKeySchema.parse(input);
-	const created = await auth.api.createApiKey({
-		headers,
-		body: {
-			name: data.name,
-			...(data.expiresIn ? { expiresIn: data.expiresIn } : {}),
-		},
-	});
+	let permissions: Permissions;
+	if (data.mode === "custom") {
+		if (!data.permissions || !validateKeyPermissions(data.permissions))
+			throw new AppError(
+				"VALIDATION",
+				"Choose at least one valid permission for a custom key",
+			);
+		permissions = data.permissions;
+	} else {
+		permissions = keyPresets[data.mode];
+	}
+	if (
+		data.mode === "full" &&
+		(!data.expiresIn || data.expiresIn > FULL_ACCESS_MAX_DAYS * 24 * 60 * 60)
+	)
+		throw new AppError(
+			"VALIDATION",
+			`Full account access keys must expire within ${FULL_ACCESS_MAX_DAYS} days`,
+		);
+	// Better Auth only accepts `permissions` from a server-side call, so the
+	// owner comes from the verified cookie session rather than request headers.
+	const created = await auth.api
+		.createApiKey({
+			body: {
+				userId: session.user.id,
+				name: data.name,
+				...(data.expiresIn ? { expiresIn: data.expiresIn } : {}),
+				permissions,
+			},
+		})
+		.catch((error: unknown) => {
+			// Bad input (an expiry outside the allowed range, say) is the
+			// caller's to fix, not a server fault.
+			if (error instanceof APIError && error.statusCode < 500)
+				throw new AppError("VALIDATION", error.message);
+			throw error;
+		});
 	return { key: created.key, record: summarize(created) };
 }
 

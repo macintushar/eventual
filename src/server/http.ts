@@ -1,12 +1,17 @@
 import { createHash } from "node:crypto";
+import { role } from "better-auth/plugins/access";
 import { and, eq } from "drizzle-orm";
 import { ZodError } from "zod";
-import { apikey, idempotencyKey } from "#/db/schema";
+
+import { idempotencyKey } from "#/db/schema";
+import { presentedApiKey } from "#/lib/auth";
 import { getAppLogger } from "#/lib/logging";
+import { canImpersonate } from "#/lib/permissions";
 import { buildContext, type Ctx } from "#/server/context";
 import { reportError } from "#/server/error-reporting";
 import { AppError, errorStatus } from "#/server/errors";
 import { runJobsRequest } from "#/server/jobs";
+import { measuredOperation } from "#/server/measured-operation";
 import { openApiDocument } from "#/server/openapi";
 import {
 	executeOperation,
@@ -77,7 +82,9 @@ const routes = operations.flatMap((operation) => {
 			: null;
 	return [
 		{ operation, ...canonical, surface: "rest" as const },
-		{ operation, ...legacy, surface: "rest" as const },
+		...(operation.path.startsWith("/v1/")
+			? [{ operation, ...legacy, surface: "rest" as const }]
+			: []),
 		...(preset ? [{ operation, ...preset, surface: "shortcut" as const }] : []),
 	];
 });
@@ -112,10 +119,13 @@ function queryInput(url: URL) {
 async function requestInput(request: Request, operation: Operation, url: URL) {
 	if (operation.method === "GET") return queryInput(url);
 	if (!request.body) return {};
+	// Node's HTTP adapter can supply a stream even for a bodyless DELETE/POST.
+	const text = await request.text();
+	if (!text) return {};
 	if (!request.headers.get("content-type")?.includes("application/json"))
 		throw new AppError("VALIDATION", "Expected a JSON request body");
 	try {
-		return (await request.json()) as unknown;
+		return JSON.parse(text) as unknown;
 	} catch {
 		throw new AppError("VALIDATION", "Malformed JSON request body");
 	}
@@ -135,30 +145,23 @@ function stableValue(value: unknown): unknown {
 
 const stableJson = (value: unknown) => JSON.stringify(stableValue(value));
 
-export async function enforceOperationScope(ctx: Ctx, operation: Operation) {
-	if (!ctx.apiKeyId || operation.scope === "public") return;
-	const key = await ctx.db.query.apikey.findFirst({
-		where: eq(apikey.id, ctx.apiKeyId),
-		columns: { permissions: true },
-	});
-	if (!key?.permissions) return;
-	let permissions: unknown;
-	try {
-		permissions = JSON.parse(key.permissions);
-	} catch {
-		throw new AppError("FORBIDDEN", "This API key has invalid permissions");
-	}
-	const scopes = new Set<string>();
-	if (Array.isArray(permissions)) {
-		for (const value of permissions)
-			if (typeof value === "string") scopes.add(value);
-	} else if (permissions && typeof permissions === "object") {
-		for (const [resource, values] of Object.entries(permissions))
-			if (Array.isArray(values))
-				for (const value of values)
-					if (typeof value === "string") scopes.add(`${resource}:${value}`);
-	}
-	if (!scopes.has(operation.scope) && !scopes.has("*"))
+/**
+ * API keys carry a permission set in Better Auth's `{ resource: actions[] }`
+ * shape — the same vocabulary as group roles (#/lib/permissions) — and every
+ * operation declares the one action it needs as `resource:action`. Keys
+ * created before scopes existed have no stored permissions and keep full
+ * access, so old integrations don't break.
+ */
+export function keyAllows(ctx: Ctx, operation: Operation) {
+	if (!ctx.apiKeyId || operation.scope === "public") return true;
+	if (!ctx.apiKeyPermissions) return true;
+	const [resource, action] = operation.scope.split(":");
+	return role(ctx.apiKeyPermissions).authorize({ [resource]: [action] })
+		.success;
+}
+
+export function enforceOperationScope(ctx: Ctx, operation: Operation) {
+	if (!keyAllows(ctx, operation))
 		throw new AppError("FORBIDDEN", `API key lacks ${operation.scope}`);
 }
 
@@ -295,7 +298,7 @@ export async function dispatchApi(request: Request, splat: string) {
 		if ("auth" in route.operation && route.operation.auth === false)
 			return invokeOperation(route.operation, null, merged);
 		const ctx = await buildContext(request);
-		await enforceOperationScope(ctx, route.operation);
+		enforceOperationScope(ctx, route.operation);
 		const parsed = route.operation.input.parse(merged);
 		return idempotentExecution(request, ctx, route.operation, parsed, () =>
 			executeOperation(route.operation, ctx, parsed, route.surface),
@@ -338,19 +341,26 @@ async function dispatchWebApi(request: Request, path: string) {
 			throw new AppError("VALIDATION", "Malformed JSON request body");
 		}
 	};
-	const cookieContext = () => {
-		if (
-			request.headers.get("x-api-key") ||
-			request.headers.get("authorization")
-		)
-			throw new AppError(
-				"FORBIDDEN",
-				"This endpoint requires a session cookie",
-			);
-		return buildContext(request);
+	// The app's own pages and the profile: a browser session, or a key the
+	// owner explicitly opted into full account access.
+	const cookieContext = async () => {
+		if (presentedApiKey(request.headers)) {
+			const ctx = await buildContext(request);
+			if (canImpersonate(ctx.apiKeyPermissions)) return ctx;
+		} else if (!request.headers.get("authorization"))
+			return buildContext(request);
+		throw new AppError(
+			"FORBIDDEN",
+			"This endpoint needs a session cookie or a full account access key",
+		);
 	};
 	const route = async (action: () => Promise<unknown>, cacheable = false) =>
 		cacheResponse(await handle(action), cacheable);
+	const measuredRead = (name: string, action: (ctx: Ctx) => Promise<unknown>) =>
+		route(async () => {
+			const ctx = await cookieContext();
+			return measuredOperation(ctx, name, "web", () => action(ctx));
+		}, true);
 	if (path === "/v1/session" && method === "GET")
 		return route(() => webApi.session(request));
 	if (path === "/v1/legal" && method === "GET")
@@ -364,15 +374,29 @@ async function dispatchWebApi(request: Request, path: string) {
 	if (path === "/v1/pending-verification/send" && method === "POST")
 		return route(() => webApi.sendPendingVerification(request));
 	if (path === "/v1/app/dashboard" && method === "GET")
-		return route(async () => webApi.dashboard(await cookieContext()), true);
+		return measuredRead("app.dashboard", webApi.dashboard);
 	if (path === "/v1/app/composer" && method === "GET")
-		return route(async () => webApi.composer(await cookieContext()), true);
+		return measuredRead("app.composer", webApi.composer);
+	if (path === "/v1/app/group-directory" && method === "GET")
+		return measuredRead("app.groupDirectory", webApi.groupDirectory);
+	const groupRead = path.match(
+		/^\/v1\/app\/groups\/([^/]+)\/(context|financial-summary|settings)$/,
+	);
+	if (groupRead && method === "GET") {
+		const action =
+			groupRead[2] === "context"
+				? webApi.groupContext
+				: groupRead[2] === "financial-summary"
+					? webApi.groupSummary
+					: webApi.groupSettings;
+		return measuredRead(`app.group.${groupRead[2]}`, (ctx) =>
+			action(ctx, decodeURIComponent(groupRead[1])),
+		);
+	}
 	const page = path.match(/^\/v1\/app\/groups\/([^/]+)\/page$/);
 	if (page && method === "GET")
-		return route(
-			async () =>
-				webApi.groupPage(await cookieContext(), decodeURIComponent(page[1])),
-			true,
+		return measuredRead("app.groupPage", (ctx) =>
+			webApi.groupPage(ctx, decodeURIComponent(page[1])),
 		);
 	if (path === "/v1/me/profile" && method === "PATCH")
 		return route(async () =>

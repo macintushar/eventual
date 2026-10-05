@@ -1,39 +1,48 @@
 import { defineConfig, devices } from "@playwright/test";
 
-if (
-	!process.env.E2E_DB_FILE ||
-	!process.env.TURSO_DATABASE_URL?.startsWith("file:")
-)
-	throw new Error(
-		"Run E2E tests through `bun run test:e2e` (disposable local DB required)",
-	);
-
 export default defineConfig({
-	testDir: "./e2e",
-	timeout: 180_000,
-	expect: { timeout: 10_000 },
-	workers: 1,
+	testDir: "./tests/e2e",
 	fullyParallel: false,
-	retries: process.env.CI ? 1 : 0,
-	reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+	workers: 1,
+	forbidOnly: Boolean(process.env.CI),
+	retries: 0,
+	timeout: 45_000,
+	expect: { timeout: 10_000 },
+	reporter: [["list"], ["html", { open: "never" }]],
 	use: {
-		baseURL: "http://127.0.0.1:4173",
+		baseURL: "http://127.0.0.1:3107",
 		trace: "retain-on-failure",
 		screenshot: "only-on-failure",
+		serviceWorkers: "block",
 	},
-	projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-	webServer: {
-		command: "bun run dev -- --host 127.0.0.1 --port 4173 --strictPort",
-		url: "http://127.0.0.1:4173/api/v1/health",
-		timeout: 120_000,
-		reuseExistingServer: false,
-		env: {
-			TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL,
-			TURSO_AUTH_TOKEN: "",
-			BETTER_AUTH_URL: "http://127.0.0.1:4173",
-			BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? "",
-			RESEND_API_KEY: "",
-			EMAIL_FROM: "",
+	projects: [
+		{ name: "setup", testMatch: /auth\.setup\.ts/ },
+		{
+			name: "api",
+			testMatch: /api(-keys)?\.spec\.ts/,
+			dependencies: ["setup"],
+			use: { storageState: "test-results/auth.json" },
 		},
+		{
+			name: "chromium",
+			testMatch: /ui\.spec\.ts/,
+			dependencies: ["setup"],
+			use: {
+				...devices["Desktop Chrome"],
+				storageState: "test-results/auth.json",
+			},
+		},
+		{
+			name: "mobile",
+			testMatch: /ui\.spec\.ts/,
+			dependencies: ["setup"],
+			use: { ...devices["Pixel 7"], storageState: "test-results/auth.json" },
+		},
+	],
+	webServer: {
+		command: "bunx tsx tests/e2e/server.ts",
+		url: "http://127.0.0.1:3107/api/v1/health",
+		reuseExistingServer: false,
+		timeout: 120_000,
 	},
 });

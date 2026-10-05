@@ -1,4 +1,9 @@
-export type BalanceMember = { userId: string; name: string };
+export type BalanceMember = {
+	userId: string;
+	name: string;
+	/** A photo URL, or null when the member has not set one. */
+	image?: string | null;
+};
 export type BalanceExpense = {
 	currency: string;
 	paidByUserId: string;

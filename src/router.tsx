@@ -13,7 +13,7 @@ export function getRouter() {
 		context: { queryClient },
 		scrollRestoration: true,
 		defaultPreload: "intent",
-		// Loaders always run; `ensureQueryData` decides whether the cache is fresh.
+		// Loaders reuse cached data; mounted Query observers refresh stale reads.
 		defaultPreloadStaleTime: 0,
 		// Every route gets its own boundary, including the root, and each falls
 		// back to these. Without them a thrown loader renders TanStack's unstyled

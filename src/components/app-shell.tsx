@@ -1,6 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { Link, useRouter } from "@tanstack/react-router";
-import { CircleHelp, KeyRound, LogOut, Plug, UserRound } from "lucide-react";
 import {
 	createContext,
 	type ReactNode,
@@ -8,36 +5,17 @@ import {
 	useEffect,
 	useState,
 } from "react";
-import { toast } from "sonner";
 
+import {
+	CommandPaletteProvider,
+	CommandPaletteTrigger,
+} from "#/components/command-palette";
 import { ComposerProvider } from "#/components/composer";
-import { ConfirmDialog } from "#/components/confirm-dialog";
 import { AppDock } from "#/components/dock";
-import { MemberAvatar } from "#/components/member-avatar";
 import { PendingInvitationsBanner } from "#/components/pending-invitations-banner";
 import { StatusPageCallout, useStatusPageUrl } from "#/components/status-page";
 import { ThemeToggle } from "#/components/theme";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "#/components/ui/dropdown-menu";
-import { Separator } from "#/components/ui/separator";
-import {
-	Sheet,
-	SheetClose,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-	SheetTrigger,
-} from "#/components/ui/sheet";
 import { Wordmark } from "#/components/wordmark";
-import { authClient } from "#/lib/auth-client";
-import { clearSession } from "#/lib/session";
 import { cn } from "#/lib/utils";
 
 /**
@@ -97,125 +75,6 @@ function useHeaderMotion() {
 	return state;
 }
 
-function AccountAvatar({ user }: { user: { name: string; email: string } }) {
-	return <MemberAvatar name={user.name} seed={user.email} className="size-9" />;
-}
-
-const ACCOUNT_LINKS = [
-	{ to: "/help", icon: CircleHelp, label: "Help center" },
-	{ to: "/app/settings/profile", icon: UserRound, label: "Profile" },
-	{ to: "/app/settings/api-keys", icon: KeyRound, label: "API keys" },
-	{ to: "/docs", icon: Plug, label: "Integrations" },
-] as const;
-
-/**
- * The account menu, in the shape each pointer wants. A cursor gets a dropdown
- * pinned to the avatar; a thumb gets a sheet, because the avatar lives in the
- * top-right corner — the hardest place on a phone to reach, and the worst
- * place to then have to hit a 32px row.
- *
- * Both are rendered and one is hidden per breakpoint rather than measured in
- * JS, so the server and the client always agree on the markup.
- */
-function AccountMenu({
-	user,
-	onSignOut,
-}: {
-	user: { name: string; email: string };
-	/** Resolve `false` when sign-out failed, so the confirmation stays up. */
-	onSignOut: () => Promise<boolean> | boolean;
-}) {
-	const [confirmingSignOut, setConfirmingSignOut] = useState(false);
-
-	return (
-		<>
-			<Sheet>
-				<SheetTrigger
-					className="press rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:hidden"
-					aria-label="Account menu"
-				>
-					<AccountAvatar user={user} />
-				</SheetTrigger>
-				<SheetContent side="bottom" className="gap-5">
-					<SheetHeader className="flex-row items-center gap-3">
-						<AccountAvatar user={user} />
-						<span className="flex min-w-0 flex-col">
-							<SheetTitle>{user.name}</SheetTitle>
-							<SheetDescription className="truncate text-xs">
-								{user.email}
-							</SheetDescription>
-						</span>
-					</SheetHeader>
-
-					<div className="flex flex-col">
-						{ACCOUNT_LINKS.map(({ to, icon: Icon, label }) => (
-							<SheetClose key={to} asChild>
-								<Link to={to} className="sheet-row">
-									<Icon className="size-[1.125rem] text-muted-foreground" />
-									{label}
-								</Link>
-							</SheetClose>
-						))}
-
-						<Separator className="my-1.5" />
-
-						<button
-							type="button"
-							className="sheet-row"
-							data-variant="destructive"
-							onClick={() => setConfirmingSignOut(true)}
-						>
-							<LogOut className="size-[1.125rem]" />
-							Sign out
-						</button>
-					</div>
-				</SheetContent>
-			</Sheet>
-
-			<DropdownMenu>
-				<DropdownMenuTrigger
-					className="press hidden rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:block"
-					aria-label="Account menu"
-				>
-					<AccountAvatar user={user} />
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" sideOffset={8} className="w-56">
-					<DropdownMenuLabel className="flex flex-col gap-0.5">
-						<span className="font-medium">{user.name}</span>
-						<span className="truncate text-xs font-normal text-muted-foreground">
-							{user.email}
-						</span>
-					</DropdownMenuLabel>
-					<DropdownMenuSeparator />
-					{ACCOUNT_LINKS.map(({ to, icon: Icon, label }) => (
-						<DropdownMenuItem key={to} asChild>
-							<Link to={to}>
-								<Icon />
-								{label}
-							</Link>
-						</DropdownMenuItem>
-					))}
-					<DropdownMenuSeparator />
-					<DropdownMenuItem onSelect={() => setConfirmingSignOut(true)}>
-						<LogOut />
-						Sign out
-					</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>
-
-			<ConfirmDialog
-				open={confirmingSignOut}
-				onOpenChange={setConfirmingSignOut}
-				media={<LogOut />}
-				title="Sign out?"
-				description="You'll need to sign in again to see your groups."
-				confirmLabel="Sign out"
-				onConfirm={onSignOut}
-			/>
-		</>
-	);
-}
-
 const InAppShell = createContext(false);
 
 /**
@@ -240,7 +99,7 @@ function AppFooter() {
 				)}
 			>
 				<span className={statusPageUrl ? "hidden sm:inline" : undefined}>
-					Eventual · exact integer splits, in rupees.
+					Eventual · Exact splits, down to the smallest unit.
 				</span>
 				<StatusPageCallout />
 			</div>
@@ -266,66 +125,45 @@ export function AppShell({
 	user: { id: string; name: string; email: string };
 	children: ReactNode;
 }) {
-	const router = useRouter();
-	const queryClient = useQueryClient();
 	const { hidden, scrolled } = useHeaderMotion();
-
-	const signOut = async () => {
-		// Better Auth reports failures on the result rather than by throwing, and
-		// a dropped connection rejects, so both have to be caught: bailing out
-		// silently would leave the menu closed and the session still live.
-		try {
-			const { error } = await authClient.signOut();
-			if (error) throw new Error(error.message);
-		} catch {
-			toast.error("Couldn't sign out", {
-				description: "Check your connection and try again.",
-			});
-			return false;
-		}
-		clearSession(queryClient);
-		await router.navigate({ to: "/" });
-		return true;
-	};
 
 	return (
 		<InAppShell.Provider value={true}>
 			<ComposerProvider currentUserId={user.id}>
-				<div className="pad-dock flex min-h-[100dvh] flex-col">
-					<header
-						className={cn(
-							"sticky top-0 z-40 bg-background transition-[translate,box-shadow,border-color] duration-300 ease-(--ease-out-soft) motion-reduce:transition-none",
-							"border-b pt-[var(--safe-top)]",
-							scrolled ? "border-border/80 shadow-sm" : "border-transparent",
-							// Only phones reclaim the space; on a desktop the header never moves.
-							hidden && "max-sm:-translate-y-[calc(100%+1px)]",
-						)}
-					>
-						<div className="page-wrap flex h-[var(--header-h)] items-center justify-between gap-4 sm:h-16">
-							<Wordmark to="/app" />
+				<CommandPaletteProvider>
+					<div className="pad-dock flex min-h-[100dvh] flex-col">
+						<header
+							className={cn(
+								"sticky top-0 z-40 bg-background transition-[translate,box-shadow,border-color] duration-300 ease-(--ease-out-soft) motion-reduce:transition-none",
+								"border-b pt-[var(--safe-top)]",
+								scrolled ? "border-border/80 shadow-sm" : "border-transparent",
+								// Only phones reclaim the space; on a desktop the header never moves.
+								hidden && "max-sm:-translate-y-[calc(100%+1px)]",
+							)}
+						>
+							<div className="page-wrap flex h-[var(--header-h)] items-center justify-between gap-4 sm:h-16">
+								<Wordmark to="/app" />
 
-							{/*
-							 * The masthead carries identity and the theme, nothing else. Who
-							 * you are, API keys and Integrations all live behind the avatar at
-							 * every width, so the header reads the same on a phone and on a
-							 * desktop instead of growing a row of links at `sm`.
-							 */}
-							<div className="flex items-center gap-1">
-								<ThemeToggle />
-								<AccountMenu user={user} onSignOut={signOut} />
+								{/* Wordmark, search and theme, nothing else: the account lives
+							    in the dock, where a thumb already is and which never scrolls
+							    away. */}
+								<div className="flex items-center gap-1 sm:gap-2">
+									<CommandPaletteTrigger />
+									<ThemeToggle />
+								</div>
 							</div>
-						</div>
-					</header>
+						</header>
 
-					<main className="page-wrap flex-1 py-6 sm:py-8">
-						<PendingInvitationsBanner />
-						{children}
-					</main>
+						<main className="page-wrap flex-1 py-6 sm:py-8">
+							<PendingInvitationsBanner />
+							{children}
+						</main>
 
-					<AppFooter />
+						<AppFooter />
 
-					<AppDock user={user} />
-				</div>
+						<AppDock user={user} />
+					</div>
+				</CommandPaletteProvider>
 			</ComposerProvider>
 		</InAppShell.Provider>
 	);

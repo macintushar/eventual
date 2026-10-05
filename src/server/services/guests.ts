@@ -16,7 +16,7 @@ import {
 	id,
 	type Role,
 	recordActivity,
-	requireRole,
+	requirePermission,
 } from "./shared";
 
 export async function addMember(ctx: Ctx, raw: AddMemberInput) {
@@ -30,10 +30,10 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 		});
 		if (!mine)
 			throw new AppError("FORBIDDEN", "You are not a member of this group");
-		requireRole(mine.role as Role, ["owner", "admin"]);
+		requirePermission(mine.role as Role, { member: ["create"] });
 		const role = input.role ?? "member";
-		if (role === "owner" && mine.role !== "owner")
-			throw new AppError("FORBIDDEN", "Only owners can invite another owner");
+		if (role === "owner")
+			throw new AppError("FORBIDDEN", "Each group has one owner");
 		const group = await tx.query.organization.findFirst({
 			where: eq(s.organization.id, input.groupId),
 		});
@@ -124,6 +124,7 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 		});
 		// Registered users consent through invitation; adding someone cannot change
 		// their global profile, phone ownership, or existing membership weight.
+		// Weight is ignored here: it's set once they accept (member stays null).
 		if (!person.isGuest) {
 			if (existing)
 				return {
@@ -136,11 +137,6 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 				throw new AppError(
 					"CONFLICT",
 					"Only the account holder can attach a phone to a registered account",
-				);
-			if (input.weight !== undefined && input.weight !== 1)
-				throw new AppError(
-					"CONFLICT",
-					"Set the member weight after the invitation is accepted",
 				);
 			return {
 				userId: person.id,
@@ -249,7 +245,7 @@ export async function updateGuest(ctx: Ctx, raw: UpdateGuestInput) {
 		const mine = await inGroup(ctx.user.id);
 		if (!mine)
 			throw new AppError("FORBIDDEN", "You are not a member of this group");
-		requireRole(mine.role as Role, ["owner", "admin"]);
+		requirePermission(mine.role as Role, { member: ["update"] });
 		if (!(await inGroup(input.userId)))
 			throw new AppError("NOT_FOUND", "Member not found");
 		const guest = await tx.query.user.findFirst({

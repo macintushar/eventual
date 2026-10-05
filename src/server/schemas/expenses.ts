@@ -37,6 +37,10 @@ export const listExpensesSchema = expenseFiltersSchema.extend({
 export const expenseReportSchema = expenseFiltersSchema.extend({
 	format: z.enum(["csv", "pdf"]).default("csv"),
 });
+export const expensePageSchema = listExpensesSchema.omit({
+	offset: true,
+	asOf: true,
+});
 export const previewGroupExpenseSchema = previewExpenseSchema.extend({
 	groupId: idSchema,
 });

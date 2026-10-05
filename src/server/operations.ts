@@ -2,7 +2,9 @@ import { z } from "zod";
 import { getAppLogger } from "#/lib/logging";
 
 import type { Ctx } from "#/server/context";
+import { measuredOperation } from "#/server/measured-operation";
 import {
+	assignableRoleSchema,
 	createExpenseSchema,
 	createGroupSchema,
 	createSettlementSchema,
@@ -10,10 +12,10 @@ import {
 	groupIdSchema,
 	invitationIdSchema,
 	inviteSchema,
+	leaveGroupSchema,
 	memberActionSchema,
 	pageSchema,
 	quickExpenseSchema,
-	roleSchema,
 	settlementIdSchema,
 	updateExpenseSchema,
 	updateGroupSchema,
@@ -35,6 +37,7 @@ import {
 	categoryRulesSchema,
 	createCategoryRuleSchema,
 	deleteCategoryRuleSchema,
+	expensePageSchema,
 	expenseReportSchema,
 	listExpensesSchema,
 	previewGroupExpenseSchema,
@@ -56,7 +59,6 @@ import {
 } from "#/server/schemas/people";
 import * as services from "#/server/services/app";
 import * as shortcut from "#/server/services/shortcut";
-import { captureEvent } from "#/server/telemetry";
 
 export type OperationSurface = "web" | "rest" | "mcp" | "shortcut";
 export type OperationMethod = "GET" | "POST" | "PATCH" | "DELETE";
@@ -65,7 +67,7 @@ type OperationDefinition = {
 	name: string;
 	kind: "read" | "mutation";
 	method: OperationMethod;
-	path: `/v1/${string}`;
+	path: `/v1/${string}` | `/v2/${string}`;
 	input: z.ZodType;
 	output: z.ZodType;
 	scope: string;
@@ -84,7 +86,9 @@ const empty = z.object({});
 const activitySchema = pageSchema;
 const myPageSchema = pageSchema.omit({ groupId: true });
 const renameSchema = updateGroupSchema;
-const memberRoleSchema = memberActionSchema.extend({ role: roleSchema });
+const memberRoleSchema = memberActionSchema.extend({
+	role: assignableRoleSchema,
+});
 const sharePaidSchema = memberActionSchema.omit({ groupId: true }).extend({
 	expenseId: z.string().min(1),
 	// Bodyless `POST .../paid` predates the explicit flag and means "mark paid".
@@ -94,13 +98,42 @@ const shortcutCreateSchema = quickExpenseSchema;
 
 export const operations = [
 	defineOperation({
+		name: "expense.page",
+		kind: "read",
+		method: "GET",
+		path: "/v2/groups/:groupId/expenses",
+		input: expensePageSchema,
+		output,
+		scope: "expense:read",
+		mcp: {
+			tool: "listExpensePage",
+			description:
+				"Cursor-paginated compact expenses. Pass nextCursor with identical filters and sort. Payer-name sorting is best-effort across renames.",
+		},
+		handler: services.listExpensePage,
+	}),
+	defineOperation({
+		name: "settlement.page",
+		kind: "read",
+		method: "GET",
+		path: "/v2/groups/:groupId/settlements",
+		input: pageSchema,
+		output,
+		scope: "settlement:read",
+		mcp: {
+			tool: "listSettlementPage",
+			description: "Cursor-paginated settlement history with compact parties.",
+		},
+		handler: services.listSettlementPage,
+	}),
+	defineOperation({
 		name: "group.list",
 		kind: "read",
 		method: "GET",
 		path: "/v1/groups",
 		input: empty,
 		output,
-		scope: "groups:read",
+		scope: "group:read",
 		mcp: {
 			tool: "listGroups",
 			description: "List the signed-in user's groups",
@@ -114,7 +147,7 @@ export const operations = [
 		path: "/v1/groups",
 		input: createGroupSchema,
 		output,
-		scope: "groups:write",
+		scope: "group:create",
 		idempotent: true,
 		handler: services.createGroup,
 	}),
@@ -125,7 +158,7 @@ export const operations = [
 		path: "/v1/groups/:groupId",
 		input: groupIdSchema,
 		output,
-		scope: "groups:read",
+		scope: "group:read",
 		handler: services.getGroup,
 	}),
 	defineOperation({
@@ -135,7 +168,7 @@ export const operations = [
 		path: "/v1/groups/:groupId",
 		input: renameSchema,
 		output,
-		scope: "groups:write",
+		scope: "group:update",
 		idempotent: true,
 		handler: services.renameGroup,
 	}),
@@ -146,7 +179,7 @@ export const operations = [
 		path: "/v1/groups/:groupId",
 		input: groupIdSchema,
 		output,
-		scope: "groups:write",
+		scope: "group:delete",
 		idempotent: true,
 		handler: services.deleteGroup,
 	}),
@@ -155,9 +188,9 @@ export const operations = [
 		kind: "mutation",
 		method: "POST",
 		path: "/v1/groups/:groupId/leave",
-		input: groupIdSchema,
+		input: leaveGroupSchema,
 		output,
-		scope: "groups:write",
+		scope: "member:delete",
 		idempotent: true,
 		handler: services.leaveGroup,
 	}),
@@ -168,7 +201,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/archive",
 		input: archiveGroupSchema,
 		output,
-		scope: "groups:write",
+		scope: "group:update",
 		idempotent: true,
 		handler: services.archiveGroup,
 	}),
@@ -179,7 +212,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/unarchive",
 		input: unarchiveGroupSchema,
 		output,
-		scope: "groups:write",
+		scope: "group:update",
 		idempotent: true,
 		handler: services.unarchiveGroup,
 	}),
@@ -190,7 +223,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/duplicate",
 		input: duplicateGroupSchema,
 		output,
-		scope: "groups:write",
+		scope: "group:update",
 		idempotent: true,
 		handler: services.duplicateGroup,
 	}),
@@ -202,7 +235,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/members",
 		input: groupIdSchema,
 		output,
-		scope: "members:read",
+		scope: "member:read",
 		handler: services.listMembers,
 	}),
 	defineOperation({
@@ -212,7 +245,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/members",
 		input: addMemberSchema,
 		output,
-		scope: "members:write",
+		scope: "member:create",
 		idempotent: true,
 		handler: services.addMember,
 	}),
@@ -223,7 +256,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/members/:userId",
 		input: memberRoleSchema,
 		output,
-		scope: "members:write",
+		scope: "member:role",
 		idempotent: true,
 		handler: services.updateMemberRole,
 	}),
@@ -234,7 +267,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/members/:userId",
 		input: memberActionSchema,
 		output,
-		scope: "members:write",
+		scope: "member:delete",
 		idempotent: true,
 		handler: services.removeMember,
 	}),
@@ -245,7 +278,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/members/:userId/weight",
 		input: updateMemberWeightSchema,
 		output,
-		scope: "members:write",
+		scope: "member:update",
 		idempotent: true,
 		handler: services.updateMemberWeight,
 	}),
@@ -256,7 +289,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/guests/:userId",
 		input: updateGuestSchema,
 		output,
-		scope: "members:write",
+		scope: "member:update",
 		idempotent: true,
 		handler: services.updateGuest,
 	}),
@@ -267,7 +300,7 @@ export const operations = [
 		path: "/v1/members/merge",
 		input: mergeGuestSchema,
 		output,
-		scope: "members:write",
+		scope: "member:delete",
 		idempotent: true,
 		handler: services.mergeGuest,
 	}),
@@ -279,7 +312,7 @@ export const operations = [
 		path: "/v1/me/invitations",
 		input: empty,
 		output,
-		scope: "invitations:read",
+		scope: "invitation:read",
 		handler: (ctx) => services.listMyInvitations(ctx),
 	}),
 	defineOperation({
@@ -289,7 +322,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/invitations",
 		input: groupIdSchema,
 		output,
-		scope: "invitations:read",
+		scope: "invitation:read",
 		handler: services.listInvitations,
 	}),
 	defineOperation({
@@ -299,7 +332,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/invitations",
 		input: inviteSchema,
 		output,
-		scope: "invitations:write",
+		scope: "invitation:create",
 		idempotent: true,
 		handler: services.createInvitation,
 	}),
@@ -321,7 +354,7 @@ export const operations = [
 		path: "/v1/invitations/:invitationId",
 		input: invitationIdSchema,
 		output,
-		scope: "invitations:write",
+		scope: "invitation:cancel",
 		idempotent: true,
 		handler: services.revokeInvitation,
 	}),
@@ -332,7 +365,7 @@ export const operations = [
 		path: "/v1/invitations/:invitationId/accept",
 		input: invitationIdSchema,
 		output,
-		scope: "invitations:write",
+		scope: "invitation:accept",
 		idempotent: true,
 		handler: services.acceptInvitation,
 	}),
@@ -344,7 +377,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/expenses",
 		input: listExpensesSchema,
 		output,
-		scope: "expenses:read",
+		scope: "expense:read",
 		mcp: {
 			tool: "listExpenses",
 			description: "List and search expenses in a group",
@@ -358,7 +391,7 @@ export const operations = [
 		path: "/v1/expenses/:expenseId",
 		input: expenseIdSchema,
 		output,
-		scope: "expenses:read",
+		scope: "expense:read",
 		handler: services.getExpense,
 	}),
 	defineOperation({
@@ -368,7 +401,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/expenses/preview",
 		input: previewGroupExpenseSchema,
 		output,
-		scope: "expenses:read",
+		scope: "expense:read",
 		handler: services.previewGroupExpense,
 	}),
 	defineOperation({
@@ -378,7 +411,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/expenses",
 		input: createExpenseSchema,
 		output,
-		scope: "expenses:write",
+		scope: "expense:create",
 		idempotent: true,
 		mcp: {
 			tool: "createExpense",
@@ -393,7 +426,7 @@ export const operations = [
 		path: "/v1/expenses/:expenseId",
 		input: updateExpenseSchema,
 		output,
-		scope: "expenses:write",
+		scope: "expense:update",
 		idempotent: true,
 		handler: services.updateExpense,
 	}),
@@ -404,7 +437,7 @@ export const operations = [
 		path: "/v1/expenses/:expenseId",
 		input: expenseIdSchema,
 		output,
-		scope: "expenses:write",
+		scope: "expense:delete",
 		idempotent: true,
 		handler: services.deleteExpense,
 	}),
@@ -415,7 +448,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/expenses/resplit",
 		input: bulkResplitSchema,
 		output,
-		scope: "expenses:write",
+		scope: "expense:update",
 		idempotent: true,
 		handler: services.bulkResplitExpenses,
 	}),
@@ -426,7 +459,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/reports/expenses",
 		input: expenseReportSchema,
 		output,
-		scope: "expenses:read",
+		scope: "expense:read",
 		handler: services.expenseReport,
 	}),
 	defineOperation({
@@ -436,7 +469,7 @@ export const operations = [
 		path: "/v1/expenses/:expenseId/shares/:userId/paid",
 		input: sharePaidSchema,
 		output,
-		scope: "expenses:write",
+		scope: "expense:update",
 		idempotent: true,
 		handler: (ctx: Ctx, input: z.infer<typeof sharePaidSchema>) =>
 			services.setSharePaid(ctx, input, input.paid),
@@ -448,7 +481,7 @@ export const operations = [
 		path: "/v1/expenses/:expenseId/shares/:userId/paid",
 		input: sharePaidSchema.omit({ paid: true }),
 		output,
-		scope: "expenses:write",
+		scope: "expense:update",
 		idempotent: true,
 		handler: (ctx, input) => services.setSharePaid(ctx, input, false),
 	}),
@@ -460,7 +493,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/categories",
 		input: categoryRulesSchema,
 		output,
-		scope: "expenses:read",
+		scope: "category:read",
 		handler: services.listCategoryRules,
 	}),
 	defineOperation({
@@ -470,7 +503,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/categories/suggest",
 		input: suggestCategorySchema,
 		output,
-		scope: "expenses:read",
+		scope: "category:read",
 		handler: services.suggestCategory,
 	}),
 	defineOperation({
@@ -480,7 +513,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/categories/backfill",
 		input: categoryBackfillSchema,
 		output,
-		scope: "expenses:read",
+		scope: "expense:read",
 		handler: services.previewCategoryBackfill,
 	}),
 	defineOperation({
@@ -490,7 +523,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/categories/apply",
 		input: applyCategoriesSchema,
 		output,
-		scope: "expenses:write",
+		scope: "expense:update",
 		idempotent: true,
 		handler: services.applyCategories,
 	}),
@@ -501,7 +534,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/categories",
 		input: createCategoryRuleSchema,
 		output,
-		scope: "expenses:write",
+		scope: "category:create",
 		idempotent: true,
 		handler: services.createCategoryRule,
 	}),
@@ -512,7 +545,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/categories/:ruleId",
 		input: updateCategoryRuleSchema,
 		output,
-		scope: "expenses:write",
+		scope: "category:update",
 		idempotent: true,
 		handler: services.updateCategoryRule,
 	}),
@@ -523,7 +556,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/categories/:ruleId",
 		input: deleteCategoryRuleSchema,
 		output,
-		scope: "expenses:write",
+		scope: "category:delete",
 		idempotent: true,
 		handler: services.deleteCategoryRule,
 	}),
@@ -535,7 +568,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/balances",
 		input: groupIdSchema,
 		output,
-		scope: "balances:read",
+		scope: "balance:read",
 		mcp: {
 			tool: "getBalances",
 			description: "Get balances and simplified transfers per currency",
@@ -549,7 +582,7 @@ export const operations = [
 		path: "/v1/me/balances",
 		input: crossGroupBalancesSchema,
 		output,
-		scope: "balances:read",
+		scope: "balance:read",
 		handler: (ctx) => services.getCrossGroupBalances(ctx),
 	}),
 	defineOperation({
@@ -559,7 +592,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/payment-intents",
 		input: paymentIntentsSchema,
 		output,
-		scope: "balances:read",
+		scope: "balance:read",
 		handler: services.getPaymentIntents,
 	}),
 	defineOperation({
@@ -569,7 +602,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/settlements",
 		input: groupIdSchema,
 		output,
-		scope: "settlements:read",
+		scope: "settlement:read",
 		handler: services.listSettlements,
 	}),
 	defineOperation({
@@ -579,7 +612,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/settlements",
 		input: createSettlementSchema,
 		output,
-		scope: "settlements:write",
+		scope: "settlement:create",
 		idempotent: true,
 		handler: services.createSettlement,
 	}),
@@ -590,7 +623,7 @@ export const operations = [
 		path: "/v1/settlements/:settlementId",
 		input: settlementIdSchema,
 		output,
-		scope: "settlements:write",
+		scope: "settlement:delete",
 		idempotent: true,
 		handler: services.deleteSettlement,
 	}),
@@ -622,7 +655,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/reminders",
 		input: listRemindersSchema,
 		output,
-		scope: "reminders:read",
+		scope: "reminder:read",
 		handler: services.listReminders,
 	}),
 	defineOperation({
@@ -632,7 +665,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/reminders",
 		input: scheduleReminderSchema,
 		output,
-		scope: "reminders:write",
+		scope: "reminder:create",
 		idempotent: true,
 		handler: services.scheduleReminder,
 	}),
@@ -643,7 +676,7 @@ export const operations = [
 		path: "/v1/me/reminder-preferences",
 		input: getReminderPreferencesSchema,
 		output,
-		scope: "reminders:read",
+		scope: "reminder:read",
 		handler: (ctx) => services.getReminderPreferences(ctx),
 	}),
 	defineOperation({
@@ -653,7 +686,7 @@ export const operations = [
 		path: "/v1/me/reminder-preferences",
 		input: reminderPreferencesSchema,
 		output,
-		scope: "reminders:write",
+		scope: "reminder:update",
 		idempotent: true,
 		handler: services.updateReminderPreferences,
 	}),
@@ -664,7 +697,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/recurring-expenses",
 		input: listRecurringExpensesSchema,
 		output,
-		scope: "expenses:read",
+		scope: "expense:read",
 		handler: services.listRecurringExpenses,
 	}),
 	defineOperation({
@@ -674,7 +707,7 @@ export const operations = [
 		path: "/v1/groups/:groupId/recurring-expenses",
 		input: createRecurringExpenseSchema,
 		output,
-		scope: "expenses:write",
+		scope: "expense:create",
 		idempotent: true,
 		handler: services.createRecurringExpense,
 	}),
@@ -685,7 +718,7 @@ export const operations = [
 		path: "/v1/recurring-expenses/:templateId",
 		input: updateRecurringExpenseSchema,
 		output,
-		scope: "expenses:write",
+		scope: "expense:update",
 		idempotent: true,
 		handler: services.updateRecurringExpense,
 	}),
@@ -696,7 +729,7 @@ export const operations = [
 		path: "/v1/recurring-expenses/:templateId",
 		input: deleteRecurringExpenseSchema,
 		output,
-		scope: "expenses:write",
+		scope: "expense:delete",
 		idempotent: true,
 		handler: services.deleteRecurringExpense,
 	}),
@@ -708,7 +741,7 @@ export const operations = [
 		path: "/v1/presets/shortcut/groups",
 		input: empty,
 		output,
-		scope: "groups:read",
+		scope: "group:read",
 		preset: { legacyPath: "/shortcut/groups" },
 		handler: (ctx) => shortcut.shortcutGroups(ctx),
 	}),
@@ -719,7 +752,7 @@ export const operations = [
 		path: "/v1/presets/shortcut/groups/:groupId/members",
 		input: groupIdSchema,
 		output,
-		scope: "members:read",
+		scope: "member:read",
 		preset: { legacyPath: "/shortcut/groups/:groupId/members" },
 		handler: shortcut.shortcutMembers,
 	}),
@@ -730,7 +763,7 @@ export const operations = [
 		path: "/v1/presets/shortcut/groups/:groupId/expenses",
 		input: shortcutCreateSchema,
 		output,
-		scope: "expenses:write",
+		scope: "expense:create",
 		idempotent: true,
 		preset: { legacyPath: "/shortcut/groups/:groupId/expenses" },
 		handler: shortcut.quickExpense,
@@ -797,31 +830,7 @@ export async function executeOperation(
 	input: unknown,
 	surface: OperationSurface,
 ) {
-	const startedAt = performance.now();
-	try {
-		const result = await invokeOperation(operation, ctx, input);
-		captureEvent({
-			event: "operation_completed",
-			distinctId: ctx.user.id,
-			properties: {
-				operation: operation.name,
-				surface,
-				success: true,
-				duration_ms: Math.round(performance.now() - startedAt),
-			},
-		});
-		return result;
-	} catch (error) {
-		captureEvent({
-			event: "operation_completed",
-			distinctId: ctx.user.id,
-			properties: {
-				operation: operation.name,
-				surface,
-				success: false,
-				duration_ms: Math.round(performance.now() - startedAt),
-			},
-		});
-		throw error;
-	}
+	return measuredOperation(ctx, operation.name, surface, async () =>
+		invokeOperation(operation, ctx, input),
+	);
 }

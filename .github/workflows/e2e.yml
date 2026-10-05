@@ -23,7 +23,7 @@ jobs:
         env:
           TURSO_DATABASE_URL: file:local.db
           BETTER_AUTH_SECRET: build-only-secret-not-for-production-00001
-      - run: bun run test:e2e
+      - run: bun run test:e2e:journey
       - name: Upload failing browser traces
         if: failure()
         uses: actions/upload-artifact@v4

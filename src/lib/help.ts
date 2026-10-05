@@ -1,5 +1,5 @@
 /** Bump whenever the help center or a guide's wording changes. */
-export const HELP_UPDATED = { iso: "2026-09-27", label: "27 September 2026" };
+export const HELP_UPDATED = { iso: "2026-10-04", label: "4 October 2026" };
 
 export type HelpArticle = {
 	slug: "create-a-group" | "add-an-expense";
@@ -61,16 +61,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
 				alt: "The Add an expense dialog on the Details step, with Groceries and ₹2,400 filled in.",
 			},
 			{
-				title: "Choose the split",
-				body: "Group weights is the default: each selected person's share follows their weight in the group's Members tab. With every weight at 1, the split is equal. Use Exact for amounts, Shares for a one-off ratio, or Percent for percentages. Untick anyone who should sit this one out.",
+				title: "Choose the split and add it",
+				body: "The default is Split evenly when all member weights match, or By group weight otherwise. Use Exact amounts, By ratio for a one-off ratio, or By percentage. Untick anyone sitting this out, check the live per-person preview, then add the expense.",
 				image: "/help/expense-split.webp",
 				alt: "The Split step showing Tushar assigned ₹2,400.",
-			},
-			{
-				title: "Review, then add it",
-				body: "Confirm the total, who paid, and each person's share. The expense appears on the group list as soon as you add it.",
-				image: "/help/expense-review.webp",
-				alt: "The Review step for Groceries, paid by Tushar on 14 September 2026.",
 			},
 		],
 	},
