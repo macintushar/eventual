@@ -272,7 +272,13 @@ export async function acceptInvitation(
 				role,
 				createdAt: new Date(),
 			});
-		else if ((merged || alreadyOwned) && existing.role !== role)
+		// Never demote an owner: an invitation can grant at most admin, and a
+		// group without its owner loses every owner-only control.
+		else if (
+			(merged || alreadyOwned) &&
+			existing.role !== role &&
+			existing.role !== "owner"
+		)
 			await tx.update(member).set({ role }).where(eq(member.id, existing.id));
 		await tx
 			.update(invitation)

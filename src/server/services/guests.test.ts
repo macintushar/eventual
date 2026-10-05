@@ -556,3 +556,44 @@ test("a pending owner invitation joins as admin, never a second owner", async ()
 		f.client.close();
 	}
 });
+
+test("accepting a legacy owner invitation never demotes the current owner", async () => {
+	const f = await fixture();
+	try {
+		const guest = await addMember(f.owner, {
+			groupId: "G",
+			name: "Legacy",
+			email: "legacy@example.com",
+			role: "admin",
+		});
+		assert.ok(guest.invitation);
+		await f.db
+			.update(schema.user)
+			.set({
+				isGuest: false,
+				claimedAt: new Date(),
+				email: "legacy@example.com",
+				emailVerified: true,
+			})
+			.where(eq(schema.user.id, guest.userId));
+		// They became the group's owner while an owner invitation was pending.
+		await f.db.update(schema.invitation).set({ role: "owner" });
+		await f.db
+			.update(schema.member)
+			.set({ role: "owner" })
+			.where(eq(schema.member.userId, guest.userId));
+		const claimed = {
+			...f.owner,
+			user: { ...f.owner.user, id: guest.userId, email: "legacy@example.com" },
+		} as Ctx;
+		await acceptInvitation(claimed, {
+			invitationId: guest.invitation.invitationId,
+		});
+		const row = await f.db.query.member.findFirst({
+			where: eq(schema.member.userId, guest.userId),
+		});
+		assert.equal(row?.role, "owner");
+	} finally {
+		f.client.close();
+	}
+});
