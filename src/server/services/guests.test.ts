@@ -529,3 +529,30 @@ test("an admin cannot redirect an owner invitation", async () => {
 		f.client.close();
 	}
 });
+
+test("a pending owner invitation joins as admin, never a second owner", async () => {
+	const f = await fixture();
+	try {
+		await addMember(f.owner, {
+			groupId: "G",
+			name: "Guest",
+			email: "x@example.com",
+			role: "admin",
+		});
+		// Stands in for an owner invitation issued before the one-owner rule.
+		await f.db.update(schema.invitation).set({ role: "owner" });
+		const pending = await f.db.query.invitation.findFirst();
+		assert.ok(pending);
+		await acceptInvitation(f.x, { invitationId: pending.id });
+		const joined = await f.db.query.member.findFirst({
+			where: eq(schema.member.userId, "X"),
+		});
+		assert.equal(joined?.role, "admin");
+		const owners = await f.db.query.member.findMany({
+			where: eq(schema.member.role, "owner"),
+		});
+		assert.equal(owners.length, 1);
+	} finally {
+		f.client.close();
+	}
+});

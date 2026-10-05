@@ -227,7 +227,10 @@ export async function acceptInvitation(
 	if (preview.invitation.email.toLowerCase() !== ctx.user.email.toLowerCase())
 		throw new AppError("FORBIDDEN", "Sign in with the invited email address");
 	const groupId = preview.invitation.organizationId;
-	const role = preview.invitation.role ?? "member";
+	// Each group has one owner. An owner invitation issued before that rule
+	// still lets the person in, as the highest role they can now hold.
+	const invited = preview.invitation.role ?? "member";
+	const role = invited === "owner" ? "admin" : invited;
 	await ctx.db.transaction(async (tx) => {
 		// The guest who stood in for this person becomes them: their shares,
 		// payments and history move to the account. The admin's invitation is the
