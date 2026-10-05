@@ -105,10 +105,8 @@ export function AddPersonDialog({
 	const valid =
 		Boolean(name.trim()) && Number.isInteger(weightValue) && weightValue > 0;
 	const overlap = emailInGroup(people, email);
-	const roles: Role[] =
-		people.myRole === "owner"
-			? ["member", "admin", "owner"]
-			: ["member", "admin"];
+	// Each group has one owner, so nobody can be added as another.
+	const roles: Role[] = ["member", "admin"];
 
 	const reset = () => {
 		setName("");

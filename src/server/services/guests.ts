@@ -32,8 +32,8 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 			throw new AppError("FORBIDDEN", "You are not a member of this group");
 		requirePermission(mine.role as Role, { member: ["create"] });
 		const role = input.role ?? "member";
-		if (role === "owner" && mine.role !== "owner")
-			throw new AppError("FORBIDDEN", "Only owners can invite another owner");
+		if (role === "owner")
+			throw new AppError("FORBIDDEN", "Each group has one owner");
 		const group = await tx.query.organization.findFirst({
 			where: eq(s.organization.id, input.groupId),
 		});

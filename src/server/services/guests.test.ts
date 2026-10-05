@@ -330,8 +330,8 @@ test("an unmatched email cannot claim a guest through their phone", async () => 
 	}
 });
 
-test("correcting an invitation preserves its admin or owner role", async () => {
-	for (const role of ["admin", "owner"] as const) {
+test("correcting an invitation preserves its admin role", async () => {
+	for (const role of ["admin"] as const) {
 		const f = await fixture();
 		try {
 			const guest = await addMember(f.owner, {
@@ -478,6 +478,28 @@ test("a guest who claimed their account can still accept their invitation", asyn
 	}
 });
 
+test("a guest cannot be added as a second owner", async () => {
+	const f = await fixture();
+	try {
+		await assert.rejects(
+			addMember(f.owner, {
+				groupId: "G",
+				name: "Guest",
+				email: "typo@example.com",
+				role: "owner",
+			}),
+			/Each group has one owner/,
+		);
+		assert.equal((await f.db.query.invitation.findMany()).length, 0);
+	} finally {
+		f.client.close();
+	}
+});
+
+/**
+ * Owner invitations can no longer be created, but ones issued before the
+ * one-owner rule may still be pending, so the reissue guard still matters.
+ */
 test("an admin cannot redirect an owner invitation", async () => {
 	const f = await fixture();
 	try {
@@ -485,8 +507,9 @@ test("an admin cannot redirect an owner invitation", async () => {
 			groupId: "G",
 			name: "Guest",
 			email: "typo@example.com",
-			role: "owner",
+			role: "admin",
 		});
+		await f.db.update(schema.invitation).set({ role: "owner" });
 		await f.db
 			.update(schema.member)
 			.set({ role: "admin" })
