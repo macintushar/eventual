@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "09b101c8-2bf2-4e4e-9721-fe9bd2367672",
-  "prevId": "e163c19e-a875-4275-bc2e-2d88850c4e38",
+  "id": "36423da1-3924-40f7-9119-67bc6fae5b9a",
+  "prevId": "09b101c8-2bf2-4e4e-9721-fe9bd2367672",
   "tables": {
     "account": {
       "name": "account",
@@ -1999,6 +1999,29 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "bio": {
+          "name": "bio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "is_email_public": {
+          "name": "is_email_public",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "is_phone_public": {
+          "name": "is_phone_public",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
         },
         "is_guest": {
           "name": "is_guest",
