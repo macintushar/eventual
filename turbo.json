@@ -1,0 +1,37 @@
+{
+	"$schema": "https://turborepo.com/schema.json",
+	"ui": "stream",
+	"globalEnv": ["NODE_ENV", "CI"],
+	"tasks": {
+		"build": {
+			"dependsOn": ["^build"],
+			"env": [
+				"TURSO_*",
+				"BETTER_AUTH_*",
+				"GOOGLE_CLIENT_*",
+				"EMAIL_*",
+				"RESEND_API_KEY",
+				"LEGAL_*",
+				"POSTHOG_*",
+				"SENTRY_*",
+				"STATUS_PAGE_URL",
+				"SUPPORT_EMAIL",
+				"VITE_*",
+				"VERCEL",
+				"VERCEL_*"
+			],
+			"outputs": [".output/**", ".vercel/output/**", "dist/**"]
+		},
+		"typecheck": {
+			"dependsOn": ["^typecheck"]
+		},
+		"test": {
+			"dependsOn": ["^typecheck"],
+			"passThroughEnv": ["TURSO_*", "BETTER_AUTH_*"]
+		},
+		"dev": {
+			"cache": false,
+			"persistent": true
+		}
+	}
+}
