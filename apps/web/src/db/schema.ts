@@ -1,3 +1,4 @@
+import { activityTypes } from "@eventual/schemas/outputs";
 import { relations, sql } from "drizzle-orm";
 import {
 	check,
@@ -403,28 +404,7 @@ export const settlementAllocation = sqliteTable(
 	],
 );
 
-export const activityTypes = [
-	"group.created",
-	"group.renamed",
-	"group.archived",
-	"group.unarchived",
-	"group.duplicated",
-	"group.deleted",
-	"member.invited",
-	"member.invite_revoked",
-	"member.joined",
-	"member.removed",
-	"member.left",
-	"member.role_changed",
-	"member.updated",
-	"expense.created",
-	"expense.updated",
-	"expense.deleted",
-	"share.marked_paid",
-	"share.marked_unpaid",
-	"settlement.created",
-	"settlement.deleted",
-] as const;
+export { activityTypes };
 
 export const activity = sqliteTable(
 	"activity",

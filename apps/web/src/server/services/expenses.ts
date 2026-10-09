@@ -1,3 +1,10 @@
+import type { CreateExpenseInput, UpdateExpenseInput } from "@eventual/schemas";
+import {
+	type BulkResplitInput,
+	bulkResplitSchema,
+	type ExpenseFilters,
+	type ExpenseSortBy,
+} from "@eventual/schemas/expenses";
 import { and, asc, desc, eq, gte, lt, lte, or, sql } from "drizzle-orm";
 import { expense, expenseShare } from "#/db/schema";
 import { validateSharePayment } from "#/lib/settlements";
@@ -9,13 +16,6 @@ import {
 } from "#/server/domain/activity";
 import { computeShares } from "#/server/domain/split";
 import { AppError } from "#/server/errors";
-import type { CreateExpenseInput, UpdateExpenseInput } from "#/server/schemas";
-import {
-	type BulkResplitInput,
-	bulkResplitSchema,
-	type ExpenseFilters,
-	type ExpenseSortBy,
-} from "#/server/schemas/expenses";
 import { readBalances } from "./balances";
 import { normalizeSearchText, suggestCategory } from "./categories";
 import { listMembers, weightedParticipants } from "./members";

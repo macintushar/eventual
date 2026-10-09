@@ -1,4 +1,4 @@
-import { isCurrency } from "#/lib/currencies";
+import { isCurrency } from "@eventual/schemas/currencies";
 import { formatMinor } from "#/lib/money";
 
 export type Repayment = {

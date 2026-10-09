@@ -1,11 +1,11 @@
 import { apiKey } from "@better-auth/api-key";
+import { storedImageSchema } from "@eventual/schemas";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { lastLoginMethod } from "better-auth/plugins";
 import { organization } from "better-auth/plugins/organization";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
-
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "#/db";
 import * as schema from "#/db/schema";
@@ -22,7 +22,6 @@ import {
 	releaseVerificationSend,
 	reserveVerificationSend,
 } from "#/server/pending-verification";
-import { storedImageSchema } from "#/server/schemas";
 
 const API_KEY_PREFIX = "ev_";
 const LEGACY_API_KEY_PREFIX = "ss_";

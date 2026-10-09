@@ -1,3 +1,6 @@
+import type { ErrorCode } from "@eventual/schemas/errors";
+
+/** Loose on purpose: shortcut and proxy errors don't always carry every field. */
 type ApiErrorBody = {
 	code?: string;
 	message?: string;
@@ -24,4 +27,24 @@ export function apiErrorMessage(error: ApiErrorBody | undefined) {
 			return `${field.charAt(0).toUpperCase()}${field.slice(1)}: ${message}`;
 	}
 	return fallback;
+}
+
+/** A non-2xx response from the Eventual API. */
+export class EventualApiError extends Error {
+	readonly status: number;
+	/** `VALIDATION`, `NOT_FOUND`, … — null when the body wasn't an API error. */
+	readonly code: ErrorCode | null;
+	readonly details: unknown;
+
+	constructor(status: number, body: ApiErrorBody | undefined) {
+		super(apiErrorMessage(body));
+		this.name = "EventualApiError";
+		this.status = status;
+		this.code = (body?.code as ErrorCode | undefined) ?? null;
+		this.details = body?.details;
+	}
+}
+
+export function isEventualApiError(error: unknown): error is EventualApiError {
+	return error instanceof EventualApiError;
 }

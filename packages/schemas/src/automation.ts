@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createExpenseSchema, groupIdSchema, idSchema } from "./index";
+import { createExpenseSchema, groupIdSchema, idSchema } from "./common";
 
 export const recurrenceSchema = z.enum([
 	"daily",

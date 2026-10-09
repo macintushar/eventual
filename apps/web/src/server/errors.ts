@@ -1,21 +1,6 @@
-export type ErrorCode =
-	| "UNAUTHENTICATED"
-	| "FORBIDDEN"
-	| "NOT_FOUND"
-	| "VALIDATION"
-	| "EXPENSE_LOCKED"
-	| "CONFLICT"
-	| "INTERNAL";
+import type { ErrorCode } from "@eventual/schemas/errors";
 
-export const errorStatus: Record<ErrorCode, number> = {
-	UNAUTHENTICATED: 401,
-	FORBIDDEN: 403,
-	NOT_FOUND: 404,
-	VALIDATION: 422,
-	EXPENSE_LOCKED: 409,
-	CONFLICT: 409,
-	INTERNAL: 500,
-};
+export { type ErrorCode, errorStatus } from "@eventual/schemas/errors";
 
 export class AppError extends Error {
 	constructor(

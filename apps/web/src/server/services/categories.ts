@@ -1,14 +1,14 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import { categoryRule, expense } from "#/db/schema";
-import { builtInCategory, normalizeSearchText } from "#/lib/categories";
-import type { Ctx } from "#/server/context";
-import { AppError } from "#/server/errors";
 import {
 	applyCategoriesSchema,
 	categoryBackfillSchema,
 	createCategoryRuleSchema,
 	updateCategoryRuleSchema,
-} from "#/server/schemas/expenses";
+} from "@eventual/schemas/expenses";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { categoryRule, expense } from "#/db/schema";
+import { builtInCategory, normalizeSearchText } from "#/lib/categories";
+import type { Ctx } from "#/server/context";
+import { AppError } from "#/server/errors";
 import { id, membership, requirePermission } from "./shared";
 
 export { normalizeSearchText };

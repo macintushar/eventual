@@ -1,3 +1,9 @@
+import { createExpenseSchema } from "@eventual/schemas";
+import {
+	createRecurringExpenseSchema,
+	recurringExpensePayloadSchema,
+	updateRecurringExpenseSchema,
+} from "@eventual/schemas/automation";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "#/db";
@@ -11,12 +17,6 @@ import {
 	enqueueJob,
 	ownedJob,
 } from "#/server/jobs";
-import { createExpenseSchema } from "#/server/schemas";
-import {
-	createRecurringExpenseSchema,
-	recurringExpensePayloadSchema,
-	updateRecurringExpenseSchema,
-} from "#/server/schemas/automation";
 import { createExpense, previewExpense } from "./expenses";
 import { assertExpenseMembers, membership } from "./shared";
 

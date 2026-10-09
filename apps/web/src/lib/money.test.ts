@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { currencies, currencySymbol } from "#/lib/currencies";
+import { createExpenseSchema, createSettlementSchema } from "@eventual/schemas";
+import { currencies, currencySymbol } from "@eventual/schemas/currencies";
 import { formatMinor, fromMinor, parseMinor, toMinor } from "#/lib/money";
 import { validateRepayment } from "#/lib/settlements";
 import { computeBalances, simplifyBalances } from "#/server/domain/balances";
 import { computeShares } from "#/server/domain/split";
-import { createExpenseSchema, createSettlementSchema } from "#/server/schemas";
 
 test("every supported currency has an explicit symbol used in formatting", () => {
 	for (const { code } of currencies) {

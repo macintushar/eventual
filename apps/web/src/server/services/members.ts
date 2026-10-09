@@ -1,3 +1,7 @@
+import {
+	type UpdateMemberWeightInput,
+	updateMemberWeightSchema,
+} from "@eventual/schemas/people";
 import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
 	channelIdentity,
@@ -12,10 +16,6 @@ import type { Ctx } from "#/server/context";
 import { people } from "#/server/domain/activity";
 import type { Participant } from "#/server/domain/split";
 import { AppError } from "#/server/errors";
-import {
-	type UpdateMemberWeightInput,
-	updateMemberWeightSchema,
-} from "#/server/schemas/people";
 import { getBalances } from "./balances";
 import {
 	activityRow,

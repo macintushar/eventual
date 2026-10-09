@@ -1,5 +1,5 @@
+import type { ExpenseSortBy } from "@eventual/schemas/expenses";
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
-
 import {
 	getActivityFn,
 	getCategoryBackfillFn,
@@ -25,7 +25,6 @@ import {
 	listApiKeysFn,
 	searchExpensesFn,
 } from "#/lib/web-api-client";
-import type { ExpenseSortBy } from "#/server/schemas/expenses";
 
 const staticStaleTime = 10 * 60_000;
 export const expensePageSize = 30;

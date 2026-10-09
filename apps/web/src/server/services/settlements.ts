@@ -1,3 +1,4 @@
+import type { CreateSettlementInput } from "@eventual/schemas";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
 	expense,
@@ -15,7 +16,6 @@ import {
 	encodePageCursor,
 	pageLimit,
 } from "#/server/pagination";
-import type { CreateSettlementInput } from "#/server/schemas";
 import { readBalances } from "./balances";
 import { listMembers } from "./members";
 import {

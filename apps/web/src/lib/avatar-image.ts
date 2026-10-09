@@ -1,4 +1,4 @@
-import { AVATAR_MAX_LENGTH } from "#/server/schemas";
+import { AVATAR_MAX_LENGTH } from "@eventual/schemas";
 
 /** Twice the largest avatar on screen (48px), so it stays sharp on retina. */
 const SIZE = 128;

@@ -1,3 +1,7 @@
+import {
+	reminderPreferencesSchema,
+	scheduleReminderSchema,
+} from "@eventual/schemas/automation";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "#/db";
@@ -6,10 +10,6 @@ import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
 import { type ClaimedJob, enqueueJob } from "#/server/jobs";
 import { createNotifier, isSyntheticGuest } from "#/server/notifier";
-import {
-	reminderPreferencesSchema,
-	scheduleReminderSchema,
-} from "#/server/schemas/automation";
 import { membership } from "./shared";
 
 const reminderJobSchema = scheduleReminderSchema.extend({

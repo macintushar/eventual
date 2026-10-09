@@ -1,3 +1,4 @@
+import type { ExpenseSortBy } from "@eventual/schemas/expenses";
 import { Link } from "@tanstack/react-router";
 import {
 	createColumnHelper,
@@ -7,7 +8,6 @@ import {
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, Lock } from "lucide-react";
 import { useMemo } from "react";
-
 import { Amount } from "#/components/amount";
 import { MemberAvatar } from "#/components/member-avatar";
 import {
@@ -25,7 +25,6 @@ import {
 } from "#/components/ui/table";
 import { formatShortDate } from "#/lib/dates";
 import { cn } from "#/lib/utils";
-import type { ExpenseSortBy } from "#/server/schemas/expenses";
 
 export type ExpenseTableRow = {
 	id: string;

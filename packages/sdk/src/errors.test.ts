@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { apiErrorMessage } from "#/lib/api-error";
+import { apiErrorMessage } from "./errors";
 
 test("validation errors name the field that failed", () => {
 	assert.equal(

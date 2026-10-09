@@ -1,3 +1,4 @@
+import type { ExpenseFilters, ExpenseSortBy } from "@eventual/schemas/expenses";
 import { and, asc, desc, eq, type SQL, sql } from "drizzle-orm";
 import { expense, expenseShare, user } from "#/db/schema";
 import type { Ctx } from "#/server/context";
@@ -7,7 +8,6 @@ import {
 	encodePageCursor,
 	pageLimit,
 } from "#/server/pagination";
-import type { ExpenseFilters, ExpenseSortBy } from "#/server/schemas/expenses";
 import { normalizeSearchText } from "./categories";
 import { expenseFilterClauses } from "./expenses";
 import { membership } from "./shared";

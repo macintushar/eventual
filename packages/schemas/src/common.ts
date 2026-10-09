@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { currencies, isCurrency } from "#/lib/currencies";
-import { phoneSchema } from "#/server/schemas/people";
+import { currencies, isCurrency } from "./currencies";
+import { phoneSchema } from "./people";
 
 export const currencySchema = z
 	.string()

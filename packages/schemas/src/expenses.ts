@@ -5,7 +5,7 @@ import {
 	participantSchema,
 	previewExpenseSchema,
 	splitMethodSchema,
-} from "./index";
+} from "./common";
 
 export const categorySchema = z.string().trim().min(1).max(100);
 export const expenseFiltersSchema = z.object({

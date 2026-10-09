@@ -1,3 +1,8 @@
+import {
+	claimGuestSchema,
+	normalizedEmailSchema,
+	requestGuestClaimSchema,
+} from "@eventual/schemas/people";
 import type { BetterAuthOptions, BetterAuthPlugin } from "better-auth";
 import {
 	APIError,
@@ -15,11 +20,6 @@ import {
 	requestGuestClaim,
 } from "#/lib/guest-claim";
 import { reportError } from "#/server/error-reporting";
-import {
-	claimGuestSchema,
-	normalizedEmailSchema,
-	requestGuestClaimSchema,
-} from "#/server/schemas/people";
 
 /** Better Auth 1.5.3 sign-up.mjs checks findUserByEmail BEFORE createUser.
  * password.mjs creates a credential account during reset if none exists.

@@ -1,3 +1,4 @@
+import { appEndpoints } from "@eventual/schemas/contract";
 import { z } from "zod";
 import { errorStatus } from "#/server/errors";
 import {
@@ -7,13 +8,6 @@ import {
 	TAGS,
 } from "#/server/openapi-meta";
 import { operations } from "#/server/operations";
-import { updateProfileSchema } from "#/server/schemas";
-import {
-	apiKeySummarySchema,
-	createApiKeySchema,
-	createdApiKeySchema,
-	profileSchema,
-} from "#/server/schemas/account";
 
 const jsonSchema = (schema: z.ZodType) =>
 	z.toJSONSchema(schema, {
@@ -137,71 +131,58 @@ export function openApiDocument(origin?: string) {
 		paths[path] ??= {};
 		paths[path][operation.method.toLowerCase()] = entry;
 	}
-	// Request and response contracts for the web endpoints that have one worth
-	// generating a client from; the rest are app-internal page payloads.
-	const webContracts: Partial<
-		Record<string, { request?: z.ZodType; response: z.ZodType }>
-	> = {
-		"profile.update": { request: updateProfileSchema, response: profileSchema },
-		"apiKey.list": { response: z.array(apiKeySummarySchema) },
-		"apiKey.create": {
-			request: createApiKeySchema,
-			response: createdApiKeySchema,
-		},
-		"apiKey.delete": { response: z.object({ success: z.literal(true) }) },
-		"site.get": {
-			response: z.object({
-				origin: z.string(),
-				supportEmail: z.string().nullable(),
-				googleSignIn: z.boolean(),
-				statusPageUrl: z.string().nullable(),
-			}),
-		},
-	};
-	const webEndpoints = [
-		["/v1/health", "get", "health", true],
-		["/v1/site", "get", "site.get", true],
-		["/v1/legal", "get", "legal.get", true],
-		["/v1/session", "get", "session.get", true],
-		["/v1/pending-verification", "get", "verification.pending", true],
-		["/v1/pending-verification/send", "post", "verification.send", true],
-		["/v1/app/dashboard", "get", "app.dashboard", false],
-		["/v1/app/composer", "get", "app.composer", false],
-		["/v1/app/group-directory", "get", "app.groupDirectory", false],
-		["/v1/app/groups/{groupId}/context", "get", "app.groupContext", false],
-		[
-			"/v1/app/groups/{groupId}/financial-summary",
-			"get",
-			"app.groupSummary",
-			false,
-		],
-		["/v1/app/groups/{groupId}/settings", "get", "app.groupSettings", false],
-		["/v1/app/groups/{groupId}/page", "get", "app.groupPage", false],
-		["/v1/me/profile", "patch", "profile.update", false],
-		["/v1/me/api-keys", "get", "apiKey.list", false],
-		["/v1/me/api-keys", "post", "apiKey.create", false],
-		["/v1/me/api-keys/{keyId}", "delete", "apiKey.delete", false],
-	] as const;
-	for (const [path, method, operationId, publicAccess] of webEndpoints) {
-		const contract = webContracts[operationId];
+	for (const endpoint of appEndpoints) {
+		const path = endpoint.path.replace(/:([A-Za-z0-9_]+)/g, "{$1}");
+		const pathNames = [...endpoint.path.matchAll(/:([A-Za-z0-9_]+)/g)].map(
+			([, name]) => name,
+		);
+		const request = jsonSchema(endpoint.input);
+		const fields = Object.entries(request.properties ?? {}).filter(
+			([name]) => !pathNames.includes(name),
+		);
+		const required = (name: string) =>
+			request.required?.includes(name) ?? false;
+		const inQuery =
+			endpoint.method === "GET" ||
+			("inputIn" in endpoint && endpoint.inputIn === "query");
 		paths[path] ??= {};
-		paths[path][method] = {
-			operationId,
-			summary: SUMMARIES[operationId],
-			tags: [operationId.split(".")[0]],
-			security: publicAccess ? [] : [{ cookieAuth: [] }],
-			parameters: [...path.matchAll(/\{([^}]+)\}/g)].map(([, name]) => ({
-				name,
-				in: "path",
-				required: true,
-				schema: { type: "string" },
-			})),
-			...(contract?.request
+		paths[path][endpoint.method.toLowerCase()] = {
+			operationId: endpoint.name,
+			summary: SUMMARIES[endpoint.name],
+			tags: [endpoint.name.split(".")[0]],
+			security: endpoint.access === "public" ? [] : [{ cookieAuth: [] }],
+			parameters: [
+				...pathNames.map((name) => ({
+					name,
+					in: "path",
+					required: true,
+					schema: { type: "string" },
+				})),
+				...(inQuery
+					? fields.map(([name, schema]) => ({
+							name,
+							in: "query",
+							required: required(name),
+							schema,
+						}))
+					: []),
+			],
+			...(!inQuery && fields.length
 				? {
 						requestBody: {
 							required: true,
 							content: {
-								"application/json": { schema: jsonSchema(contract.request) },
+								"application/json": {
+									schema: {
+										...request,
+										properties: Object.fromEntries(fields),
+										...(request.required && {
+											required: request.required.filter(
+												(name) => !pathNames.includes(name),
+											),
+										}),
+									},
+								},
 							},
 						},
 					}
@@ -210,9 +191,7 @@ export function openApiDocument(origin?: string) {
 				"200": {
 					description: "Successful response",
 					content: {
-						"application/json": {
-							schema: contract ? jsonSchema(contract.response) : {},
-						},
+						"application/json": { schema: jsonSchema(endpoint.output) },
 					},
 				},
 				"4XX": errorResponse,

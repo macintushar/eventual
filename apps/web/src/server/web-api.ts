@@ -1,3 +1,8 @@
+import { updateProfileSchema } from "@eventual/schemas";
+import {
+	type ApiKeySummary,
+	createApiKeySchema,
+} from "@eventual/schemas/account";
 import { APIError } from "better-auth/api";
 import { and, eq } from "drizzle-orm";
 import { db } from "#/db";
@@ -20,11 +25,6 @@ import {
 	settledVerificationSendStatus,
 	verificationSendStatus,
 } from "#/server/pending-verification";
-import { updateProfileSchema } from "#/server/schemas";
-import {
-	type ApiKeySummary,
-	createApiKeySchema,
-} from "#/server/schemas/account";
 import * as services from "#/server/services/app";
 import {
 	crossGroupBalancesFromSummaries,

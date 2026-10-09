@@ -1,3 +1,4 @@
+import { currencies, currencySymbol } from "@eventual/schemas/currencies";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ArrowRight, Check, HandCoins, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -54,7 +55,6 @@ import {
 } from "#/components/ui/select";
 import { Spinner } from "#/components/ui/spinner";
 import { Textarea } from "#/components/ui/textarea";
-import { currencies, currencySymbol } from "#/lib/currencies";
 import { formatMinor, fromMinor, parseMinor } from "#/lib/money";
 import { settlementsInfiniteOptions } from "#/lib/queries";
 import { repaymentLimit, validateRepayment } from "#/lib/settlements";

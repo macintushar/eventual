@@ -1,5 +1,5 @@
+import { currencies, currencySymbol } from "@eventual/schemas/currencies";
 import { OptionCombobox } from "#/components/option-combobox";
-import { currencies, currencySymbol } from "#/lib/currencies";
 
 const options = currencies.map(({ code, name }) => ({
 	value: code,

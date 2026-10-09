@@ -1,4 +1,4 @@
-import { currencyDecimals, currencySymbol } from "#/lib/currencies";
+import { currencyDecimals, currencySymbol } from "@eventual/schemas/currencies";
 
 /** Returns null for incomplete or invalid input so previews can avoid throw-in-render. */
 export function parseMinor(

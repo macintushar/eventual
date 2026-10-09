@@ -1,9 +1,10 @@
+import { bioSchema, upiVpaSchema, wiseTagSchema } from "@eventual/schemas";
+import { phoneSchema } from "@eventual/schemas/people";
 import { useForm } from "@tanstack/react-form";
 import { ArrowUpRight, Camera, ImageUp, Trash2 } from "lucide-react";
 import { type ComponentProps, forwardRef, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ZodType } from "zod";
-
 import { BrandLogo } from "#/components/brand-logo";
 import { EmailVerification } from "#/components/email-verification";
 import { MemberAvatar } from "#/components/member-avatar";
@@ -30,8 +31,6 @@ import { useUpdateProfile } from "#/lib/app-mutation";
 import { toAvatarDataUrl } from "#/lib/avatar-image";
 import { fieldError } from "#/lib/form-error";
 import { cn } from "#/lib/utils";
-import { bioSchema, upiVpaSchema, wiseTagSchema } from "#/server/schemas";
-import { phoneSchema } from "#/server/schemas/people";
 
 type ProfileUser = {
 	name: string;

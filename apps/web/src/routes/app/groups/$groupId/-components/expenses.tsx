@@ -1,3 +1,4 @@
+import type { ExpenseSortBy } from "@eventual/schemas/expenses";
 import {
 	keepPreviousData,
 	useInfiniteQuery,
@@ -23,7 +24,6 @@ import {
 import { Spinner } from "#/components/ui/spinner";
 import { expensesInfiniteOptions, recurringQueryOptions } from "#/lib/queries";
 import { cn } from "#/lib/utils";
-import type { ExpenseSortBy } from "#/server/schemas/expenses";
 import { LoadError, type LoaderData, Loading, type Run } from "./shared";
 
 /* ---------------------------------------------------------------- Expenses */

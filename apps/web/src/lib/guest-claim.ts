@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, gt, like, sql } from "drizzle-orm";
-import type { Database } from "#/db";
-import { account, session, user, verification } from "#/db/schema";
 import {
 	claimGuestSchema,
 	normalizedEmailSchema,
-} from "#/server/schemas/people";
+} from "@eventual/schemas/people";
+import { and, eq, gt, like, sql } from "drizzle-orm";
+import type { Database } from "#/db";
+import { account, session, user, verification } from "#/db/schema";
 
 export const GUEST_CLAIM_TTL_MS = 60 * 60 * 1000;
 const digest = (token: string) =>

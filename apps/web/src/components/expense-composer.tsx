@@ -1,8 +1,13 @@
+import {
+	currencies,
+	currencyDecimals,
+	currencySymbol,
+} from "@eventual/schemas/currencies";
+import { isEventualApiError } from "@eventual/sdk";
 import { useQueryClient } from "@tanstack/react-query";
 import { Users } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
-
 import { Amount } from "#/components/amount";
 import { EmptyState } from "#/components/empty-state";
 import { MemberAvatar } from "#/components/member-avatar";
@@ -44,7 +49,6 @@ import { type Step, useStepper } from "#/components/ui/stepper";
 import { Textarea } from "#/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
 import { useAppMutation } from "#/lib/app-mutation";
-import { currencies, currencyDecimals, currencySymbol } from "#/lib/currencies";
 import { atNoon, formatLongDate } from "#/lib/dates";
 import { formatMinor, fromMinor, parseMinor } from "#/lib/money";
 import { cn } from "#/lib/utils";
@@ -70,7 +74,8 @@ export type ExpenseDraft = {
 	currency: string;
 	paidByUserId: string;
 	splitMethod: SplitMethod;
-	date: Date;
+	/** ISO string from the API; `Date` from a draft built in the browser. */
+	date: Date | string;
 	shares: { userId: string; splitInput: number | null }[];
 };
 
@@ -395,13 +400,12 @@ export function ExpenseComposer({
 				: { action: "expense.create", input: { ...base, groupId } },
 		);
 		if (!outcome.ok) {
-			const error = outcome.error as {
-				status?: number;
-				details?: { details?: { reason?: string } };
-			};
+			const error = outcome.error;
 			if (
-				error?.status === 409 &&
-				error.details?.details?.reason === "split_changed"
+				isEventualApiError(error) &&
+				error.status === 409 &&
+				(error.details as { reason?: string } | undefined)?.reason ===
+					"split_changed"
 			) {
 				// The composer may have been seeded from the group's own context,
 				// so refresh that as well as the full list.

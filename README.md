@@ -2,10 +2,39 @@
 
 Eventual is a TanStack Start expense-sharing app for multi-currency groups. It uses Better Auth organizations, Drizzle ORM, libSQL/Turso, a versioned JSON REST API, and an authenticated MCP endpoint.
 
+## Repository layout
+
+A Bun workspace driven by Turborepo:
+
+| Path | Package | What it is |
+| --- | --- | --- |
+| `apps/web` | `@eventual/web` | The TanStack Start app: UI, `/api`, MCP, jobs. Deploys to Vercel. |
+| `packages/schemas` | `@eventual/schemas` | Zod schemas for every request and response, currencies, error codes, and the HTTP contract (`contract.ts`). No server code. |
+| `packages/sdk` | `@eventual/sdk` | A typed `fetch` client built from the contract. Runs in browsers, Node and React Native. |
+
+Packages export TypeScript source, so there is nothing to build before using them. From the root, `bun run typecheck`, `bun run test` and `bun run build` run every package through Turborepo; `bun run check` runs Biome over the whole repo. App commands (`dev`, `db:*`, `test:e2e`, …) run from `apps/web`, and paths below like `src/…` are relative to it.
+
+### Calling the API from another app
+
+```ts
+import { createEventualClient, isEventualApiError } from "@eventual/sdk";
+
+const eventual = createEventualClient({
+	baseUrl: "https://eventual.example.com",
+	apiKey: process.env.EVENTUAL_API_KEY, // or `headers` with a session cookie
+});
+
+const group = await eventual.call("group.get", { groupId });
+await eventual.call("expense.create", input, { idempotencyKey: crypto.randomUUID() });
+```
+
+Endpoint names, inputs and outputs come from `packages/schemas/src/contract.ts`. REST operations accept API keys (subject to their scopes); the `app.*` page endpoints and account endpoints need the session cookie, or a key with full account access. Outputs describe the JSON on the wire, so timestamps are ISO strings. `contract.check.ts` in the web app fails the typecheck when a handler's result and its declared output drift apart, so a field added on the server has to be added to the schema too.
+
 ## Local setup
 
 ```bash
 bun install
+cd apps/web
 bun run db:generate
 bun run db:migrate
 bun run db:seed
@@ -47,7 +76,7 @@ Configure these server-side variables in the Vercel project for each deployment 
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (optional): Google OAuth credentials. Register `http://localhost:3000/api/auth/callback/google` for local development and `https://your-domain.com/api/auth/callback/google` for production in Google Cloud Console. Users can connect or disconnect Google from **Settings → Profile**; Better Auth also links a verified Google identity to an existing account when the email addresses match.
 - `STATUS_PAGE_URL` (optional): public status page for this instance, for example `https://status.example.com`. When set, a status callout links to it from the footer, the help contact section, and the error screen. Leave it unset to hide those links. Redeploy after changing it; the public pages that show it are prerendered.
 
-Vercel runs `bun run db:migrate && bun run build` on every deployment, as configured in `vercel.json`. A failed migration stops the deployment. Migrations use the database credentials configured for that deployment environment, including Preview deployments.
+Set the Vercel project's **Root Directory** to `apps/web`. Vercel installs from the workspace root and runs `bun run db:migrate && bun run build` in `apps/web` on every deployment, as configured in `apps/web/vercel.json`. A failed migration stops the deployment. Migrations use the database credentials configured for that deployment environment, including Preview deployments.
 
 The scheduled job runner runs once per day at 00:00 UTC to stay within Vercel Hobby's cron limit. Scheduled reminders and recurring expenses may therefore run up to a day after their due time. Each run works through every job that is due, for up to 50 seconds, rather than a fixed batch.
 
@@ -66,9 +95,9 @@ bun run api:docs:generate  # update public/openapi.json after changing contracts
 bun run api:docs:check     # fail if the checked-in snapshot is missing or stale
 ```
 
-Generation uses `src/server/openapi.ts`, the operation registry in `src/server/operations.ts`, and its Zod schemas. It requires no running server, database migrations, or credentials. The snapshot uses a relative `/api` server URL and has no timestamps or environment-specific values. Commit the generated JSON alongside API changes. CI runs the read-only check before tests/build and tells you to regenerate when it differs; it never silently rewrites the snapshot.
+Generation uses `src/server/openapi.ts` and the contract in `packages/schemas/src/contract.ts`, with its Zod schemas. It requires no running server, database migrations, or credentials. The snapshot uses a relative `/api` server URL and has no timestamps or environment-specific values. Commit the generated JSON alongside API changes. CI runs the read-only check before tests/build and tells you to regenerate when it differs; it never silently rewrites the snapshot.
 
-This documents versioned REST operations and registered web endpoints, not Better Auth's own `/api/auth/*` routes or MCP protocol messages. Many existing operation response schemas are still `unknown` (rendered as `{}`), so their response fields are not yet fully described. Add explicit output schemas to the registry when building typed external clients; matching the snapshot checks freshness, not full runtime response conformance or backward compatibility.
+This documents versioned REST operations and registered web endpoints, not Better Auth's own `/api/auth/*` routes or MCP protocol messages. Every endpoint has an output schema, and `contract.check.ts` holds each handler's return type to it at compile time. Matching the snapshot checks freshness, not runtime response conformance or backward compatibility.
 
 ## Health check
 
@@ -79,7 +108,7 @@ Set `STATUS_PAGE_URL` when that uptime check has a public status page. The site 
 ## Behaviour
 
 - Money is stored as integer minor units with its original ISO currency code. INR and USD use 100 minor units per major unit; JPY uses 1 and KWD uses 1,000. No exchange conversion or cross-currency netting happens in the backend.
-- Supported currencies and precision live in `src/lib/currencies.ts`: INR, USD, EUR, GBP, AED, AUD, CAD, CHF, CNY, HKD, JPY, KRW, KWD, MYR, NPR, NZD, SAR, SGD, THB and VND. Every currency has an explicit display symbol, including ₹, US$, CA$, £ and €.
+- Supported currencies and precision live in `packages/schemas/src/currencies.ts`: INR, USD, EUR, GBP, AED, AUD, CAD, CHF, CNY, HKD, JPY, KRW, KWD, MYR, NPR, NZD, SAR, SGD, THB and VND. Every currency has an explicit display symbol, including ₹, US$, CA$, £ and €.
 - Even splits use member weights and distribute remainder minor units by largest remainder, then ascending user ID.
 - Shares and percentages use largest-remainder allocation with user-ID tie breaking.
 - Exact inputs must equal the expense total; percentages must equal 10,000 basis points.
@@ -248,11 +277,12 @@ Build it with `bun run shortcut:build-ai [default-url]`; both generators share `
 ## Verification
 
 ```bash
-bun run check
-bunx tsc --noEmit
+bun run check                      # from the root
+bun run typecheck
 bun run test
 bun run build
-bunx playwright install chromium # once per machine
+cd apps/web
+bunx playwright install chromium   # once per machine
 bun run test:e2e
 ```
 

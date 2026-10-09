@@ -1,8 +1,8 @@
+import type { CreateGroupInput } from "@eventual/schemas";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { member, organization, session, user } from "#/db/schema";
 import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
-import type { CreateGroupInput } from "#/server/schemas";
 import { readGroupSummaries } from "./balances";
 import { listMembers } from "./members";
 import {

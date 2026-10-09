@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema } from "./index";
+import { idSchema } from "./common";
 
 export const archiveGroupSchema = z.object({ groupId: idSchema });
 export const unarchiveGroupSchema = z.object({ groupId: idSchema });

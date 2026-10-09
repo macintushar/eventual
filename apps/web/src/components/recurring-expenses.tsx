@@ -1,7 +1,7 @@
+import { currencySymbol } from "@eventual/schemas/currencies";
 import { Pause, Play, Plus, Repeat, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
-
 import { ConfirmDialog } from "#/components/confirm-dialog";
 import { CurrencySelect } from "#/components/currency-select";
 import { MemberAvatar } from "#/components/member-avatar";
@@ -46,7 +46,6 @@ import {
 } from "#/components/ui/select";
 import { Spinner } from "#/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
-import { currencySymbol } from "#/lib/currencies";
 import { atNoon, formatLongDate, formatShortDate } from "#/lib/dates";
 import { formatMinor, parseMinor } from "#/lib/money";
 import { canEditRecurring } from "#/lib/permissions";

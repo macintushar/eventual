@@ -1,7 +1,3 @@
-import { and, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
-import * as s from "#/db/schema";
-import type { Ctx } from "#/server/context";
-import { AppError } from "#/server/errors";
 import {
 	type AddMemberInput,
 	addMemberSchema,
@@ -9,7 +5,11 @@ import {
 	mergeGuestSchema,
 	type UpdateGuestInput,
 	updateGuestSchema,
-} from "#/server/schemas/people";
+} from "@eventual/schemas/people";
+import { and, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
+import * as s from "#/db/schema";
+import type { Ctx } from "#/server/context";
+import { AppError } from "#/server/errors";
 import { deliverInvitation, ensureInvitation } from "./invitations";
 import {
 	activityRow,
