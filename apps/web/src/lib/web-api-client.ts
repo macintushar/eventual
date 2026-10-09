@@ -1,3 +1,4 @@
+import { endpoints } from "@eventual/schemas/contract";
 import {
 	createEventualClient,
 	type EndpointInput,
@@ -54,6 +55,22 @@ const currentPath = createIsomorphicFn()
 	})
 	.client(() => `${window.location.pathname}${window.location.search}`);
 
+const endpointPatterns = endpoints.map((endpoint) => ({
+	name: endpoint.name,
+	method: endpoint.method,
+	pattern: new RegExp(`^/api${endpoint.path.replace(/:[^/]+/g, "[^/]+")}$`),
+}));
+
+/** Logs name the endpoint, never the URL: paths carry ids. */
+function endpointLabel(method: string, pathname: string) {
+	return (
+		endpointPatterns.find(
+			(endpoint) =>
+				endpoint.method === method && endpoint.pattern.test(pathname),
+		)?.name ?? "unknown"
+	);
+}
+
 /**
  * The SDK's transport for this app: in-process dispatch during SSR, a
  * same-origin fetch in the browser, a login redirect on 401, and a cache
@@ -68,7 +85,7 @@ const webFetch = async (
 	const method = init.method ?? "GET";
 	const logger = getAppLogger("api-client").with({
 		method,
-		path: url.pathname,
+		operation: endpointLabel(method, url.pathname),
 	});
 	const startedAt = performance.now();
 	logger.debug("API request started");
