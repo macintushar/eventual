@@ -20,6 +20,11 @@ export default function AppLayout() {
 	const { user } = useSession();
 	const actions = useRef<ActionSheetHandle>(null);
 	const [avatar, setAvatar] = useState<ImageSourcePropType>();
+	// UIKit owns the detached Liquid Glass circle and its gap. BottomAccessory
+	// sits above the bar (or inline only when minimized), not beside it.
+	const separateActions =
+		Platform.OS === "ios" &&
+		Number.parseInt(String(Platform.Version), 10) >= 26;
 	return (
 		<>
 			<NativeTabs
@@ -40,22 +45,6 @@ export default function AppLayout() {
 					/>
 					<NativeTabs.Trigger.Label hidden>Activity</NativeTabs.Trigger.Label>
 				</NativeTabs.Trigger>
-				<NativeTabs.Trigger
-					name="actions"
-					// SDK 57 emits tabPress even when native selection is disabled.
-					// The previous tab and its nested stack remain untouched.
-					disabled
-					accessibilityLabel="New expense, new group and shortcuts"
-					listeners={{ tabPress: () => actions.current?.present() }}
-				>
-					<NativeTabs.Trigger.Icon
-						src={require("../../../assets/tabs/plus.png")}
-						renderingMode="template"
-					/>
-					<NativeTabs.Trigger.Label hidden>
-						New and shortcuts
-					</NativeTabs.Trigger.Label>
-				</NativeTabs.Trigger>
 				<NativeTabs.Trigger name="account" accessibilityLabel="Account">
 					<NativeTabs.Trigger.Icon
 						src={
@@ -67,6 +56,24 @@ export default function AppLayout() {
 						}
 					/>
 					<NativeTabs.Trigger.Label hidden>Account</NativeTabs.Trigger.Label>
+				</NativeTabs.Trigger>
+				<NativeTabs.Trigger
+					name="actions"
+					role={separateActions ? "search" : undefined}
+					// SDK 57 emits tabPress even when native selection is disabled.
+					// The previous tab and its nested stack remain untouched. Earlier
+					// iOS/Android retain a standard trailing + in the system tab bar.
+					disabled
+					accessibilityLabel="New expense, new group and shortcuts"
+					listeners={{ tabPress: () => actions.current?.present() }}
+				>
+					<NativeTabs.Trigger.Icon
+						src={require("../../../assets/tabs/plus.png")}
+						renderingMode="template"
+					/>
+					<NativeTabs.Trigger.Label hidden>
+						New and shortcuts
+					</NativeTabs.Trigger.Label>
 				</NativeTabs.Trigger>
 			</NativeTabs>
 			{/* Android's system navigation bar tints every bitmap; original-colour
