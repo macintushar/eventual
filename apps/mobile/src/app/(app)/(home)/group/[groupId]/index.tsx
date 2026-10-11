@@ -1,6 +1,6 @@
 import { formatShortDate } from "@eventual/schemas/dates";
 import type { EndpointOutput } from "@eventual/sdk";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Settings } from "lucide-react-native";
 import { useState } from "react";
@@ -22,6 +22,12 @@ import {
 } from "../../../../../components/brand";
 import { ActivityTab } from "../../../../../components/group/activity";
 import { BalancesTab } from "../../../../../components/group/balances";
+import {
+	defaultExpenseSort,
+	ExpenseSearchBar,
+	type ExpenseSort,
+	useDebounced,
+} from "../../../../../components/group/expense-search";
 import { MembersTab } from "../../../../../components/group/members";
 import { Segmented } from "../../../../../components/segmented";
 import { useGroupContext, useGroupSummary } from "../../../../../lib/queries";
@@ -40,13 +46,29 @@ export default function GroupScreen() {
 	>("expenses");
 	const context = useGroupContext(groupId);
 	const summary = useGroupSummary(groupId);
+	const [searchText, setSearchText] = useState("");
+	const [sort, setSort] = useState<ExpenseSort>(defaultExpenseSort);
+	// Debounced so each keystroke isn't a request.
+	const search = useDebounced(searchText.trim(), 300);
+	const { sortBy, sortDirection } = sort;
 	const expenses = useInfiniteQuery({
-		queryKey: ["group", groupId, "expenses"],
+		// Search and sort are in the key so pages never mix; the
+		// ["group", groupId] prefix keeps write invalidation working.
+		queryKey: ["group", groupId, "expenses", { search, sortBy, sortDirection }],
+		// Keeps the old rows on screen while a new search loads.
+		placeholderData: keepPreviousData,
 		initialPageParam: undefined as string | undefined,
 		queryFn: ({ pageParam, signal }) =>
 			api.call(
 				"expense.page",
-				{ groupId, cursor: pageParam, limit: 30 },
+				{
+					groupId,
+					search: search || undefined,
+					sortBy,
+					sortDirection,
+					cursor: pageParam,
+					limit: 30,
+				},
 				{ signal },
 			),
 		getNextPageParam: (page) => page.nextCursor ?? undefined,
@@ -149,6 +171,14 @@ export default function GroupScreen() {
 								{ value: "activity", label: "Activity" },
 							]}
 						/>
+						{tab === "expenses" ? (
+							<ExpenseSearchBar
+								text={searchText}
+								onChangeText={setSearchText}
+								sort={sort}
+								onChangeSort={setSort}
+							/>
+						) : null}
 						{tab === "balances" ? <BalancesTab groupId={groupId} /> : null}
 						{tab === "members" ? <MembersTab groupId={groupId} /> : null}
 						{tab === "activity" ? <ActivityTab groupId={groupId} /> : null}
@@ -164,6 +194,11 @@ export default function GroupScreen() {
 								label="Try again"
 								onPress={() => void expenses.refetch()}
 							/>
+						</Card>
+					) : search ? (
+						<Card>
+							<Heading>{`No expenses match “${search}”`}</Heading>
+							<Body tone="muted">Try a different word.</Body>
 						</Card>
 					) : (
 						<Card>
