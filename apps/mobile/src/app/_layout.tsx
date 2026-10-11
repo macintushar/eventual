@@ -2,6 +2,12 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import {
+	ReliabilityStatus,
+	SessionRecovery,
+} from "../components/reliability-status";
 import { restoreAppearance } from "../lib/appearance";
 import { SessionProvider, useSession } from "../lib/session";
 
@@ -11,8 +17,14 @@ restoreAppearance();
 export default function RootLayout() {
 	return (
 		<SessionProvider>
-			<StatusBar style="auto" />
-			<RootNavigator />
+			<SafeAreaProvider>
+				<StatusBar style="auto" />
+				<View style={{ flex: 1 }}>
+					<ReliabilityStatus />
+					<SessionRecovery />
+					<RootNavigator />
+				</View>
+			</SafeAreaProvider>
 		</SessionProvider>
 	);
 }
@@ -23,6 +35,8 @@ function RootNavigator() {
 		if (status !== "loading") void SplashScreen.hideAsync();
 	}, [status]);
 	if (status === "loading") return null;
+	// A cold offline launch has no verified identity: show Retry, not private data.
+	if (status === "disconnected") return <View style={{ flex: 1 }} />;
 	return (
 		<Stack screenOptions={{ headerShown: false }}>
 			<Stack.Protected guard={status === "signed-in"}>

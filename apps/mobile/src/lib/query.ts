@@ -1,12 +1,9 @@
-import { isEventualApiError } from "@eventual/sdk";
-import {
-	focusManager,
-	onlineManager,
-	QueryCache,
-	QueryClient,
-} from "@tanstack/react-query";
+import { focusManager, onlineManager } from "@tanstack/react-query";
 import * as Network from "expo-network";
 import { AppState } from "react-native";
+import { refreshConnectivity, requireOnline } from "./connectivity";
+import { createReliabilityQueryClient } from "./query-policy";
+import { networkAvailable } from "./reliability";
 
 // React Query's browser defaults listen for window focus and `online`
 // events; on native the equivalents are app state and network state.
@@ -18,29 +15,14 @@ focusManager.setEventListener((setFocused) => {
 });
 onlineManager.setEventListener((setOnline) => {
 	const subscription = Network.addNetworkStateListener((state) =>
-		setOnline(state.isConnected !== false),
+		setOnline(networkAvailable(state)),
 	);
+	void refreshConnectivity();
 	return () => subscription.remove();
 });
 
-export function isUnauthenticated(error: unknown) {
-	return isEventualApiError(error) && error.status === 401;
-}
+export { isUnauthenticated } from "./reliability";
 
 export function createQueryClient(onUnauthenticated: () => void) {
-	return new QueryClient({
-		queryCache: new QueryCache({
-			onError: (error) => {
-				if (isUnauthenticated(error)) onUnauthenticated();
-			},
-		}),
-		defaultOptions: {
-			queries: {
-				// Refetch on foreground once data is 30 s old (design §7).
-				staleTime: 30_000,
-				retry: (count, error) =>
-					!isEventualApiError(error) || error.status >= 500 ? count < 2 : false,
-			},
-		},
-	});
+	return createReliabilityQueryClient(onUnauthenticated, requireOnline);
 }
