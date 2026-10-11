@@ -120,6 +120,7 @@ export default function Profile() {
 	async function afterSave() {
 		await Promise.all([
 			refreshSession(),
+			queryClient.invalidateQueries({ queryKey: ["reminder-preferences"] }),
 			queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
 			queryClient.invalidateQueries({ queryKey: ["group"] }),
 		]);

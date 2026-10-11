@@ -74,6 +74,22 @@ export default function Account() {
 					<ChevronRight size={20} color={t.mutedInk} />
 				</Card>
 			</Pressable>
+			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel="Email and sign-in methods"
+				onPress={() => router.push("/account/email")}
+				style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+			>
+				<Card style={{ flexDirection: "row", alignItems: "center" }}>
+					<View style={{ flex: 1, gap: 4 }}>
+						<Body weight="semibold">Email and sign-in methods</Body>
+						<Body tone="muted" size={14}>
+							Verification, connected accounts and reminders
+						</Body>
+					</View>
+					<ChevronRight size={20} color={t.mutedInk} />
+				</Card>
+			</Pressable>
 			<Card style={{ gap: 14 }}>
 				<Body tone="muted" size={14}>
 					Appearance
