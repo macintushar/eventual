@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { siteInfoSchema } from "@eventual/schemas/outputs";
 
 import { env } from "#/env";
+import { auth } from "#/lib/auth";
 import { dispatchApi } from "#/server/http";
 import { openApiDocument } from "#/server/openapi";
 
@@ -19,8 +21,12 @@ test("public v1 endpoints and private cache headers", async () => {
 	assert.equal(site.status, 200);
 	assert.equal(site.headers.get("cache-control"), "private, max-age=5");
 	assert.match(site.headers.get("vary") ?? "", /Cookie/);
-	const siteBody: { statusPageUrl: string | null } = await site.json();
+	const siteBody = siteInfoSchema.parse(await site.json());
 	assert.equal(siteBody.statusPageUrl, env.STATUS_PAGE_URL);
+	assert.equal(
+		siteBody.appleSignIn,
+		Boolean(auth.options.socialProviders.apple),
+	);
 });
 
 test("web aggregates verify a presented key before anything else", async () => {

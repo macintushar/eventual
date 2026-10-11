@@ -391,6 +391,7 @@ export function siteInfo() {
 		supportEmail: env.SUPPORT_EMAIL,
 		// Mirrors the provider registration in #/lib/auth.
 		googleSignIn: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+		appleSignIn: Boolean(auth.options.socialProviders.apple),
 		statusPageUrl: env.STATUS_PAGE_URL,
 		nativeAppVersion: NATIVE_APP_VERSION,
 	};

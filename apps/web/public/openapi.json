@@ -11542,18 +11542,28 @@
                     "googleSignIn": {
                       "type": "boolean"
                     },
+                    "appleSignIn": {
+                      "type": "boolean"
+                    },
                     "statusPageUrl": {
                       "type": [
                         "string",
                         "null"
                       ]
+                    },
+                    "nativeAppVersion": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
                     "origin",
                     "supportEmail",
                     "googleSignIn",
-                    "statusPageUrl"
+                    "appleSignIn",
+                    "statusPageUrl",
+                    "nativeAppVersion"
                   ],
                   "additionalProperties": false
                 }

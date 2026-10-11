@@ -584,6 +584,7 @@ export const siteInfoSchema = z.object({
 	origin: z.string(),
 	supportEmail: z.string().nullable(),
 	googleSignIn: z.boolean(),
+	appleSignIn: z.boolean(),
 	statusPageUrl: z.string().nullable(),
 	/**
 	 * What this server supports for the native app. Servers from before the

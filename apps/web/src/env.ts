@@ -18,6 +18,14 @@ export const env = createEnv({
 		POSTHOG_HOST: z.url().default("https://us.i.posthog.com"),
 		GOOGLE_CLIENT_ID: z.string().min(1).optional(),
 		GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+		APPLE_CLIENT_ID: z.string().min(1).optional(),
+		APPLE_TEAM_ID: z.string().min(1).optional(),
+		APPLE_KEY_ID: z.string().min(1).optional(),
+		APPLE_PRIVATE_KEY: z.string().min(1).optional(),
+		APPLE_APP_BUNDLE_IDENTIFIER: z
+			.string()
+			.min(1)
+			.default("app.eventual.mobile"),
 		LEGAL_OPERATOR_NAME: z.string().min(1).nullish().default(null),
 		LEGAL_GOVERNING_LAW: z.string().min(1).nullish().default(null),
 		LEGAL_CONTACT_EMAIL: z.email().nullish().default(null),
