@@ -85,11 +85,16 @@ test("opposite debts in different currencies never cancel", () => {
 		currency: "USD",
 		amountMinor: 20000,
 	};
-	assert.equal(validateRepayment(transfers, repayment), null);
-	assert.ok(validateRepayment(transfers, { ...repayment, currency: "INR" }));
-	assert.ok(validateRepayment(transfers, { ...repayment, amountMinor: 20001 }));
-	assert.ok(validateRepayment(transfers, { ...repayment, amountMinor: 40000 }));
-	assert.ok(validateRepayment(transfers, { ...repayment, amountMinor: 0 }));
+	// Direction, amount and currency never consult the simplified debts:
+	// mismatches and overpayments are all recordable.
+	assert.equal(validateRepayment(repayment), null);
+	assert.equal(validateRepayment({ ...repayment, currency: "INR" }), null);
+	assert.equal(validateRepayment({ ...repayment, amountMinor: 20001 }), null);
+	assert.equal(validateRepayment({ ...repayment, amountMinor: 40000 }), null);
+	// Only the shape of the payment is checked.
+	assert.ok(validateRepayment({ ...repayment, amountMinor: 0 }));
+	assert.ok(validateRepayment({ ...repayment, currency: "XYZ" }));
+	assert.ok(validateRepayment({ ...repayment, toUserId: "A" }));
 });
 
 test("API schemas reject unsupported currencies and require settlement currency", () => {

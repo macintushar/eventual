@@ -41,11 +41,7 @@ import { Separator } from "#/components/ui/separator";
 import { Spinner } from "#/components/ui/spinner";
 import { useAppMutation } from "#/lib/app-mutation";
 import { formatMinor } from "#/lib/money";
-import {
-	expenseQueryOptions,
-	groupContextQueryOptions,
-	groupSummaryQueryOptions,
-} from "#/lib/queries";
+import { expenseQueryOptions, groupContextQueryOptions } from "#/lib/queries";
 import { validateSharePayment } from "#/lib/settlements";
 import { isApiNotFound } from "#/lib/web-api-client";
 
@@ -60,9 +56,6 @@ export const Route = createFileRoute(
 				),
 				context.queryClient.ensureQueryData(
 					groupContextQueryOptions(params.groupId),
-				),
-				context.queryClient.ensureQueryData(
-					groupSummaryQueryOptions(params.groupId),
 				),
 			]);
 		} catch (error) {
@@ -89,9 +82,7 @@ function ExpenseDetail() {
 	const { data: expense, isFetching } = useSuspenseQuery(
 		expenseQueryOptions(expenseId),
 	);
-	const { data: context } = useSuspenseQuery(groupContextQueryOptions(groupId));
-	const { data: summary } = useSuspenseQuery(groupSummaryQueryOptions(groupId));
-	const page = { ...context, ...summary };
+	const { data: page } = useSuspenseQuery(groupContextQueryOptions(groupId));
 	const weighted = page.group.members.some(
 		(member) => member.weight !== page.group.members[0]?.weight,
 	);
@@ -227,12 +218,7 @@ function ExpenseDetail() {
 					<ItemGroup>
 						{expense.shares.map((share) => {
 							const paid = share.paidAt !== null;
-							const invalid = validateSharePayment(page.balances.transfers, {
-								fromUserId: share.userId,
-								toUserId: expense.paidByUserId,
-								currency: expense.currency,
-								amountMinor: share.amountMinor,
-								paid: !paid,
+							const invalid = validateSharePayment({
 								hasAllocations: share.allocations.length > 0,
 							});
 							return (

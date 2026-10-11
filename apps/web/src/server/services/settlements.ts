@@ -6,7 +6,6 @@ import {
 	settlement,
 	settlementAllocation,
 } from "#/db/schema";
-import { validateRepayment } from "#/lib/settlements";
 import type { Ctx } from "#/server/context";
 import { people } from "#/server/domain/activity";
 import { AppError } from "#/server/errors";
@@ -16,8 +15,6 @@ import {
 	encodePageCursor,
 	pageLimit,
 } from "#/server/pagination";
-import { readBalances } from "./balances";
-import { listMembers } from "./members";
 import {
 	activityRow,
 	assertExpenseMembers,
@@ -75,8 +72,10 @@ export async function listSettlementPage(
 }
 
 export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
-	// Any member can record a repayment between any two members, so someone
-	// can log what a guest paid them or what they saw change hands.
+	// Any member can record a payment between any two members, of any amount,
+	// so someone can log what a guest paid them or what they saw change hands.
+	// Paying more than is owed flips the debt onto the recipient; the
+	// simplified debts suggest an amount but never gate one.
 	await membership(ctx, input.groupId);
 	const fromUserId = input.fromUserId ?? ctx.user.id;
 	if (input.toUserId === fromUserId)
@@ -85,16 +84,9 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 			"A settlement must be between two different members",
 		);
 	await assertExpenseMembers(ctx, input.groupId, input.toUserId, [fromUserId]);
-	const members = await listMembers(ctx, input);
 	const settlementId = id();
 	const now = new Date();
 	await ctx.db.transaction(async (tx) => {
-		const balances = await readBalances(tx, input.groupId, members);
-		const invalid = validateRepayment(balances.transfers, {
-			...input,
-			fromUserId,
-		});
-		if (invalid) throw new AppError("VALIDATION", invalid);
 		const candidates = await tx
 			.select({ share: expenseShare, expense })
 			.from(expenseShare)

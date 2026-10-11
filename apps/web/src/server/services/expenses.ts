@@ -16,9 +16,8 @@ import {
 } from "#/server/domain/activity";
 import { computeShares } from "#/server/domain/split";
 import { AppError } from "#/server/errors";
-import { readBalances } from "./balances";
 import { normalizeSearchText, suggestCategory } from "./categories";
-import { listMembers, weightedParticipants } from "./members";
+import { weightedParticipants } from "./members";
 import {
 	activityRow,
 	assertExpenseMembers,
@@ -535,7 +534,6 @@ export async function setSharePaid(
 	const current = await getExpense(ctx, { expenseId: input.expenseId });
 	const share = current.shares.find((row) => row.userId === input.userId);
 	if (!share) throw new AppError("NOT_FOUND", "Expense share not found");
-	const members = await listMembers(ctx, { groupId: current.organizationId });
 	await ctx.db.transaction(async (tx) => {
 		const latest = await tx.query.expense.findFirst({
 			where: eq(expense.id, input.expenseId),
@@ -547,13 +545,7 @@ export async function setSharePaid(
 		if (!latest || !latestShare)
 			throw new AppError("NOT_FOUND", "Expense share not found");
 		if (Boolean(latestShare.paidAt) === paid) return;
-		const balances = await readBalances(tx, latest.organizationId, members);
-		const invalid = validateSharePayment(balances.transfers, {
-			fromUserId: input.userId,
-			toUserId: latest.paidByUserId,
-			currency: latest.currency,
-			amountMinor: latestShare.amountMinor,
-			paid,
+		const invalid = validateSharePayment({
 			hasAllocations: latestShare.allocations.length > 0,
 		});
 		if (invalid) throw new AppError("VALIDATION", invalid);

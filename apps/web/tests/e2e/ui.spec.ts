@@ -329,7 +329,7 @@ test("detail/back restores loaded rows and scroll without replaying the history"
 	expect(requests).toEqual([]);
 });
 
-test("a share mutation refreshes the affected summary and keeps the closed composer idle", async ({
+test("marking a share paid updates the share and keeps the closed composer idle", async ({
 	page,
 }) => {
 	const created = await page.request.post("/api/v1/groups/other/expenses", {
@@ -368,21 +368,19 @@ test("a share mutation refreshes the affected summary and keeps the closed compo
 		page.on("request", (request) => {
 			if (request.url().includes("/api/")) requests.push(request.url());
 		});
-		const summary = page.waitForResponse(
-			(response) =>
-				new URL(response.url()).pathname ===
-				"/api/v1/app/groups/other/financial-summary",
-		);
 		// A Radix checkbox button updates aria-checked asynchronously after the
 		// mutation completes; check() would race that update.
 		await paid.click();
-		await summary;
 		await expect(paid).toBeChecked();
+		// The paid share locks the expense, and the expense page no longer
+		// loads the group financial summary at all, so the toggle refreshes
+		// no summary for it to update.
+		await expect(page.getByText("Locked", { exact: true })).toBeVisible();
 		expect(
 			requests.filter((url) =>
 				new URL(url).pathname.endsWith("/financial-summary"),
 			),
-		).toHaveLength(1);
+		).toEqual([]);
 		expect(
 			requests.filter((url) =>
 				/\/composer|\/groups\/G\/|\/settings|\/recurring-expenses/.test(url),
