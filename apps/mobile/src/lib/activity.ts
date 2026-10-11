@@ -314,30 +314,6 @@ export function personalOutcome(
 	}
 }
 
-/** Ionicons for each event, matched to the web's Lucide set. */
-export const activityIcon: Record<string, string> = {
-	"group.created": "folder-open-outline",
-	"group.renamed": "pencil-outline",
-	"group.archived": "archive-outline",
-	"group.unarchived": "arrow-undo-outline",
-	"group.duplicated": "copy-outline",
-	"group.deleted": "trash-outline",
-	"member.invited": "mail-outline",
-	"member.invite_revoked": "mail-unread-outline",
-	"member.joined": "person-add-outline",
-	"member.removed": "person-remove-outline",
-	"member.left": "log-out-outline",
-	"member.role_changed": "shield-outline",
-	"member.updated": "create-outline",
-	"expense.created": "receipt-outline",
-	"expense.updated": "receipt-outline",
-	"expense.deleted": "trash-outline",
-	"share.marked_paid": "checkmark-circle-outline",
-	"share.marked_unpaid": "remove-circle-outline",
-	"settlement.created": "swap-horizontal-outline",
-	"settlement.deleted": "trash-outline",
-};
-
 const units: [string, number][] = [
 	["year", 31536000000],
 	["month", 2592000000],

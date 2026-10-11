@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react-native";
 import { type ReactNode, useState } from "react";
 import {
 	ActionSheetIOS,
@@ -8,7 +9,6 @@ import {
 	Text,
 	View,
 } from "react-native";
-import Svg, { Path } from "react-native-svg";
 import { fonts, useTheme } from "../theme";
 
 export type Option = { value: string; label: string };
@@ -168,16 +168,7 @@ export function SelectField({
 				>
 					{selected?.label ?? placeholder}
 				</Text>
-				<Svg width={16} height={16} viewBox="0 0 24 24">
-					<Path
-						d="M7 10l5 5 5-5"
-						stroke={t.mutedInk}
-						strokeWidth={2}
-						fill="none"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					/>
-				</Svg>
+				<ChevronDown size={18} color={t.mutedInk} />
 			</Pressable>
 			{error ? (
 				<Text

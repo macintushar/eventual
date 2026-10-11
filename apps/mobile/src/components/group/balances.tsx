@@ -2,8 +2,8 @@ import { formatMinor, fromMinor } from "@eventual/schemas/money";
 import { isEventualApiError } from "@eventual/sdk";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
+import { ArrowRight, Trash2 } from "lucide-react-native";
 import { Alert, Linking, Pressable, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
 import { idempotencyKey } from "../../lib/mutations";
 import {
 	useGroupContext,
@@ -196,16 +196,7 @@ function TransferRow({
 				<Body weight="medium" numberOfLines={1} style={{ flexShrink: 1 }}>
 					{from}
 				</Body>
-				<Svg width={14} height={14} viewBox="0 0 24 24" accessible={false}>
-					<Path
-						d="M5 12h14M13 6l6 6-6 6"
-						stroke={t.mutedInk}
-						strokeWidth={2}
-						fill="none"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					/>
-				</Svg>
+				<ArrowRight size={14} color={t.mutedInk} />
 				<Body weight="medium" numberOfLines={1} style={{ flexShrink: 1 }}>
 					{to}
 				</Body>
@@ -339,16 +330,7 @@ function PaymentHistory({
 									}
 									style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
 								>
-									<Svg width={20} height={20} viewBox="0 0 24 24">
-										<Path
-											d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"
-											stroke={t.negative}
-											strokeWidth={2}
-											fill="none"
-											strokeLinecap="round"
-											strokeLinejoin="round"
-										/>
-									</Svg>
+									<Trash2 size={20} color={t.negative} />
 								</Pressable>
 							)}
 						</View>

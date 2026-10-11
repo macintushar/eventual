@@ -1,8 +1,52 @@
-import { Ionicons } from "@expo/vector-icons";
+import {
+	Archive,
+	ArchiveRestore,
+	ArrowLeftRight,
+	CircleCheck,
+	CircleSlash,
+	Copy,
+	FolderPlus,
+	LogOut,
+	type LucideIcon,
+	Mail,
+	MailX,
+	PencilLine,
+	Receipt,
+	ReceiptText,
+	Shield,
+	Trash2,
+	UserMinus,
+	UserPen,
+	UserPlus,
+} from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
-import { activityIcon, type Outcome, type Run } from "../lib/activity";
+import type { Outcome, Run } from "../lib/activity";
 import { fonts, useTheme } from "../theme";
 import { MemberAvatar } from "./member-avatar";
+
+/** The web's icons for each event (`activity-line.tsx`). */
+const activityIcons: Record<string, LucideIcon> = {
+	"group.created": FolderPlus,
+	"group.renamed": PencilLine,
+	"group.archived": Archive,
+	"group.unarchived": ArchiveRestore,
+	"group.duplicated": Copy,
+	"group.deleted": Trash2,
+	"member.invited": Mail,
+	"member.invite_revoked": MailX,
+	"member.joined": UserPlus,
+	"member.removed": UserMinus,
+	"member.left": LogOut,
+	"member.role_changed": Shield,
+	"member.updated": UserPen,
+	"expense.created": Receipt,
+	"expense.updated": ReceiptText,
+	"expense.deleted": Trash2,
+	"share.marked_paid": CircleCheck,
+	"share.marked_unpaid": CircleSlash,
+	"settlement.created": ArrowLeftRight,
+	"settlement.deleted": Trash2,
+};
 
 /**
  * One activity line: an icon tile (with a small group badge in the personal
@@ -26,6 +70,7 @@ export function ActivityRow({
 	first?: boolean;
 }) {
 	const t = useTheme();
+	const Icon = activityIcons[type] ?? Receipt;
 	const text = sentence.map((run) => run.text).join("");
 	const body = (
 		<>
@@ -42,11 +87,7 @@ export function ActivityRow({
 						justifyContent: "center",
 					}}
 				>
-					<Ionicons
-						name={(activityIcon[type] ?? "receipt-outline") as never}
-						size={21}
-						color={t.ink}
-					/>
+					<Icon size={20} color={t.ink} />
 				</View>
 				{group ? (
 					<View

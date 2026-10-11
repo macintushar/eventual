@@ -260,6 +260,11 @@ function Loaded({ data }: { data: Dashboard }) {
 						</Body>
 					</Card>
 				)}
+				<GlassButton
+					prominent={groups.length === 0}
+					label="New group"
+					onPress={() => router.push("/new-group")}
+				/>
 			</View>
 		</>
 	);

@@ -4,6 +4,7 @@ import { validateSharePayment } from "@eventual/schemas/settlements";
 import { type EndpointOutput, isEventualApiError } from "@eventual/sdk";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Lock } from "lucide-react-native";
 import { useState } from "react";
 import {
 	ActivityIndicator,
@@ -12,7 +13,6 @@ import {
 	ScrollView,
 	View,
 } from "react-native";
-import Svg, { Path } from "react-native-svg";
 import { Amount } from "../../../../../../components/amount";
 import {
 	Body,
@@ -238,7 +238,7 @@ export default function ExpenseDetail() {
 								backgroundColor: `${t.warning}1A`,
 							}}
 						>
-							<LockIcon color={t.warning} />
+							<Lock size={20} color={t.warning} style={{ marginTop: 2 }} />
 							<View style={{ flex: 1, gap: 4 }}>
 								<Body style={{ fontFamily: fonts.semibold, color: t.warning }}>
 									Locked
@@ -367,20 +367,5 @@ export default function ExpenseDetail() {
 				</>
 			)}
 		</ScrollView>
-	);
-}
-
-function LockIcon({ color }: { color: string }) {
-	return (
-		<Svg width={20} height={20} viewBox="0 0 24 24" style={{ marginTop: 2 }}>
-			<Path
-				d="M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5z"
-				stroke={color}
-				strokeWidth={2}
-				fill="none"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-			/>
-		</Svg>
 	);
 }

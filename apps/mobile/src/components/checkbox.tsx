@@ -1,5 +1,5 @@
+import { Check } from "lucide-react-native";
 import { ActivityIndicator, Alert, Pressable, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
 import { useTheme } from "../theme";
 
 /**
@@ -63,16 +63,7 @@ export function Checkbox({
 					}}
 				>
 					{checked ? (
-						<Svg width={14} height={14} viewBox="0 0 24 24">
-							<Path
-								d="M5 12.5l4.5 4.5L19 7"
-								stroke={t.actionInk}
-								strokeWidth={3}
-								fill="none"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-							/>
-						</Svg>
+						<Check size={16} strokeWidth={3} color={t.actionInk} />
 					) : null}
 				</View>
 			)}

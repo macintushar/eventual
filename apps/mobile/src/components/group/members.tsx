@@ -2,8 +2,8 @@ import { can } from "@eventual/schemas/permissions";
 import { isEventualApiError } from "@eventual/sdk";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
+import { Ellipsis } from "lucide-react-native";
 import { Alert, Pressable, View } from "react-native";
-import Svg, { Circle } from "react-native-svg";
 import { idempotencyKey } from "../../lib/mutations";
 import { useGroupContext, useRefreshAfterWrite } from "../../lib/queries";
 import { useApi } from "../../lib/session";
@@ -106,7 +106,7 @@ export function MembersTab({ groupId }: { groupId: string }) {
 								</Body>
 							</View>
 						)}
-						<MoreIcon color={t.mutedInk} />
+						<Ellipsis size={20} color={t.mutedInk} />
 					</Pressable>
 				))}
 			</Card>
@@ -174,15 +174,5 @@ export function MembersTab({ groupId }: { groupId: string }) {
 				</Card>
 			) : null}
 		</View>
-	);
-}
-
-function MoreIcon({ color }: { color: string }) {
-	return (
-		<Svg width={20} height={20} viewBox="0 0 24 24" accessible={false}>
-			<Circle cx={5} cy={12} r={1.8} fill={color} />
-			<Circle cx={12} cy={12} r={1.8} fill={color} />
-			<Circle cx={19} cy={12} r={1.8} fill={color} />
-		</Svg>
 	);
 }
