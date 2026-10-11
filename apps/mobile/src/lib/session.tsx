@@ -19,6 +19,7 @@ import {
 } from "react";
 import { AppState } from "react-native";
 import { refreshConnectivity, requireOnline } from "./connectivity";
+import { retirePushDevice } from "./push/registration";
 import { createQueryClient } from "./query";
 import { returnedToForeground, SessionLifecycle } from "./reliability";
 import {
@@ -237,15 +238,26 @@ export function SessionProvider({ children }: PropsWithChildren) {
 	const signOut = useCallback(async () => {
 		if (transitioning.current) return;
 		transitioning.current = true;
-		// Hide/cancel before the network request, not after an offline timeout.
-		lifecycle.reset();
 		try {
-			// Installed Expo auth plugin clears its local cookie/cache before fetch.
-			await clients?.auth.signOut().catch(() => {});
+			// Retire the push device while this session is still authorized (P-24):
+			// after `reset()` the guarded client refuses the old identity, and the
+			// sign-out flow must proceed even when the delete can't (offline).
+			if (clients) {
+				// `clients` is only allocated once an origin exists.
+				await retirePushDevice(clients.api, {
+					origin: origin ?? "",
+					userId: lifecycle.user?.id ?? null,
+				});
+			}
+			// Hide/cancel before the network request, not after an offline timeout.
+			lifecycle.reset();
+			if (clients)
+				// Installed Expo auth plugin clears its local cookie/cache before fetch.
+				await clients.auth.signOut().catch(() => {});
 		} finally {
 			transitioning.current = false;
 		}
-	}, [clients, lifecycle]);
+	}, [clients, lifecycle, origin]);
 
 	if (!origin || !clients) return null;
 	return (

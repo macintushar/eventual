@@ -33,6 +33,7 @@ type Pathname =
 	| "/group/[groupId]/recurring"
 	| "/group/[groupId]/categories"
 	| "/group/[groupId]/reminders"
+	| "/group/[groupId]/notifications"
 	| "/group/[groupId]/export";
 
 /** A tappable row that opens a sub-screen. */
@@ -288,6 +289,12 @@ export default function GroupSettings() {
 
 			<Card>
 				<Heading>Automation and data</Heading>
+				<NavRow
+					title="Notifications"
+					detail="Mute this group and manage your account-level settings"
+					pathname="/group/[groupId]/notifications"
+					groupId={groupId}
+				/>
 				{can(group.myRole, "expense", "read") ? (
 					<NavRow
 						title="Recurring expenses"

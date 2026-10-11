@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { PushLifecycle } from "../components/push-lifecycle";
 import {
 	ReliabilityStatus,
 	SessionRecovery,
@@ -22,6 +23,9 @@ export default function RootLayout() {
 				<View style={{ flex: 1 }}>
 					<ReliabilityStatus />
 					<SessionRecovery />
+					{/* Registers the native push device, routes taps safely, and
+					    hosts the contextual permission explainer. Inert pre-rebuild. */}
+					<PushLifecycle />
 					<RootNavigator />
 				</View>
 			</SafeAreaProvider>

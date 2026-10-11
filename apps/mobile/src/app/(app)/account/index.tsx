@@ -92,6 +92,23 @@ export default function Account() {
 			</Pressable>
 			<Pressable
 				accessibilityRole="button"
+				accessibilityLabel="Notification settings"
+				accessibilityHint="Expenses, payments and recurring updates"
+				onPress={() => router.push("/account/notifications")}
+				style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+			>
+				<Card style={{ flexDirection: "row", alignItems: "center" }}>
+					<View style={{ flex: 1, gap: 4 }}>
+						<Body weight="semibold">Notifications</Body>
+						<Body tone="muted" size={14}>
+							Expenses, payments, recurring and muted groups
+						</Body>
+					</View>
+					<ChevronRight size={20} color={t.mutedInk} />
+				</Card>
+			</Pressable>
+			<Pressable
+				accessibilityRole="button"
 				accessibilityLabel="API keys"
 				onPress={() => router.push("/account/api-keys")}
 				style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}

@@ -34,6 +34,7 @@ import {
 	useOptionPicker,
 } from "../../../../../../components/select-field";
 import { idempotencyKey } from "../../../../../../lib/mutations";
+import { notifyExpenseSaved } from "../../../../../../lib/push/events";
 import {
 	useGroupContext,
 	useRefreshAfterWrite,
@@ -268,6 +269,8 @@ function Composer({
 		},
 		onSuccess: async (saved) => {
 			queryClient.setQueryData(["expense", saved.id], saved);
+			// The D2 explainer can only be raised by a save like this (05 D2).
+			notifyExpenseSaved();
 			await refresh(groupId);
 			router.back();
 		},

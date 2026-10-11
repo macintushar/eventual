@@ -23,6 +23,7 @@ export default function GroupsLayout() {
 			<Stack.Screen name="group/[groupId]/category-review" />
 			<Stack.Screen name="group/[groupId]/reminders" />
 			<Stack.Screen name="group/[groupId]/recurring" />
+			<Stack.Screen name="group/[groupId]/notifications" />
 			<Stack.Screen
 				name="group/[groupId]/recurring-new"
 				options={{

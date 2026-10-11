@@ -13,6 +13,7 @@ import {
 	Screen,
 } from "../../../../components/brand";
 import { idempotencyKey } from "../../../../lib/mutations";
+import { notifyInviteAccepted } from "../../../../lib/push/events";
 import { useApi, useSession } from "../../../../lib/session";
 
 export default function Invite() {
@@ -38,6 +39,8 @@ export default function Invite() {
 				{ idempotencyKey: key.current },
 			),
 		onSuccess: async ({ groupId }) => {
+			// Same D2 trigger as the first expense save (05 D2).
+			notifyInviteAccepted();
 			await Promise.all([
 				queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
 				queryClient.invalidateQueries({ queryKey: ["activity"] }),
