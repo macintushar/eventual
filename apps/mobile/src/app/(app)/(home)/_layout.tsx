@@ -22,6 +22,17 @@ export default function GroupsLayout() {
 			<Stack.Screen name="group/[groupId]/categories" />
 			<Stack.Screen name="group/[groupId]/category-review" />
 			<Stack.Screen name="group/[groupId]/reminders" />
+			<Stack.Screen name="group/[groupId]/recurring" />
+			<Stack.Screen
+				name="group/[groupId]/recurring-new"
+				options={{
+					headerShown: false,
+					presentation: "formSheet",
+					sheetAllowedDetents: [1],
+					sheetGrabberVisible: true,
+					sheetCornerRadius: 28,
+				}}
+			/>
 			<Stack.Screen name="group/[groupId]/export" />
 			<Stack.Screen
 				name="group/[groupId]/expense/compose"

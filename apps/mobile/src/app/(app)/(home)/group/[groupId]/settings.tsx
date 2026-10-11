@@ -30,6 +30,7 @@ const errorText = (cause: unknown, fallback: string) =>
 	isEventualApiError(cause) ? cause.message : fallback;
 
 type Pathname =
+	| "/group/[groupId]/recurring"
 	| "/group/[groupId]/categories"
 	| "/group/[groupId]/reminders"
 	| "/group/[groupId]/export";
@@ -287,6 +288,14 @@ export default function GroupSettings() {
 
 			<Card>
 				<Heading>Automation and data</Heading>
+				{can(group.myRole, "expense", "read") ? (
+					<NavRow
+						title="Recurring expenses"
+						detail="Manage expenses added automatically on schedule"
+						pathname="/group/[groupId]/recurring"
+						groupId={groupId}
+					/>
+				) : null}
 				{can(group.myRole, "category", "read") ? (
 					<NavRow
 						title="Category rules"
