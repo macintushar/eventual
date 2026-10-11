@@ -3,8 +3,9 @@ import { can } from "@eventual/schemas/permissions";
 import { isEventualApiError } from "@eventual/sdk";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { ChevronRight } from "lucide-react-native";
 import { useState } from "react";
-import { ActivityIndicator, Alert, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, View } from "react-native";
 import {
 	Body,
 	Card,
@@ -23,9 +24,52 @@ import {
 	useRefreshAfterWrite,
 } from "../../../../../lib/queries";
 import { useApi } from "../../../../../lib/session";
+import { useTheme } from "../../../../../theme";
 
 const errorText = (cause: unknown, fallback: string) =>
 	isEventualApiError(cause) ? cause.message : fallback;
+
+type Pathname =
+	| "/group/[groupId]/categories"
+	| "/group/[groupId]/reminders"
+	| "/group/[groupId]/export";
+
+/** A tappable row that opens a sub-screen. */
+function NavRow({
+	title,
+	detail,
+	pathname,
+	groupId,
+}: {
+	title: string;
+	detail: string;
+	pathname: Pathname;
+	groupId: string;
+}) {
+	const t = useTheme();
+	const router = useRouter();
+	return (
+		<Pressable
+			accessibilityRole="button"
+			accessibilityLabel={`${title}. ${detail}`}
+			onPress={() => router.push({ pathname, params: { groupId } })}
+			style={{
+				flexDirection: "row",
+				alignItems: "center",
+				gap: 12,
+				minHeight: 56,
+			}}
+		>
+			<View style={{ flex: 1 }}>
+				<Body weight="medium">{title}</Body>
+				<Body tone="muted" size={14}>
+					{detail}
+				</Body>
+			</View>
+			<ChevronRight size={20} color={t.mutedInk} />
+		</Pressable>
+	);
+}
 
 export default function GroupSettings() {
 	const api = useApi();
@@ -240,6 +284,34 @@ export default function GroupSettings() {
 			) : (
 				<Body tone="muted">Only an owner or admin can rename or archive.</Body>
 			)}
+
+			<Card>
+				<Heading>Automation and data</Heading>
+				{can(group.myRole, "category", "read") ? (
+					<NavRow
+						title="Category rules"
+						detail="File expenses under categories automatically"
+						pathname="/group/[groupId]/categories"
+						groupId={groupId}
+					/>
+				) : null}
+				{can(group.myRole, "reminder", "read") ? (
+					<NavRow
+						title="Email reminders"
+						detail="Nudge people about their balance"
+						pathname="/group/[groupId]/reminders"
+						groupId={groupId}
+					/>
+				) : null}
+				{can(group.myRole, "expense", "read") ? (
+					<NavRow
+						title="Export"
+						detail="Download expenses as CSV or PDF"
+						pathname="/group/[groupId]/export"
+						groupId={groupId}
+					/>
+				) : null}
+			</Card>
 
 			{canEdit ? (
 				<Card>

@@ -19,6 +19,10 @@ export default function GroupsLayout() {
 			<Stack.Screen name="group/[groupId]/index" />
 			<Stack.Screen name="group/[groupId]/expense/[expenseId]" />
 			<Stack.Screen name="group/[groupId]/settings" />
+			<Stack.Screen name="group/[groupId]/categories" />
+			<Stack.Screen name="group/[groupId]/category-review" />
+			<Stack.Screen name="group/[groupId]/reminders" />
+			<Stack.Screen name="group/[groupId]/export" />
 			<Stack.Screen
 				name="group/[groupId]/expense/compose"
 				options={{

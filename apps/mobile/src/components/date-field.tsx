@@ -18,12 +18,17 @@ export function DateField({
 	label,
 	value,
 	onChange,
+	future = false,
 }: {
 	label: string;
 	value: Date;
 	onChange: (date: Date) => void;
+	/** Pick from today onward instead of up to today. */
+	future?: boolean;
 }) {
 	const t = useTheme();
+	const [today] = useState(() => new Date());
+	const limits = future ? { start: today } : { end: today };
 	const [open, setOpen] = useState(false);
 	return (
 		<View style={{ gap: 8 }}>
@@ -48,7 +53,7 @@ export function DateField({
 						<DatePicker
 							selection={value}
 							displayedComponents={["date"]}
-							range={{ end: new Date() }}
+							range={limits}
 							onDateChange={onChange}
 							modifiers={[datePickerStyle("compact"), tint(t.ink)]}
 						/>
@@ -76,7 +81,7 @@ export function DateField({
 						<ComposeHost>
 							<DatePickerDialog
 								initialDate={value.toISOString()}
-								selectableDates={{ end: new Date() }}
+								selectableDates={limits}
 								onDateSelected={(date) => {
 									setOpen(false);
 									onChange(date);

@@ -31,7 +31,8 @@
 					]
 				}
 			],
-			"expo-apple-authentication"
+			"expo-apple-authentication",
+			"expo-sharing"
 		]
 	}
 }
