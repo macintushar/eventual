@@ -2,7 +2,6 @@ import { formatMinor } from "@eventual/schemas/money";
 import type { EndpointOutput } from "@eventual/sdk";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Amount } from "../../../components/amount";
@@ -15,7 +14,7 @@ import {
 	Kicker,
 	Wordmark,
 } from "../../../components/brand";
-import { useApi, useSession } from "../../../lib/session";
+import { useApi } from "../../../lib/session";
 import { fonts, shadow, useTheme } from "../../../theme";
 
 type Dashboard = EndpointOutput<"app.dashboard">;
@@ -78,7 +77,6 @@ export default function Groups() {
 function Loaded({ data }: { data: Dashboard }) {
 	const t = useTheme();
 	const router = useRouter();
-	const { origin } = useSession();
 	const { groups, invitations, crossGroupBalances, user } = data;
 	const totals = [...new Set(crossGroupBalances.map((row) => row.currency))]
 		.sort()
@@ -148,11 +146,7 @@ function Loaded({ data }: { data: Dashboard }) {
 							<GlassButton
 								prominent
 								label="Review"
-								onPress={() =>
-									void WebBrowser.openBrowserAsync(
-										`${origin}/invite/${row.invitation.id}`,
-									)
-								}
+								onPress={() => router.push(`/invite/${row.invitation.id}`)}
 							/>
 						</Card>
 					))}

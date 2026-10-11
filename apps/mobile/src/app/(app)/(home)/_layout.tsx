@@ -49,6 +49,16 @@ export default function GroupsLayout() {
 				}}
 			/>
 			<Stack.Screen
+				name="invite/[invitationId]"
+				options={{
+					headerShown: false,
+					presentation: "formSheet",
+					sheetAllowedDetents: [0.6, 1],
+					sheetGrabberVisible: true,
+					sheetCornerRadius: 28,
+				}}
+			/>
+			<Stack.Screen
 				name="new-group"
 				options={{
 					headerShown: false,
