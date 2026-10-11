@@ -1,4 +1,6 @@
-import { Alert, View } from "react-native";
+import { useRouter } from "expo-router";
+import { ChevronRight } from "lucide-react-native";
+import { Alert, Pressable, View } from "react-native";
 import {
 	Body,
 	Card,
@@ -6,6 +8,7 @@ import {
 	GlassButton,
 	Screen,
 } from "../../../components/brand";
+import { MemberAvatar } from "../../../components/member-avatar";
 import { Segmented } from "../../../components/segmented";
 import { useAppearancePreference } from "../../../lib/appearance";
 import { serverLabel } from "../../../lib/server";
@@ -16,12 +19,7 @@ export default function Account() {
 	const t = useTheme();
 	const { user, origin, signOut } = useSession();
 	const [appearance, setAppearance] = useAppearancePreference();
-	const initials = (user?.name ?? "?")
-		.split(/\s+/)
-		.map((part) => part[0])
-		.slice(0, 2)
-		.join("")
-		.toUpperCase();
+	const router = useRouter();
 
 	function confirmSignOut() {
 		Alert.alert(
@@ -44,36 +42,38 @@ export default function Account() {
 				<Display>Account</Display>
 				<Body tone="muted">Signed in as {user?.email ?? "you"}.</Body>
 			</View>
-			<Card elevated style={{ flexDirection: "row", alignItems: "center" }}>
-				<View
-					style={{
-						width: 56,
-						height: 56,
-						borderRadius: 28,
-						backgroundColor: t.muted,
-						alignItems: "center",
-						justifyContent: "center",
-					}}
-				>
-					<Body style={{ fontFamily: fonts.semibold, fontSize: 20 }}>
-						{initials}
-					</Body>
-				</View>
-				<View style={{ flex: 1, gap: 2 }}>
-					<Body
-						style={{
-							fontFamily: fonts.display,
-							fontSize: 22,
-							letterSpacing: -0.5,
-						}}
-					>
-						{user?.name ?? "Your account"}
-					</Body>
-					<Body tone="muted" size={15}>
-						{user?.email}
-					</Body>
-				</View>
-			</Card>
+			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel="Profile"
+				accessibilityHint="Edit your name, photo and payment details"
+				onPress={() => router.push("/account/profile")}
+				style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+			>
+				<Card elevated style={{ flexDirection: "row", alignItems: "center" }}>
+					<MemberAvatar
+						name={user?.name ?? "?"}
+						seed={user?.email}
+						image={user?.image}
+						size={56}
+					/>
+					<View style={{ flex: 1, gap: 2 }}>
+						<Body
+							numberOfLines={1}
+							style={{
+								fontFamily: fonts.display,
+								fontSize: 22,
+								letterSpacing: -0.5,
+							}}
+						>
+							{user?.name ?? "Your account"}
+						</Body>
+						<Body tone="muted" size={15}>
+							Edit profile
+						</Body>
+					</View>
+					<ChevronRight size={20} color={t.mutedInk} />
+				</Card>
+			</Pressable>
 			<Card style={{ gap: 14 }}>
 				<Body tone="muted" size={14}>
 					Appearance

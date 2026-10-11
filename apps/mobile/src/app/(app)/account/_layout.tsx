@@ -6,6 +6,8 @@ export default function AccountLayout() {
 	return (
 		<Stack
 			screenOptions={{
+				// Transparent, so iOS 26 draws the back button as Liquid Glass;
+				// screens carry their own display titles.
 				headerTransparent: true,
 				headerTitle: "",
 				headerTintColor: t.ink,
@@ -14,6 +16,7 @@ export default function AccountLayout() {
 			}}
 		>
 			<Stack.Screen name="index" options={{ headerShown: false }} />
+			<Stack.Screen name="profile" />
 		</Stack>
 	);
 }

@@ -11,7 +11,12 @@ import {
 } from "react-native";
 import { fonts, useTheme } from "../theme";
 
-export type Option = { value: string; label: string };
+export type Option = {
+	value: string;
+	label: string;
+	/** Drawn red, e.g. "Remove photo". */
+	destructive?: boolean;
+};
 
 type Request = {
 	title: string;
@@ -38,6 +43,9 @@ export function useOptionPicker(): {
 				title: next.title,
 				options: [...next.options.map((option) => option.label), "Cancel"],
 				cancelButtonIndex: next.options.length,
+				destructiveButtonIndex: next.options.flatMap((option, index) =>
+					option.destructive ? [index] : [],
+				),
 			},
 			(index) => {
 				if (index < next.options.length) next.onPick(next.options[index].value);
@@ -96,7 +104,7 @@ export function useOptionPicker(): {
 												? fonts.semibold
 												: fonts.body,
 										fontSize: 17,
-										color: t.ink,
+										color: option.destructive ? t.negative : t.ink,
 									}}
 								>
 									{option.label}

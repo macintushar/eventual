@@ -32,7 +32,15 @@
 				}
 			],
 			"expo-apple-authentication",
-			"expo-sharing"
+"expo-sharing",
+			[
+				"expo-image-picker",
+				{
+					"photosPermission": "Eventual uses your photos to set your profile picture.",
+					"cameraPermission": "Eventual uses the camera to take your profile picture.",
+					"microphonePermission": false
+				}
+			]
 		]
 	}
 }
