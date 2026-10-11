@@ -64,7 +64,15 @@ export default function GroupScreen() {
 						<Pressable
 							accessibilityRole="button"
 							accessibilityLabel="Group settings"
-							hitSlop={8}
+							// Fills the glass circle iOS draws around header items; the
+							// icon alone was a 22 pt target.
+							hitSlop={6}
+							style={{
+								width: 36,
+								height: 36,
+								alignItems: "center",
+								justifyContent: "center",
+							}}
 							onPress={() =>
 								router.push({
 									pathname: "/group/[groupId]/settings",
