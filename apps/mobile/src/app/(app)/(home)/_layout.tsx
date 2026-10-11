@@ -55,6 +55,16 @@ export default function GroupsLayout() {
 				}}
 			/>
 			<Stack.Screen
+				name="group/[groupId]/merge-guest"
+				options={{
+					headerShown: false,
+					presentation: "formSheet",
+					sheetAllowedDetents: [1],
+					sheetGrabberVisible: true,
+					sheetCornerRadius: 28,
+				}}
+			/>
+			<Stack.Screen
 				name="group/[groupId]/add-person"
 				options={{
 					headerShown: false,

@@ -2,7 +2,7 @@ import { can } from "@eventual/schemas/permissions";
 import { isEventualApiError } from "@eventual/sdk";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { Ellipsis } from "lucide-react-native";
+import { Ellipsis, Merge } from "lucide-react-native";
 import { Alert, Pressable, View } from "react-native";
 import { idempotencyKey } from "../../lib/mutations";
 import { useGroupContext, useRefreshAfterWrite } from "../../lib/queries";
@@ -10,6 +10,7 @@ import { useApi } from "../../lib/session";
 import { useTheme } from "../../theme";
 import { Body, Card, GlassButton, Heading } from "../brand";
 import { MemberAvatar } from "../member-avatar";
+import { canStartGuestMerge, isMergeSource } from "./guest-merge-policy";
 
 const roleName = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
 
@@ -117,6 +118,20 @@ export function MembersTab({ groupId }: { groupId: string }) {
 					onPress={() =>
 						router.push({
 							pathname: "/group/[groupId]/add-person",
+							params: { groupId },
+						})
+					}
+				/>
+			) : null}
+
+			{canStartGuestMerge(group) &&
+			group.members.some((member) => isMergeSource(member, user.id)) ? (
+				<GlassButton
+					label="Merge a guest"
+					icon={<Merge size={18} color={t.ink} />}
+					onPress={() =>
+						router.push({
+							pathname: "/group/[groupId]/merge-guest",
 							params: { groupId },
 						})
 					}

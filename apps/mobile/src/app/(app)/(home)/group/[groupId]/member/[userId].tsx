@@ -2,6 +2,7 @@ import { can } from "@eventual/schemas/permissions";
 import { isEventualApiError } from "@eventual/sdk";
 import { useMutation } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Merge } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, View } from "react-native";
 import {
@@ -14,6 +15,10 @@ import {
 	Heading,
 	Screen,
 } from "../../../../../../components/brand";
+import {
+	canStartGuestMerge,
+	isMergeSource,
+} from "../../../../../../components/group/guest-merge-policy";
 import { MemberAvatar } from "../../../../../../components/member-avatar";
 import { Segmented } from "../../../../../../components/segmented";
 import { idempotencyKey } from "../../../../../../lib/mutations";
@@ -35,6 +40,7 @@ const errorText = (cause: unknown, fallback: string) =>
 	isEventualApiError(cause) ? cause.message : fallback;
 
 export default function ManageMember() {
+	const t = useTheme();
 	const api = useApi();
 	const router = useRouter();
 	const refresh = useRefreshAfterWrite();
@@ -168,6 +174,21 @@ export default function ManageMember() {
 			) : null}
 
 			{error ? <FormMessage>{error}</FormMessage> : null}
+
+			{context.data &&
+			canStartGuestMerge(context.data.group) &&
+			isMergeSource(member, context.data.user.id) ? (
+				<GlassButton
+					label="Merge guest into my account"
+					icon={<Merge size={18} color={t.ink} />}
+					onPress={() =>
+						router.replace({
+							pathname: "/group/[groupId]/merge-guest",
+							params: { groupId, guestUserId: userId },
+						})
+					}
+				/>
+			) : null}
 
 			{canRemove ? (
 				<GlassButton
