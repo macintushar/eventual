@@ -1,7 +1,8 @@
 import { formatShortDate } from "@eventual/schemas/dates";
 import type { EndpointOutput } from "@eventual/sdk";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Settings } from "lucide-react-native";
 import { useState } from "react";
 import {
 	ActivityIndicator,
@@ -55,111 +56,133 @@ export default function GroupScreen() {
 		context.isRefetching || summary.isRefetching || expenses.isRefetching;
 
 	return (
-		<FlatList
-			style={{ flex: 1, backgroundColor: t.canvas }}
-			contentInsetAdjustmentBehavior="automatic"
-			contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
-			data={tab === "expenses" ? items : []}
-			keyExtractor={(item) => item.id}
-			renderItem={({ item, index }) => (
-				<ExpenseRow
-					expense={item}
-					onPress={() => router.push(`/group/${groupId}/expense/${item.id}`)}
-					first={index === 0}
-					last={index === items.length - 1}
-				/>
-			)}
-			refreshControl={
-				<RefreshControl
-					refreshing={refreshing}
-					onRefresh={() => {
-						void context.refetch();
-						void summary.refetch();
-						void expenses.refetch();
-					}}
-					tintColor={t.mutedInk}
-				/>
-			}
-			onEndReachedThreshold={0.5}
-			onEndReached={() => {
-				if (
-					tab === "expenses" &&
-					expenses.hasNextPage &&
-					!expenses.isFetchingNextPage
-				)
-					void expenses.fetchNextPage();
-			}}
-			ListHeaderComponent={
-				<View style={{ gap: 28, paddingTop: 8, paddingBottom: 14 }}>
-					<Header
-						context={context.data}
-						summary={summary.data}
-						failed={context.isError}
-						onRetry={() => void context.refetch()}
-					/>
-					{context.data && !context.data.group.archivedAt ? (
-						<GlassButton
-							prominent
-							label="Add expense"
+		<>
+			<Stack.Screen
+				options={{
+					// A header item, so iOS 26 draws it as Liquid Glass.
+					headerRight: () => (
+						<Pressable
+							accessibilityRole="button"
+							accessibilityLabel="Group settings"
+							hitSlop={8}
 							onPress={() =>
 								router.push({
-									pathname: "/group/[groupId]/expense/compose",
+									pathname: "/group/[groupId]/settings",
 									params: { groupId },
 								})
 							}
-						/>
-					) : null}
-					<Segmented
-						value={tab}
-						onChange={setTab}
-						options={[
-							{ value: "expenses", label: "Expenses" },
-							{ value: "balances", label: "Balances" },
-							{ value: "members", label: "Members" },
-							{ value: "activity", label: "Activity" },
-						]}
+						>
+							<Settings size={22} color={t.ink} />
+						</Pressable>
+					),
+				}}
+			/>
+			<FlatList
+				style={{ flex: 1, backgroundColor: t.canvas }}
+				contentInsetAdjustmentBehavior="automatic"
+				contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+				data={tab === "expenses" ? items : []}
+				keyExtractor={(item) => item.id}
+				renderItem={({ item, index }) => (
+					<ExpenseRow
+						expense={item}
+						onPress={() => router.push(`/group/${groupId}/expense/${item.id}`)}
+						first={index === 0}
+						last={index === items.length - 1}
 					/>
-					{tab === "balances" ? <BalancesTab groupId={groupId} /> : null}
-					{tab === "members" ? <MembersTab groupId={groupId} /> : null}
-					{tab === "activity" ? <ActivityTab groupId={groupId} /> : null}
-				</View>
-			}
-			ListEmptyComponent={
-				tab !== "expenses" ? null : expenses.isPending ? (
-					<ActivityIndicator color={t.mutedInk} style={{ marginTop: 24 }} />
-				) : expenses.isError ? (
-					<Card>
-						<Body tone="muted">Couldn’t load expenses.</Body>
-						<GlassButton
-							label="Try again"
-							onPress={() => void expenses.refetch()}
+				)}
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={() => {
+							void context.refetch();
+							void summary.refetch();
+							void expenses.refetch();
+						}}
+						tintColor={t.mutedInk}
+					/>
+				}
+				onEndReachedThreshold={0.5}
+				onEndReached={() => {
+					if (
+						tab === "expenses" &&
+						expenses.hasNextPage &&
+						!expenses.isFetchingNextPage
+					)
+						void expenses.fetchNextPage();
+				}}
+				ListHeaderComponent={
+					<View style={{ gap: 28, paddingTop: 8, paddingBottom: 14 }}>
+						<Header
+							context={context.data}
+							summary={summary.data}
+							failed={context.isError}
+							onRetry={() => void context.refetch()}
 						/>
-					</Card>
-				) : (
-					<Card>
-						<Heading>No expenses yet</Heading>
-						<Body tone="muted">
-							Add the first one and everyone’s share is worked out for you.
-						</Body>
-					</Card>
-				)
-			}
-			ListFooterComponent={
-				tab === "expenses" && items.length ? (
-					<View style={{ paddingTop: 16 }}>
-						{expenses.isFetchingNextPage ? (
-							<ActivityIndicator color={t.mutedInk} />
-						) : expenses.isFetchNextPageError ? (
-							// Keeps the rows already loaded; only the next page failed.
+						{context.data && !context.data.group.archivedAt ? (
 							<GlassButton
-								label="Couldn’t load more. Try again"
-								onPress={() => void expenses.fetchNextPage()}
+								prominent
+								label="Add expense"
+								onPress={() =>
+									router.push({
+										pathname: "/group/[groupId]/expense/compose",
+										params: { groupId },
+									})
+								}
 							/>
 						) : null}
+						<Segmented
+							value={tab}
+							onChange={setTab}
+							options={[
+								{ value: "expenses", label: "Expenses" },
+								{ value: "balances", label: "Balances" },
+								{ value: "members", label: "Members" },
+								{ value: "activity", label: "Activity" },
+							]}
+						/>
+						{tab === "balances" ? <BalancesTab groupId={groupId} /> : null}
+						{tab === "members" ? <MembersTab groupId={groupId} /> : null}
+						{tab === "activity" ? <ActivityTab groupId={groupId} /> : null}
 					</View>
-				) : null
-			}
-		/>
+				}
+				ListEmptyComponent={
+					tab !== "expenses" ? null : expenses.isPending ? (
+						<ActivityIndicator color={t.mutedInk} style={{ marginTop: 24 }} />
+					) : expenses.isError ? (
+						<Card>
+							<Body tone="muted">Couldn’t load expenses.</Body>
+							<GlassButton
+								label="Try again"
+								onPress={() => void expenses.refetch()}
+							/>
+						</Card>
+					) : (
+						<Card>
+							<Heading>No expenses yet</Heading>
+							<Body tone="muted">
+								Add the first one and everyone’s share is worked out for you.
+							</Body>
+						</Card>
+					)
+				}
+				ListFooterComponent={
+					tab === "expenses" && items.length ? (
+						<View style={{ paddingTop: 16 }}>
+							{expenses.isFetchingNextPage ? (
+								<ActivityIndicator color={t.mutedInk} />
+							) : expenses.isFetchNextPageError ? (
+								// Keeps the rows already loaded; only the next page failed.
+								<GlassButton
+									label="Couldn’t load more. Try again"
+									onPress={() => void expenses.fetchNextPage()}
+								/>
+							) : null}
+						</View>
+					) : null
+				}
+			/>
+		</>
 	);
 }
 
