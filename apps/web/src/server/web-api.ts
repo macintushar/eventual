@@ -378,6 +378,13 @@ export async function sendPendingVerification(request: Request) {
 
 export const legalInfo = getLegalInfo;
 
+/**
+ * What this server offers the native app. Bump it when the app needs
+ * something new from the server; the app refuses servers below its minimum.
+ * 1: native sessions (the Better Auth Expo plugin and `eventual://` origin).
+ */
+const NATIVE_APP_VERSION = 1;
+
 export function siteInfo() {
 	return {
 		origin: new URL(env.BETTER_AUTH_URL).origin,
@@ -385,5 +392,6 @@ export function siteInfo() {
 		// Mirrors the provider registration in #/lib/auth.
 		googleSignIn: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
 		statusPageUrl: env.STATUS_PAGE_URL,
+		nativeAppVersion: NATIVE_APP_VERSION,
 	};
 }

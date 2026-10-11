@@ -298,3 +298,7 @@ verified **only in that disposable database**. CI runs the same command and
 uploads Playwright traces/screenshots on failure.
 Provider-backed email delivery and Google OAuth are intentionally outside this
 offline CI suite; their verification/reset behavior has separate unit tests.
+
+## Mobile app
+
+The native Expo app lives in `apps/mobile`. Run `bun run --cwd apps/mobile ios` for a local Xcode simulator build, or see [the mobile development guide](apps/mobile/README.md) for Android, Metro, and the remaining implementation slices.

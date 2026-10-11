@@ -585,6 +585,11 @@ export const siteInfoSchema = z.object({
 	supportEmail: z.string().nullable(),
 	googleSignIn: z.boolean(),
 	statusPageUrl: z.string().nullable(),
+	/**
+	 * What this server supports for the native app. Servers from before the
+	 * app don't send it, so clients read it defensively.
+	 */
+	nativeAppVersion: z.number().int(),
 });
 
 export const legalInfoSchema = z.object({

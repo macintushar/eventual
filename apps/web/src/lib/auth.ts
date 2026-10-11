@@ -1,4 +1,5 @@
 import { apiKey } from "@better-auth/api-key";
+import { expo } from "@better-auth/expo";
 import { storedImageSchema } from "@eventual/schemas";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -24,6 +25,7 @@ import {
 } from "#/server/pending-verification";
 
 const API_KEY_PREFIX = "ev_";
+const NATIVE_APP_ORIGIN = "eventual://";
 const LEGACY_API_KEY_PREFIX = "ss_";
 
 /**
@@ -80,9 +82,11 @@ export const auth = betterAuth({
 	appName: "Eventual",
 	baseURL: env.BETTER_AUTH_URL,
 	secret: env.BETTER_AUTH_SECRET,
+	// `eventual://` is the native app's scheme: its requests carry it as their
+	// origin, and Google sign-in returns to it.
 	trustedOrigins: import.meta.env?.DEV
-		? ["http://localhost:*", "http://127.0.0.1:*"]
-		: [env.BETTER_AUTH_URL],
+		? ["http://localhost:*", "http://127.0.0.1:*", NATIVE_APP_ORIGIN]
+		: [env.BETTER_AUTH_URL, NATIVE_APP_ORIGIN],
 	database: drizzleAdapter(db, { provider: "sqlite", schema }),
 	...guestAuthGuards(db),
 	user: {
@@ -183,6 +187,9 @@ export const auth = betterAuth({
 		},
 	},
 	plugins: [
+		// The native app has no browser cookie jar: it keeps the session cookie
+		// itself and gets it back from Google sign-in through its deep link.
+		expo(),
 		guestAuthPlugin(
 			db,
 			sendEmail,
