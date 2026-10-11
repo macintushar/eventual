@@ -4,6 +4,7 @@ import { type Permissions, roleCan } from "#/lib/permissions";
 import type { Ctx } from "#/server/context";
 import type { Recipient } from "#/server/domain/activity";
 import { AppError } from "#/server/errors";
+import { enqueueActivityPush } from "#/server/push";
 
 export type Role = "owner" | "admin" | "member";
 export const id = () => crypto.randomUUID();
@@ -56,7 +57,7 @@ export const activityRow = (
  * involves, in the same transaction so neither can exist without the other.
  */
 export async function recordActivity(
-	tx: Pick<Ctx["db"], "insert">,
+	tx: Pick<Ctx["db"], "insert" | "select">,
 	row: ReturnType<typeof activityRow>,
 	recipients: Recipient[] = [],
 ) {
@@ -73,6 +74,7 @@ export async function recordActivity(
 				})),
 			)
 			.onConflictDoNothing();
+	await enqueueActivityPush(tx, row, recipients);
 }
 
 export async function assertExpenseMembers(

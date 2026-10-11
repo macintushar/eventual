@@ -82,6 +82,11 @@
       "description": "Create and revoke the keys that authenticate this API. A new key's secret is returned once."
     },
     {
+      "name": "push",
+      "x-displayName": "Push notifications",
+      "description": "Session-only native device registration and push preferences. Push delivery requires hosted APNs/FCM credentials; self-hosted servers advertise no push by default."
+    },
+    {
       "name": "preset",
       "x-displayName": "Shortcut presets",
       "description": "Compact endpoints shaped for Apple Shortcuts: lists come back as `{ label: id }` dictionaries."
@@ -149,7 +154,8 @@
       "tags": [
         "activity",
         "profile",
-        "apiKey"
+        "apiKey",
+        "push"
       ]
     },
     {
@@ -11468,6 +11474,413 @@
         }
       }
     },
+    "/v1/me/devices": {
+      "post": {
+        "operationId": "push.device.register",
+        "summary": "Register or refresh a native push device",
+        "tags": [
+          "push"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "ios",
+                      "android"
+                    ]
+                  },
+                  "token": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "appVersion": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "locale": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "platform",
+                  "token",
+                  "appVersion",
+                  "locale"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "type": "string",
+                      "enum": [
+                        "ios",
+                        "android"
+                      ]
+                    },
+                    "appVersion": {
+                      "type": "string"
+                    },
+                    "locale": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "lastSeenAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "platform",
+                    "appVersion",
+                    "locale",
+                    "createdAt",
+                    "lastSeenAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "push.device.list",
+        "summary": "List your push devices",
+        "tags": [
+          "push"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "platform": {
+                        "type": "string",
+                        "enum": [
+                          "ios",
+                          "android"
+                        ]
+                      },
+                      "appVersion": {
+                        "type": "string"
+                      },
+                      "locale": {
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      "lastSeenAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "platform",
+                      "appVersion",
+                      "locale",
+                      "createdAt",
+                      "lastSeenAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/devices/{deviceId}": {
+      "delete": {
+        "operationId": "push.device.delete",
+        "summary": "Retire a push device",
+        "tags": [
+          "push"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/push-preferences": {
+      "get": {
+        "operationId": "push.preferences.get",
+        "summary": "Get push notification preferences",
+        "tags": [
+          "push"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "expenses": {
+                      "type": "boolean"
+                    },
+                    "payments": {
+                      "type": "boolean"
+                    },
+                    "recurring": {
+                      "type": "boolean"
+                    },
+                    "mutedGroupIds": {
+                      "maxItems": 1000,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "required": [
+                    "expenses",
+                    "payments",
+                    "recurring",
+                    "mutedGroupIds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "push.preferences.update",
+        "summary": "Update push notification preferences",
+        "tags": [
+          "push"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "expenses": {
+                    "type": "boolean"
+                  },
+                  "payments": {
+                    "type": "boolean"
+                  },
+                  "recurring": {
+                    "type": "boolean"
+                  },
+                  "mutedGroupIds": {
+                    "maxItems": 1000,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "expenses": {
+                      "type": "boolean"
+                    },
+                    "payments": {
+                      "type": "boolean"
+                    },
+                    "recurring": {
+                      "type": "boolean"
+                    },
+                    "mutedGroupIds": {
+                      "maxItems": 1000,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "required": [
+                    "expenses",
+                    "payments",
+                    "recurring",
+                    "mutedGroupIds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/health": {
       "get": {
         "operationId": "health",
@@ -11530,6 +11943,26 @@
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "type": "object",
                   "properties": {
+                    "push": {
+                      "type": "object",
+                      "properties": {
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "via": {
+                          "type": "string",
+                          "enum": [
+                            "direct",
+                            "none"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "available",
+                        "via"
+                      ],
+                      "additionalProperties": false
+                    },
                     "origin": {
                       "type": "string"
                     },
@@ -11558,6 +11991,7 @@
                     }
                   },
                   "required": [
+                    "push",
                     "origin",
                     "supportEmail",
                     "googleSignIn",

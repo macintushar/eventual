@@ -20,6 +20,16 @@ import {
 import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
 import { getLegalInfo } from "#/server/legal";
+import { pushCapability } from "#/server/push-config";
+
+export {
+	deletePushDevice,
+	getPushPreferences,
+	listPushDevices,
+	registerPushDevice,
+	updatePushPreferences,
+} from "#/server/services/push";
+
 import {
 	pendingVerificationUser,
 	settledVerificationSendStatus,
@@ -394,5 +404,6 @@ export function siteInfo() {
 		appleSignIn: Boolean(auth.options.socialProviders.apple),
 		statusPageUrl: env.STATUS_PAGE_URL,
 		nativeAppVersion: NATIVE_APP_VERSION,
+		push: pushCapability(),
 	};
 }

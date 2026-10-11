@@ -22,6 +22,14 @@ export const env = createEnv({
 		APPLE_TEAM_ID: z.string().min(1).optional(),
 		APPLE_KEY_ID: z.string().min(1).optional(),
 		APPLE_PRIVATE_KEY: z.string().min(1).optional(),
+		// Hosted-only native push; leave unset on self-hosted instances.
+		APNS_KEY_ID: z.string().min(1).optional(),
+		APNS_TEAM_ID: z.string().min(1).optional(),
+		APNS_PRIVATE_KEY: z.string().min(1).optional(),
+		APNS_BUNDLE_ID: z.string().min(1).optional(),
+		APNS_ENVIRONMENT: z.enum(["sandbox", "production"]).optional(),
+		FCM_PROJECT_ID: z.string().min(1).optional(),
+		FCM_SERVICE_ACCOUNT: z.string().min(1).optional(),
 		APPLE_APP_BUNDLE_IDENTIFIER: z
 			.string()
 			.min(1)

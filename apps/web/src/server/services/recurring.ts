@@ -276,6 +276,7 @@ export async function materializeRecurringExpense(
 						groupId: template.organizationId,
 						date: template.nextRunAt,
 					}),
+					{ recurring: true },
 				);
 				const nextRunAt = nextRecurrence(
 					template.nextRunAt,

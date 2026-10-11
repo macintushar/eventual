@@ -6,6 +6,7 @@ import { env } from "#/env";
 import { auth } from "#/lib/auth";
 import { dispatchApi } from "#/server/http";
 import { openApiDocument } from "#/server/openapi";
+import { pushCapability } from "#/server/push-config";
 
 function request(path: string, options?: RequestInit) {
 	return new Request(`http://localhost:3000/api/${path}`, options);
@@ -22,6 +23,7 @@ test("public v1 endpoints and private cache headers", async () => {
 	assert.equal(site.headers.get("cache-control"), "private, max-age=5");
 	assert.match(site.headers.get("vary") ?? "", /Cookie/);
 	const siteBody = siteInfoSchema.parse(await site.json());
+	assert.deepEqual(siteBody.push, pushCapability());
 	assert.equal(siteBody.statusPageUrl, env.STATUS_PAGE_URL);
 	assert.equal(
 		siteBody.appleSignIn,
@@ -72,4 +74,43 @@ test("OpenAPI includes the UI REST endpoints", () => {
 	assert.ok(paths["/v1/app/dashboard"]?.get);
 	assert.ok(paths["/v1/me/profile"]?.patch);
 	assert.ok(paths["/v1/me/api-keys/{keyId}"]?.delete);
+	assert.ok(paths["/v1/me/devices"]?.post);
+	assert.ok(paths["/v1/me/devices"]?.get);
+	assert.ok(paths["/v1/me/devices/{deviceId}"]?.delete);
+	assert.ok(paths["/v1/me/push-preferences"]?.get);
+	assert.ok(paths["/v1/me/push-preferences"]?.patch);
+});
+
+test("push routes require authentication and writes reject foreign origins", async () => {
+	for (const [path, method] of [
+		["v1/me/devices", "POST"],
+		["v1/me/devices", "GET"],
+		["v1/me/devices/id", "DELETE"],
+		["v1/me/push-preferences", "GET"],
+		["v1/me/push-preferences", "PATCH"],
+	]) {
+		const response = await dispatchApi(
+			request(path, {
+				method,
+				headers: { "Content-Type": "application/json" },
+				...(method === "POST" || method === "PATCH" ? { body: "{}" } : {}),
+			}),
+			path,
+		);
+		assert.equal(response.status, 401, `${method} ${path}`);
+		assert.equal(response.headers.get("cache-control"), "private, no-store");
+	}
+	const path = "v1/me/devices";
+	const response = await dispatchApi(
+		request(path, {
+			method: "POST",
+			headers: {
+				origin: "https://foreign.example",
+				"Content-Type": "application/json",
+			},
+			body: "{}",
+		}),
+		path,
+	);
+	assert.equal(response.status, 403);
 });

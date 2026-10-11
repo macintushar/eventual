@@ -254,7 +254,11 @@ function assertReviewedShares(
 		);
 }
 
-export async function createExpense(ctx: Ctx, input: CreateExpenseInput) {
+export async function createExpense(
+	ctx: Ctx,
+	input: CreateExpenseInput,
+	options: { recurring?: boolean } = {},
+) {
 	await membership(ctx, input.groupId);
 	await assertExpenseMembers(
 		ctx,
@@ -321,6 +325,7 @@ export async function createExpense(ctx: Ctx, input: CreateExpenseInput) {
 					description: input.description,
 					amountMinor: input.amountMinor,
 					currency: input.currency,
+					...(options.recurring ? { recurring: true } : {}),
 				},
 			),
 			expenseRecipients(input.paidByUserId, input.amountMinor, shares),
