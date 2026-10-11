@@ -29,7 +29,7 @@ import {
 	useDebounced,
 } from "../../../../../components/group/expense-search";
 import { MembersTab } from "../../../../../components/group/members";
-import { Segmented } from "../../../../../components/segmented";
+import { type GroupTab, GroupTabs } from "../../../../../components/group/tabs";
 import { useGroupContext, useGroupSummary } from "../../../../../lib/queries";
 import { useApi } from "../../../../../lib/session";
 import { fonts, useTheme } from "../../../../../theme";
@@ -41,9 +41,7 @@ export default function GroupScreen() {
 	const api = useApi();
 	const router = useRouter();
 	const { groupId } = useLocalSearchParams<{ groupId: string }>();
-	const [tab, setTab] = useState<
-		"expenses" | "balances" | "members" | "activity"
-	>("expenses");
+	const [tab, setTab] = useState<GroupTab>("expenses");
 	const context = useGroupContext(groupId);
 	const summary = useGroupSummary(groupId);
 	const [searchText, setSearchText] = useState("");
@@ -161,16 +159,7 @@ export default function GroupScreen() {
 								}
 							/>
 						) : null}
-						<Segmented
-							value={tab}
-							onChange={setTab}
-							options={[
-								{ value: "expenses", label: "Expenses" },
-								{ value: "balances", label: "Balances" },
-								{ value: "members", label: "Members" },
-								{ value: "activity", label: "Activity" },
-							]}
-						/>
+						<GroupTabs value={tab} onChange={setTab} />
 						{tab === "expenses" ? (
 							<ExpenseSearchBar
 								text={searchText}
