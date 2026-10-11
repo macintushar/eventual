@@ -7,7 +7,8 @@ import { Divider, FormMessage, GlassButton, GoogleMark } from "./brand";
 /**
  * Apple and Google sign-in. Shown only when the server offers Google: the
  * App Store asks for Sign in with Apple wherever another social sign-in is
- * offered, and a server without Google has no social sign-in at all.
+ * offered, and a server without Google has no social sign-in at all. The
+ * Apple button itself also needs the server to have Apple configured.
  */
 export function SocialSignIn({
 	busy,
@@ -94,7 +95,8 @@ export function SocialSignIn({
 	return (
 		<View style={{ gap: 12 }}>
 			<Divider label="Or continue with" />
-			{Platform.OS === "ios" ? (
+			{/* Apple only where the server registered it; older servers omit the flag. */}
+			{Platform.OS === "ios" && site.appleSignIn === true ? (
 				<AppleAuthentication.AppleAuthenticationButton
 					buttonType={
 						AppleAuthentication.AppleAuthenticationButtonType.CONTINUE
