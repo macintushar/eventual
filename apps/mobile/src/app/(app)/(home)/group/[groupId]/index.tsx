@@ -29,6 +29,7 @@ import {
 	useDebounced,
 } from "../../../../../components/group/expense-search";
 import { MembersTab } from "../../../../../components/group/members";
+import { canResplit } from "../../../../../components/group/resplit-model";
 import { type GroupTab, GroupTabs } from "../../../../../components/group/tabs";
 import { useGroupContext, useGroupSummary } from "../../../../../lib/queries";
 import { useApi } from "../../../../../lib/session";
@@ -160,6 +161,14 @@ export default function GroupScreen() {
 							/>
 						) : null}
 						<GroupTabs value={tab} onChange={setTab} />
+						{tab === "expenses" &&
+						context.data &&
+						canResplit(context.data.group) ? (
+							<GlassButton
+								label="Re-split expenses"
+								onPress={() => router.push(`/group/${groupId}/resplit`)}
+							/>
+						) : null}
 						{tab === "expenses" ? (
 							<ExpenseSearchBar
 								text={searchText}
