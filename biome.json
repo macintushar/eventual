@@ -1,23 +1,26 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.4.5/schema.json",
 	"vcs": {
-		"enabled": false,
+		"enabled": true,
 		"clientKind": "git",
-		"useIgnoreFile": false
+		"useIgnoreFile": true
 	},
 	"files": {
 		"ignoreUnknown": false,
 		"includes": [
-			"**/e2e/**/*",
-			"**/playwright.config.ts",
-			"**/scripts/run-e2e.mjs",
-			"**/src/**/*",
-			"**/.vscode/**/*",
-			"**/index.html",
-			"**/vite.config.ts",
-			"**/playwright.config.ts",
-			"**/scripts/generate-openapi.ts",
-			"**/tests/e2e/**/*",
+			"apps/web/e2e/**/*",
+			"apps/web/playwright.config.ts",
+			"apps/web/scripts/run-e2e.mjs",
+			"apps/web/src/**/*",
+			"apps/web/index.html",
+			"apps/web/vite.config.ts",
+			"apps/web/scripts/generate-openapi.ts",
+			"apps/web/tests/e2e/**/*",
+			"packages/*/src/**/*",
+			"packages/*/package.json",
+			".vscode/**/*",
+			"package.json",
+			"turbo.json",
 			"!**/.output",
 			"!**/src/routeTree.gen.ts",
 			"!**/src/styles.css"

@@ -1,0 +1,366 @@
+import {
+	type UpdateMemberWeightInput,
+	updateMemberWeightSchema,
+} from "@eventual/schemas/people";
+import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
+import {
+	channelIdentity,
+	expense,
+	expenseShare,
+	invitation,
+	member,
+	user,
+} from "#/db/schema";
+import { roleCan } from "#/lib/permissions";
+import type { Ctx } from "#/server/context";
+import { people } from "#/server/domain/activity";
+import type { Participant } from "#/server/domain/split";
+import { AppError } from "#/server/errors";
+import { getBalances } from "./balances";
+import {
+	activityRow,
+	membership,
+	type Role,
+	recordActivity,
+	requirePermission,
+} from "./shared";
+
+export async function listMembers(ctx: Ctx, input: { groupId: string }) {
+	await membership(ctx, input.groupId);
+	const rows = await ctx.db
+		.select({
+			id: member.id,
+			userId: user.id,
+			name: user.name,
+			email: user.email,
+			image: user.image,
+			upiVpa: user.upiVpa,
+			wiseTag: user.wiseTag,
+			bio: user.bio,
+			isEmailPublic: user.isEmailPublic,
+			isPhonePublic: user.isPhonePublic,
+			// The number a guest was added with lives on `channel_identity`, not
+			// on `user`, so a profile reads it from the same place either way.
+			phone: channelIdentity.address,
+			role: member.role,
+			weight: member.weight,
+			isGuest: user.isGuest,
+			claimedAt: user.claimedAt,
+			createdAt: member.createdAt,
+		})
+		.from(member)
+		.innerJoin(user, eq(member.userId, user.id))
+		.leftJoin(
+			channelIdentity,
+			and(
+				eq(channelIdentity.userId, user.id),
+				eq(channelIdentity.channel, "phone"),
+			),
+		)
+		.where(eq(member.organizationId, input.groupId))
+		.orderBy(asc(user.name));
+	// Guests have no profile of their own, so show the contact details admins
+	// gave them: the phone on file and the address their invitation went to.
+	const guestIds = rows.filter((row) => row.isGuest).map((row) => row.userId);
+	const [phones, invites] = guestIds.length
+		? await Promise.all([
+				ctx.db
+					.select({
+						userId: channelIdentity.userId,
+						address: channelIdentity.address,
+					})
+					.from(channelIdentity)
+					.where(
+						and(
+							inArray(channelIdentity.userId, guestIds),
+							eq(channelIdentity.channel, "phone"),
+						),
+					),
+				ctx.db
+					.select({
+						guestUserId: invitation.guestUserId,
+						email: invitation.email,
+					})
+					.from(invitation)
+					.where(
+						and(
+							eq(invitation.organizationId, input.groupId),
+							eq(invitation.status, "pending"),
+							inArray(invitation.guestUserId, guestIds),
+						),
+					),
+			])
+		: [[], []];
+	return rows.map((row) => {
+		const phone = row.isGuest
+			? (phones.find((phone) => phone.userId === row.userId)?.address ?? null)
+			: row.phone;
+		const invitedEmail =
+			invites.find((invite) => invite.guestUserId === row.userId)?.email ??
+			null;
+		// The visibility toggles are enforced here, not only in the profile UI,
+		// so a hidden address never leaves the server. Your own row keeps both.
+		if (row.userId === ctx.user.id) return { ...row, phone, invitedEmail };
+		return {
+			...row,
+			email: row.isEmailPublic ? row.email : null,
+			phone: row.isPhonePublic ? phone : null,
+			invitedEmail,
+		};
+	});
+}
+
+async function assertCanExit(ctx: Ctx, groupId: string, userId: string) {
+	const person = await ctx.db.query.user.findFirst({
+		where: eq(user.id, userId),
+		columns: { isGuest: true },
+	});
+	const balances = await getBalances(ctx, { groupId });
+	const hasBalance = balances.members.some(
+		(row) => row.userId === userId && row.balanceMinor !== 0,
+	);
+	const unpaid = await ctx.db
+		.select({ id: expenseShare.id })
+		.from(expenseShare)
+		.innerJoin(expense, eq(expenseShare.expenseId, expense.id))
+		.where(
+			and(
+				eq(expense.organizationId, groupId),
+				eq(expenseShare.userId, userId),
+				isNull(expenseShare.paidAt),
+				ne(expense.paidByUserId, userId),
+			),
+		)
+		.limit(1);
+	if (hasBalance || unpaid.length)
+		throw new AppError(
+			"CONFLICT",
+			person?.isGuest
+				? "Settle this guest through payer-marked shares or a member payment before removing them"
+				: "Settle this member's balance and unpaid shares before they leave",
+		);
+}
+
+/** Resolve weights from trusted membership data, never from expense input. */
+export async function weightedParticipants<T extends Participant>(
+	ctx: Ctx,
+	groupId: string,
+	participants: T[],
+) {
+	await membership(ctx, groupId);
+	if (
+		!participants.length ||
+		new Set(participants.map((p) => p.userId)).size !== participants.length
+	)
+		throw new AppError("VALIDATION", "Choose unique participants");
+	const rows = await ctx.db
+		.select()
+		.from(member)
+		.where(
+			and(
+				eq(member.organizationId, groupId),
+				inArray(
+					member.userId,
+					participants.map((p) => p.userId),
+				),
+			),
+		);
+	if (rows.length !== participants.length)
+		throw new AppError(
+			"VALIDATION",
+			"Every participant must be a current group member",
+		);
+	const weights = new Map(rows.map((row) => [row.userId, row.weight]));
+	return participants.map((participant) => ({
+		...participant,
+		weight: weights.get(participant.userId) ?? 1,
+	}));
+}
+
+export async function updateMemberWeight(
+	ctx: Ctx,
+	raw: UpdateMemberWeightInput,
+) {
+	const input = updateMemberWeightSchema.parse(raw);
+	return ctx.db.transaction(async (tx) => {
+		const mine = await tx.query.member.findFirst({
+			where: and(
+				eq(member.organizationId, input.groupId),
+				eq(member.userId, ctx.user.id),
+			),
+		});
+		if (!mine)
+			throw new AppError("FORBIDDEN", "You are not a member of this group");
+		requirePermission(mine.role as Role, { member: ["update"] });
+		const rows = await tx
+			.update(member)
+			.set({ weight: input.weight })
+			.where(
+				and(
+					eq(member.organizationId, input.groupId),
+					eq(member.userId, input.userId),
+				),
+			)
+			.returning();
+		if (!rows[0]) throw new AppError("NOT_FOUND", "Member not found");
+		return rows[0];
+	});
+}
+
+export { addMember } from "./guests";
+
+async function ownerCount(ctx: Ctx, groupId: string) {
+	const owners = await ctx.db
+		.select({ id: member.id })
+		.from(member)
+		.where(and(eq(member.organizationId, groupId), eq(member.role, "owner")));
+	return owners.length;
+}
+
+export async function updateMemberRole(
+	ctx: Ctx,
+	input: { groupId: string; userId: string; role: Role },
+) {
+	const mine = await membership(ctx, input.groupId);
+	requirePermission(mine.role, { member: ["role"] });
+	if (input.role === "owner")
+		throw new AppError("FORBIDDEN", "Each group has one owner");
+	const target = await ctx.db.query.member.findFirst({
+		where: and(
+			eq(member.organizationId, input.groupId),
+			eq(member.userId, input.userId),
+		),
+	});
+	if (!target) throw new AppError("NOT_FOUND", "Member not found");
+	if (target.role === "owner" && (await ownerCount(ctx, input.groupId)) === 1)
+		throw new AppError("CONFLICT", "The last owner cannot be demoted");
+	await ctx.db.transaction(async (tx) => {
+		await tx
+			.update(member)
+			.set({ role: input.role })
+			.where(eq(member.id, target.id));
+		// Keep a guest's pending invitation in step, so accepting it later grants
+		// the role they hold now rather than the one they were first invited with.
+		await tx
+			.update(invitation)
+			.set({ role: input.role })
+			.where(
+				and(
+					eq(invitation.organizationId, input.groupId),
+					eq(invitation.guestUserId, input.userId),
+					eq(invitation.status, "pending"),
+				),
+			);
+		await recordActivity(
+			tx,
+			activityRow(
+				input.groupId,
+				ctx.user.id,
+				"member.role_changed",
+				"member",
+				target.id,
+				{ userId: input.userId, from: target.role, to: input.role },
+			),
+			people(input.userId),
+		);
+	});
+	return { success: true };
+}
+
+export async function removeMember(
+	ctx: Ctx,
+	input: { groupId: string; userId: string },
+) {
+	const mine = await membership(ctx, input.groupId);
+	requirePermission(mine.role, { member: ["delete"] });
+	const target = await ctx.db.query.member.findFirst({
+		where: and(
+			eq(member.organizationId, input.groupId),
+			eq(member.userId, input.userId),
+		),
+	});
+	if (!target) throw new AppError("NOT_FOUND", "Member not found");
+	// Removing an admin or owner is a role decision, not just a removal.
+	if (target.role !== "member" && !roleCan(mine.role, { member: ["role"] }))
+		throw new AppError("FORBIDDEN", "Admins can only remove members");
+	if (target.role === "owner" && (await ownerCount(ctx, input.groupId)) === 1)
+		throw new AppError("CONFLICT", "The last owner cannot be removed");
+	await assertCanExit(ctx, input.groupId, input.userId);
+	await ctx.db.transaction(async (tx) => {
+		await recordActivity(
+			tx,
+			activityRow(
+				input.groupId,
+				ctx.user.id,
+				"member.removed",
+				"member",
+				target.id,
+				{ userId: input.userId },
+			),
+			people(input.userId),
+		);
+		await tx.delete(member).where(eq(member.id, target.id));
+	});
+	return { success: true };
+}
+
+export async function leaveGroup(
+	ctx: Ctx,
+	input: { groupId: string; newOwnerId?: string },
+) {
+	const mine = await membership(ctx, input.groupId);
+	const mustHandOver =
+		mine.role === "owner" && (await ownerCount(ctx, input.groupId)) === 1;
+	if (mustHandOver && !input.newOwnerId)
+		throw new AppError(
+			"CONFLICT",
+			"Choose a new owner before leaving, or delete the group",
+		);
+	const successor = mustHandOver
+		? await ctx.db
+				.select({ id: member.id, userId: member.userId, role: member.role })
+				.from(member)
+				.innerJoin(user, eq(member.userId, user.id))
+				.where(
+					and(
+						eq(member.organizationId, input.groupId),
+						eq(member.userId, input.newOwnerId ?? ""),
+						ne(member.userId, ctx.user.id),
+						eq(user.isGuest, false),
+					),
+				)
+				.then((rows) => rows[0])
+		: undefined;
+	if (mustHandOver && !successor)
+		throw new AppError("NOT_FOUND", "The new owner must be another member");
+	await assertCanExit(ctx, input.groupId, ctx.user.id);
+	await ctx.db.transaction(async (tx) => {
+		if (successor) {
+			await tx
+				.update(member)
+				.set({ role: "owner" })
+				.where(eq(member.id, successor.id));
+			await recordActivity(
+				tx,
+				activityRow(
+					input.groupId,
+					ctx.user.id,
+					"member.role_changed",
+					"member",
+					successor.id,
+					{ userId: successor.userId, from: successor.role, to: "owner" },
+				),
+				people(successor.userId),
+			);
+		}
+		await recordActivity(
+			tx,
+			activityRow(input.groupId, ctx.user.id, "member.left", "member", mine.id),
+			people(ctx.user.id),
+		);
+		await tx.delete(member).where(eq(member.id, mine.id));
+	});
+	return { success: true };
+}
+
+export { updateMemberRole as updateMember };
