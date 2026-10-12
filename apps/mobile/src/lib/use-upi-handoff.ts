@@ -27,7 +27,7 @@ export function useUpiHandoff(onPaid: (attempt: UpiAttempt) => void) {
 			if (!attempt) return;
 			Alert.alert(
 				"Did you pay?",
-				`Did you pay ${formatMinor(attempt.amountMinor, attempt.currency)} in your UPI app? Eventual can’t tell, so it only records a payment when you say so.`,
+				`Record ${formatMinor(attempt.amountMinor, attempt.currency)} only if it went through.`,
 				[
 					{ text: "Not yet", style: "cancel" },
 					{ text: "Paid", onPress: () => paid.current(attempt) },
@@ -45,7 +45,7 @@ export function useUpiHandoff(onPaid: (attempt: UpiAttempt) => void) {
 		const amount = formatMinor(transfer.amountMinor, transfer.currency);
 		Alert.alert(
 			"Pay in your UPI app",
-			"Eventual opens your UPI app but never records a payment for you. When you come back, you’ll be asked whether you paid.",
+			"You’ll confirm the payment when you come back. Nothing is recorded automatically.",
 			[
 				{ text: "Cancel", style: "cancel" },
 				{
@@ -60,12 +60,11 @@ export function useUpiHandoff(onPaid: (attempt: UpiAttempt) => void) {
 							},
 							attempt,
 							upiUrl,
-							amount,
 						).then(({ outcome, vpa }) => {
 							if (outcome === "copied")
 								Alert.alert(
 									"No UPI app found",
-									`Copied ${vpa} and ${amount} to your clipboard. Pay from any banking app, then come back and confirm. Eventual never records a payment for you.`,
+									`Copied ${vpa}. Pay ${amount} from any banking app, then come back to confirm.`,
 								);
 							else if (outcome === "unavailable")
 								Alert.alert(

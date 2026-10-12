@@ -107,15 +107,18 @@ export function parseUpiUrl(url: string): { vpa: string; name: string } | null {
 	return vpa ? { vpa, name: values.get("pn")?.trim() ?? "" } : null;
 }
 
-/** What lands on the clipboard when no UPI app can be opened. */
-export function fallbackClipboardText(vpa: string, amountLabel: string) {
-	return `${vpa}\n${amountLabel}`;
+/**
+ * What lands on the clipboard when no UPI app can be opened: the UPI ID alone,
+ * so it pastes cleanly into a payee field. The amount is shown in the alert.
+ */
+export function fallbackClipboardText(vpa: string) {
+	return vpa;
 }
 
 export type HandoffOutcome =
 	/** The OS accepted the link; a UPI app is in front. */
 	| "opened"
-	/** No handler: the UPI ID and amount were copied instead. */
+	/** No handler: the UPI ID was copied instead. */
 	| "copied"
 	/** No handler and the clipboard failed too. */
 	| "unavailable";
@@ -139,7 +142,6 @@ export async function handOffToUpi(
 	},
 	attempt: UpiAttempt,
 	upiUrl: string,
-	amountLabel: string,
 ): Promise<{ outcome: HandoffOutcome; vpa: string | null }> {
 	const vpa = parseUpiUrl(upiUrl)?.vpa ?? null;
 	deps.tracker.begin(attempt, deps.now());
@@ -150,7 +152,7 @@ export async function handOffToUpi(
 		if (!vpa) return { outcome: "unavailable", vpa };
 	}
 	try {
-		const copied = await deps.copy(fallbackClipboardText(vpa, amountLabel));
+		const copied = await deps.copy(fallbackClipboardText(vpa));
 		return { outcome: copied ? "copied" : "unavailable", vpa };
 	} catch {
 		return { outcome: "unavailable", vpa };

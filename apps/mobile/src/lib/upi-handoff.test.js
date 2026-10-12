@@ -119,7 +119,7 @@ describe("handOffToUpi", () => {
 
 	test("opens the link and arms the handoff", async () => {
 		const d = deps();
-		const result = await handOffToUpi(d, attempt, url, "₹1,250.00");
+		const result = await handOffToUpi(d, attempt, url);
 		expect(result).toEqual({ outcome: "opened", vpa: "ben@okbank" });
 		expect(d.calls.open).toEqual([url]);
 		expect(d.calls.copy).toEqual([]);
@@ -132,11 +132,10 @@ describe("handOffToUpi", () => {
 				throw new Error("no handler");
 			},
 		});
-		const result = await handOffToUpi(d, attempt, url, "₹1,250.00");
+		const result = await handOffToUpi(d, attempt, url);
 		expect(result).toEqual({ outcome: "copied", vpa: "ben@okbank" });
-		expect(d.calls.copy).toEqual([
-			fallbackClipboardText("ben@okbank", "₹1,250.00"),
-		]);
+		expect(d.calls.copy).toEqual([fallbackClipboardText("ben@okbank")]);
+		expect(fallbackClipboardText("ben@okbank")).toBe("ben@okbank");
 		// Still armed: the payer pays in their own app and returns.
 		expect(d.tracker.current).toEqual(attempt);
 	});
@@ -146,12 +145,12 @@ describe("handOffToUpi", () => {
 			throw new Error("nope");
 		};
 		const rejected = deps({ open: failing, copy: failing });
-		expect(await handOffToUpi(rejected, attempt, url, "₹1")).toEqual({
+		expect(await handOffToUpi(rejected, attempt, url)).toEqual({
 			outcome: "unavailable",
 			vpa: "ben@okbank",
 		});
 		const refused = deps({ open: failing, copy: async () => false });
-		expect((await handOffToUpi(refused, attempt, url, "₹1")).outcome).toBe(
+		expect((await handOffToUpi(refused, attempt, url)).outcome).toBe(
 			"unavailable",
 		);
 	});
@@ -162,7 +161,7 @@ describe("handOffToUpi", () => {
 				throw new Error("no handler");
 			},
 		});
-		const result = await handOffToUpi(d, attempt, "upi://pay?am=1", "₹1");
+		const result = await handOffToUpi(d, attempt, "upi://pay?am=1");
 		expect(result).toEqual({ outcome: "unavailable", vpa: null });
 		expect(d.calls.copy).toEqual([]);
 	});
