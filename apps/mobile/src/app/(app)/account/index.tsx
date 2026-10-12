@@ -37,7 +37,7 @@ export default function Account() {
 	}
 
 	return (
-		<Screen masthead contentStyle={{ paddingBottom: 120 }}>
+		<Screen masthead tabBar>
 			<View style={{ gap: 8 }}>
 				<Display>Account</Display>
 				<Body tone="muted">Signed in as {user?.email ?? "you"}.</Body>

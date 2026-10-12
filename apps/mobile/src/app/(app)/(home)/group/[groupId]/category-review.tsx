@@ -96,7 +96,7 @@ export default function CategoryReview() {
 	}
 
 	return (
-		<Screen edges={["left", "right"]}>
+		<Screen tabBar edges={["left", "right"]}>
 			<Display size={32}>Update categories</Display>
 
 			{done !== null ? (

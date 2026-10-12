@@ -81,6 +81,7 @@ export function ResplitScreen({ groupId }: { groupId: string }) {
 	const group = context.data?.group;
 	const allowed = group && canResplit(group);
 	const finished = result !== null || unknown;
+	const count = `${selected.length} ${selected.length === 1 ? "expense" : "expenses"}`;
 
 	async function preview() {
 		if (inFlight.current) return;
@@ -164,7 +165,14 @@ export function ResplitScreen({ groupId }: { groupId: string }) {
 			<Stack.Screen
 				options={{ headerBackVisible: !busy, gestureEnabled: !busy }}
 			/>
-			<Screen edges={["left", "right", "bottom"]}>
+			{/* A new key per step remounts the scroller, so each step opens at the top. */}
+			<Screen
+				key={
+					finished ? "done" : review ? (confirm ? "confirm" : "review") : "pick"
+				}
+				tabBar
+				edges={["left", "right", "bottom"]}
+			>
 				{finished ? (
 					<Card>
 						<Heading>
@@ -225,7 +233,7 @@ export function ResplitScreen({ groupId }: { groupId: string }) {
 							<Heading>
 								{confirm ? "Confirm re-split" : "Review new shares"}
 							</Heading>
-							<Body>{`${selected.length} expenses · ${methodLabels[draft.method]}`}</Body>
+							<Body>{`${count} · ${methodLabels[draft.method]}`}</Body>
 							<Body tone="muted">
 								Totals, currencies and payers stay the same. Existing shares are
 								replaced. Paid or settled expenses are locked and will not be
@@ -241,7 +249,7 @@ export function ResplitScreen({ groupId }: { groupId: string }) {
 								<>
 									<GlassButton
 										prominent
-										label={`Confirm and apply to ${selected.length} expenses`}
+										label={`Confirm and apply to ${count}`}
 										busy={busy}
 										onPress={() => void apply()}
 									/>

@@ -19,6 +19,7 @@ import {
 	GlassButton,
 	Heading,
 	Kicker,
+	TAB_BAR_INSET,
 } from "../../../../../components/brand";
 import { ActivityTab } from "../../../../../components/group/activity";
 import { BalancesTab } from "../../../../../components/group/balances";
@@ -31,6 +32,7 @@ import {
 import { MembersTab } from "../../../../../components/group/members";
 import { canResplit } from "../../../../../components/group/resplit-model";
 import { type GroupTab, GroupTabs } from "../../../../../components/group/tabs";
+import { usePullRefresh } from "../../../../../lib/pull-refresh";
 import { useGroupContext, useGroupSummary } from "../../../../../lib/queries";
 import { useApi } from "../../../../../lib/session";
 import { fonts, useTheme } from "../../../../../theme";
@@ -73,8 +75,9 @@ export default function GroupScreen() {
 		getNextPageParam: (page) => page.nextCursor ?? undefined,
 	});
 	const items = expenses.data?.pages.flatMap((page) => page.items) ?? [];
-	const refreshing =
-		context.isRefetching || summary.isRefetching || expenses.isRefetching;
+	const pull = usePullRefresh(() =>
+		Promise.all([context.refetch(), summary.refetch(), expenses.refetch()]),
+	);
 
 	return (
 		<>
@@ -109,7 +112,10 @@ export default function GroupScreen() {
 			<FlatList
 				style={{ flex: 1, backgroundColor: t.canvas }}
 				contentInsetAdjustmentBehavior="automatic"
-				contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+				contentContainerStyle={{
+					paddingHorizontal: 20,
+					paddingBottom: TAB_BAR_INSET,
+				}}
 				data={tab === "expenses" ? items : []}
 				keyExtractor={(item) => item.id}
 				renderItem={({ item, index }) => (
@@ -120,17 +126,7 @@ export default function GroupScreen() {
 						last={index === items.length - 1}
 					/>
 				)}
-				refreshControl={
-					<RefreshControl
-						refreshing={refreshing}
-						onRefresh={() => {
-							void context.refetch();
-							void summary.refetch();
-							void expenses.refetch();
-						}}
-						tintColor={t.mutedInk}
-					/>
-				}
+				refreshControl={<RefreshControl {...pull} tintColor={t.mutedInk} />}
 				onEndReachedThreshold={0.5}
 				onEndReached={() => {
 					if (

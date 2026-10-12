@@ -257,7 +257,7 @@ export default function GroupSettings() {
 	}
 
 	return (
-		<Screen edges={["left", "right"]}>
+		<Screen tabBar edges={["left", "right"]}>
 			<Display size={32}>Settings</Display>
 
 			{canEdit ? (

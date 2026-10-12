@@ -270,7 +270,7 @@ export default function Profile() {
 						: undefined,
 				}}
 			/>
-			<Screen edges={["left", "right"]} contentStyle={{ paddingBottom: 120 }}>
+			<Screen edges={["left", "right"]} tabBar>
 				<Display size={32}>Profile</Display>
 
 				<Card>

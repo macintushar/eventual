@@ -172,7 +172,7 @@ export default function CategoryRules() {
 	}
 
 	return (
-		<Screen edges={["left", "right"]}>
+		<Screen tabBar edges={["left", "right"]}>
 			<Display size={32}>Category rules</Display>
 			<Body tone="muted" size={15}>
 				New expenses get a category when the description contains a rule’s

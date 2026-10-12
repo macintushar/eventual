@@ -78,18 +78,24 @@ export function Wordmark() {
 	);
 }
 
+/** Bottom padding that keeps content clear of the floating tab bar. */
+export const TAB_BAR_INSET = 120;
+
 /**
  * A scrolling page on the canvas. `masthead` puts the wordmark (and any
- * trailing actions) above the content, as on the web.
+ * trailing actions) above the content, as on the web. `tabBar` reserves
+ * room for the floating tab bar on pages shown inside the tabs.
  */
 export function Screen({
 	children,
 	masthead = false,
+	tabBar = false,
 	actions,
 	edges = ["top", "left", "right"],
 	contentStyle,
 }: PropsWithChildren<{
 	masthead?: boolean;
+	tabBar?: boolean;
 	actions?: ReactNode;
 	edges?: ("top" | "bottom" | "left" | "right")[];
 	contentStyle?: StyleProp<ViewStyle>;
@@ -105,7 +111,12 @@ export function Screen({
 				contentInsetAdjustmentBehavior="automatic"
 				automaticallyAdjustKeyboardInsets
 				contentContainerStyle={[
-					{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40, gap: 24 },
+					{
+						paddingHorizontal: 20,
+						paddingTop: 8,
+						paddingBottom: tabBar ? TAB_BAR_INSET : 40,
+						gap: 24,
+					},
 					contentStyle,
 				]}
 			>

@@ -106,7 +106,7 @@ export default function ExportExpenses() {
 		progress === null ? "" : ` ${Math.round(Math.min(progress, 1) * 100)}%`;
 
 	return (
-		<Screen edges={["left", "right"]}>
+		<Screen tabBar edges={["left", "right"]}>
 			<Display size={32}>Export</Display>
 			<Body tone="muted" size={15}>
 				Every expense in this group, as a spreadsheet or a printable PDF. Save

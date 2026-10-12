@@ -129,7 +129,7 @@ export default function Reminders() {
 	const emailReminders = prefs.data?.emailReminders ?? true;
 
 	return (
-		<Screen edges={["left", "right"]}>
+		<Screen tabBar edges={["left", "right"]}>
 			<Display size={32}>Email reminders</Display>
 			<Body tone="muted" size={15}>
 				Email someone a nudge about their balance on a day you choose. Failed

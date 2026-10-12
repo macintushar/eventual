@@ -16,9 +16,11 @@ import {
 	GlassButton,
 	Heading,
 	Kicker,
+	TAB_BAR_INSET,
 	Wordmark,
 } from "../../../components/brand";
 import { personalOutcome, personalSentence } from "../../../lib/activity";
+import { usePullRefresh } from "../../../lib/pull-refresh";
 import { useApi, useSession } from "../../../lib/session";
 import { useTheme } from "../../../theme";
 
@@ -35,6 +37,7 @@ export default function Activity() {
 			api.call("activity.mine", { cursor: pageParam, limit: 30 }, { signal }),
 		getNextPageParam: (page) => page.nextCursor ?? undefined,
 	});
+	const pull = usePullRefresh(() => feed.refetch());
 	const items = feed.data?.pages.flatMap((page) => page.items) ?? [];
 	// Later pages can name people the first didn't, so merge every page's map.
 	const names = Object.assign(
@@ -49,16 +52,13 @@ export default function Activity() {
 		>
 			<FlatList
 				contentInsetAdjustmentBehavior="automatic"
-				contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+				contentContainerStyle={{
+					paddingHorizontal: 20,
+					paddingBottom: TAB_BAR_INSET,
+				}}
 				data={items}
 				keyExtractor={(item) => item.id}
-				refreshControl={
-					<RefreshControl
-						refreshing={feed.isRefetching}
-						onRefresh={() => void feed.refetch()}
-						tintColor={t.mutedInk}
-					/>
-				}
+				refreshControl={<RefreshControl {...pull} tintColor={t.mutedInk} />}
 				onEndReachedThreshold={0.5}
 				onEndReached={() => {
 					if (feed.hasNextPage && !feed.isFetchingNextPage)

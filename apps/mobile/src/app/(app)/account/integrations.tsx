@@ -56,7 +56,7 @@ export default function Integrations() {
 	const open = (url: string) => void WebBrowser.openBrowserAsync(url);
 
 	return (
-		<Screen masthead contentStyle={{ paddingBottom: 120 }}>
+		<Screen masthead tabBar>
 			<View style={{ gap: 8 }}>
 				<Display size={32}>Integrations</Display>
 				<Body tone="muted">Connect {serverLabel(origin)} to your tools.</Body>

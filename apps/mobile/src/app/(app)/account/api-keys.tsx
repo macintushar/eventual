@@ -19,8 +19,10 @@ import {
 	Display,
 	FormMessage,
 	GlassButton,
+	TAB_BAR_INSET,
 } from "../../../components/brand";
 import { keyModeLabels } from "../../../lib/api-key-policy";
+import { usePullRefresh } from "../../../lib/pull-refresh";
 import { useApi } from "../../../lib/session";
 import { useTheme } from "../../../theme";
 
@@ -46,6 +48,7 @@ export default function ApiKeys() {
 			),
 		staleTime: 30_000,
 	});
+	const pull = usePullRefresh(() => keys.refetch());
 	function refresh() {
 		void queryClient.invalidateQueries({ queryKey: ["api-keys"] });
 	}
@@ -91,14 +94,12 @@ export default function ApiKeys() {
 		>
 			<ScrollView
 				contentInsetAdjustmentBehavior="automatic"
-				contentContainerStyle={{ padding: 20, paddingBottom: 120, gap: 24 }}
-				refreshControl={
-					<RefreshControl
-						refreshing={keys.isFetching && !keys.isPending}
-						onRefresh={() => void keys.refetch()}
-						tintColor={t.ink}
-					/>
-				}
+				contentContainerStyle={{
+					padding: 20,
+					paddingBottom: TAB_BAR_INSET,
+					gap: 24,
+				}}
+				refreshControl={<RefreshControl {...pull} tintColor={t.ink} />}
 			>
 				<Display>API keys</Display>
 				<Body tone="muted">

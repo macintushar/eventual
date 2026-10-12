@@ -160,7 +160,7 @@ export default function Notifications() {
 		.map((group) => ({ id: group.id, name: group.name }));
 
 	return (
-		<Screen masthead contentStyle={{ paddingBottom: 120 }}>
+		<Screen masthead tabBar>
 			<Display size={32}>Notifications</Display>
 
 			{state === "denied" ? (

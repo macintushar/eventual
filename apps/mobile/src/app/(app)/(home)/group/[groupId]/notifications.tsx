@@ -89,7 +89,7 @@ export default function GroupNotifications() {
 	const muted = isGroupMuted(filled, groupId);
 
 	return (
-		<Screen>
+		<Screen tabBar>
 			<Display size={28}>Notifications</Display>
 			<Card
 				style={{

@@ -271,7 +271,7 @@ export default function AccountEmailSettings() {
 	}
 
 	return (
-		<Screen edges={["left", "right"]} contentStyle={{ paddingBottom: 120 }}>
+		<Screen edges={["left", "right"]} tabBar>
 			<Display size={34}>Email and sign-in</Display>
 			{sessionStale ? (
 				<FormMessage>
@@ -400,10 +400,12 @@ export default function AccountEmailSettings() {
 								</Body>
 							)
 						) : null}
-						<Body tone="muted" size={14}>
-							Apple requires the same email as this account. Hide My Email may
-							use a different address, which this server rejects.
-						</Body>
+						{site?.appleSignIn ? (
+							<Body tone="muted" size={14}>
+								Apple requires the same email as this account. Hide My Email may
+								use a different address, which this server rejects.
+							</Body>
+						) : null}
 						{!accounts.data.some((account) => account.providerId === "apple") &&
 						site?.appleSignIn ? (
 							appleAvailable ? (

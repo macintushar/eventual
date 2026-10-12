@@ -12,8 +12,10 @@ import {
 	GlassButton,
 	Heading,
 	Kicker,
+	TAB_BAR_INSET,
 	Wordmark,
 } from "../../../components/brand";
+import { usePullRefresh } from "../../../lib/pull-refresh";
 import { useApi } from "../../../lib/session";
 import { fonts, shadow, useTheme } from "../../../theme";
 
@@ -26,6 +28,7 @@ export default function Groups() {
 		queryKey: ["dashboard"],
 		queryFn: () => api.call("app.dashboard"),
 	});
+	const pull = usePullRefresh(() => dashboard.refetch());
 	return (
 		<SafeAreaView
 			edges={["top", "left", "right"]}
@@ -36,16 +39,10 @@ export default function Groups() {
 				contentContainerStyle={{
 					paddingHorizontal: 20,
 					paddingTop: 8,
-					paddingBottom: 120,
+					paddingBottom: TAB_BAR_INSET,
 					gap: 28,
 				}}
-				refreshControl={
-					<RefreshControl
-						refreshing={dashboard.isRefetching}
-						onRefresh={() => void dashboard.refetch()}
-						tintColor={t.mutedInk}
-					/>
-				}
+				refreshControl={<RefreshControl {...pull} tintColor={t.mutedInk} />}
 			>
 				<View style={{ minHeight: 48, justifyContent: "center" }}>
 					<Wordmark />

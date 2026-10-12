@@ -22,10 +22,12 @@ import {
 	GlassButton,
 	Heading,
 	Kicker,
+	TAB_BAR_INSET,
 } from "../../../../../../components/brand";
 import { Checkbox } from "../../../../../../components/checkbox";
 import { MemberAvatar } from "../../../../../../components/member-avatar";
 import { idempotencyKey } from "../../../../../../lib/mutations";
+import { usePullRefresh } from "../../../../../../lib/pull-refresh";
 import { useApi } from "../../../../../../lib/session";
 import { fonts, useTheme } from "../../../../../../theme";
 
@@ -66,6 +68,9 @@ export default function ExpenseDetail() {
 		queryKey: ["group", groupId, "summary"],
 		queryFn: () => api.call("app.groupSummary", { groupId }),
 	});
+	const pull = usePullRefresh(() =>
+		Promise.all([expense.refetch(), summary.refetch()]),
+	);
 	const [error, setError] = useState("");
 
 	/** Paid shares move balances, so everything showing them refetches. */
@@ -148,19 +153,10 @@ export default function ExpenseDetail() {
 			contentContainerStyle={{
 				paddingHorizontal: 20,
 				paddingTop: 8,
-				paddingBottom: 120,
+				paddingBottom: TAB_BAR_INSET,
 				gap: 20,
 			}}
-			refreshControl={
-				<RefreshControl
-					refreshing={expense.isRefetching}
-					onRefresh={() => {
-						void expense.refetch();
-						void summary.refetch();
-					}}
-					tintColor={t.mutedInk}
-				/>
-			}
+			refreshControl={<RefreshControl {...pull} tintColor={t.mutedInk} />}
 		>
 			{!data ? (
 				expense.isError ? (

@@ -29,6 +29,7 @@ import {
 } from "../../../../../components/group/recurring-model";
 import { useOptionPicker } from "../../../../../components/select-field";
 import { idempotencyKey } from "../../../../../lib/mutations";
+import { usePullRefresh } from "../../../../../lib/pull-refresh";
 import {
 	useGroupContext,
 	useRefreshAfterWrite,
@@ -141,6 +142,9 @@ export default function RecurringExpenses() {
 		void context.refetch();
 		void templates.refetch();
 	};
+	const pull = usePullRefresh(() =>
+		Promise.all([context.refetch(), templates.refetch()]),
+	);
 	return (
 		<SafeAreaView
 			edges={["left", "right"]}
@@ -154,13 +158,7 @@ export default function RecurringExpenses() {
 					paddingBottom: 40,
 					gap: 24,
 				}}
-				refreshControl={
-					<RefreshControl
-						refreshing={context.isRefetching || templates.isRefetching}
-						onRefresh={retry}
-						tintColor={t.mutedInk}
-					/>
-				}
+				refreshControl={<RefreshControl {...pull} tintColor={t.mutedInk} />}
 			>
 				<Display>Recurring</Display>
 				<Body tone="muted">
