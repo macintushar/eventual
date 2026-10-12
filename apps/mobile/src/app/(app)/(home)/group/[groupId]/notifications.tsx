@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { Checkbox } from "../../../../../components/checkbox";
 import {
 	Body,
 	Card,
@@ -13,15 +12,16 @@ import {
 	Heading,
 	Screen,
 } from "../../../../../components/brand";
+import { Checkbox } from "../../../../../components/checkbox";
+import { pushCapability } from "../../../../../lib/push/permissions";
 import {
 	fillPreferences,
 	isGroupMuted,
 	mutedAfterToggle,
 	type PushPreferences,
 } from "../../../../../lib/push/preferences";
-import { pushCapability } from "../../../../../lib/push/permissions";
 import { HOSTED_ORIGIN } from "../../../../../lib/server";
-import { useSession, useApi } from "../../../../../lib/session";
+import { useApi, useSession } from "../../../../../lib/session";
 
 /** Group Settings › Notifications — the per-group mute entry (docs 05 D2). */
 export default function GroupNotifications() {
@@ -59,8 +59,8 @@ export default function GroupNotifications() {
 				<Card>
 					<Heading>Not available on this server</Heading>
 					<Body tone="muted" size={15}>
-						This server can’t send push notifications, so there is nothing
-						to mute here. Email reminders and everything else work as usual.
+						This server can’t send push notifications, so there is nothing to
+						mute here. Email reminders and everything else work as usual.
 					</Body>
 				</Card>
 			</Screen>

@@ -137,8 +137,8 @@ export default function Notifications() {
 				<Card>
 					<Heading>This build doesn’t support notifications</Heading>
 					<Body tone="muted" size={15}>
-						Install an up-to-date build of the app; notifications then work
-						on this server without any other setup.
+						Install an up-to-date build of the app; notifications then work on
+						this server without any other setup.
 					</Body>
 				</Card>
 			</Screen>

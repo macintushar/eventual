@@ -156,13 +156,12 @@ export function PushLifecycle() {
 				// builds that don't ship the sync getter.
 				let data: unknown;
 				if (mod.getLastNotificationResponse) {
-					data = mod
-						.getLastNotificationResponse()
-						?.notification?.request?.content?.data;
+					data =
+						mod.getLastNotificationResponse()?.notification?.request?.content
+							?.data;
 				} else {
-					data = (
-						await mod.getLastNotificationResponseAsync()
-					)?.notification?.request?.content?.data;
+					data = (await mod.getLastNotificationResponseAsync())?.notification
+						?.request?.content?.data;
 				}
 				if (data) {
 					pendingTap.current = data;
