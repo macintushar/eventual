@@ -8,10 +8,12 @@ import { formatMinor, fromMinor, parseMinor } from "@eventual/schemas/money";
 import { computeShares, type SplitMethod } from "@eventual/schemas/split";
 import { type EndpointOutput, isEventualApiError } from "@eventual/sdk";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { usePreventRemove } from "expo-router/react-navigation";
 import { useRef, useState } from "react";
 import {
 	ActivityIndicator,
+	Alert,
 	Pressable,
 	ScrollView,
 	TextInput,
@@ -29,6 +31,10 @@ import {
 } from "../../../../../../components/brand";
 import { Checkbox } from "../../../../../../components/checkbox";
 import { DateField } from "../../../../../../components/date-field";
+import {
+	type ExpenseDraft,
+	isExpenseDraftDirty,
+} from "../../../../../../components/group/expense-draft";
 import {
 	SelectField,
 	useOptionPicker,
@@ -142,6 +148,7 @@ function Composer({
 	const t = useTheme();
 	const api = useApi();
 	const router = useRouter();
+	const navigation = useNavigation();
 	const queryClient = useQueryClient();
 	const refresh = useRefreshAfterWrite();
 	const [step, setStep] = useState<"details" | "split">("details");
@@ -186,6 +193,24 @@ function Composer({
 	const [splitChanged, setSplitChanged] = useState(false);
 	// One key per sheet: a retry after a dropped connection can't add twice.
 	const key = useRef(idempotencyKey());
+
+	// What the form first rendered with, to tell real edits from none.
+	const draft: ExpenseDraft = {
+		description,
+		notes,
+		currency,
+		amount,
+		payer,
+		date: date.getTime(),
+		method,
+		selected,
+		inputs,
+	};
+	const started = useRef<ExpenseDraft | null>(null);
+	started.current ??= draft;
+	const dirty = isExpenseDraftDirty(started.current, draft);
+	// Set once a save succeeds, so closing after it never asks.
+	const leaving = useRef(false);
 
 	const amountMinor = parseMinor(amount, currency);
 	let preview: ReturnType<typeof computeShares> = [];
@@ -272,6 +297,7 @@ function Composer({
 			// The D2 explainer can only be raised by a save like this (05 D2).
 			notifyExpenseSaved();
 			await refresh(groupId);
+			leaving.current = true;
 			router.back();
 		},
 		onError: async (error) => {
@@ -290,6 +316,29 @@ function Composer({
 				setStep("split");
 			}
 		},
+	});
+
+	// Blocks swipe-down, the back gesture and Android's back button while
+	// there are unsaved edits. While a save is in flight it stays blocked
+	// without asking: "Discard" would be a lie, because the save completes.
+	usePreventRemove(dirty || save.isPending, ({ data }) => {
+		if (leaving.current) {
+			navigation.dispatch(data.action);
+			return;
+		}
+		if (save.isPending) return;
+		Alert.alert(
+			initial ? "Discard changes?" : "Discard this expense?",
+			"Your edits haven’t been saved.",
+			[
+				{ text: "Keep editing", style: "default" },
+				{
+					text: "Discard",
+					style: "destructive",
+					onPress: () => navigation.dispatch(data.action),
+				},
+			],
+		);
 	});
 
 	const picker = useOptionPicker();

@@ -3,7 +3,7 @@ import { isEventualApiError } from "@eventual/sdk";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { ArrowRight, Trash2 } from "lucide-react-native";
-import { Alert, Linking, Pressable, View } from "react-native";
+import { Alert, Pressable, View } from "react-native";
 import { idempotencyKey } from "../../lib/mutations";
 import {
 	useGroupContext,
@@ -11,6 +11,7 @@ import {
 	useRefreshAfterWrite,
 } from "../../lib/queries";
 import { useApi } from "../../lib/session";
+import { useUpiHandoff } from "../../lib/use-upi-handoff";
 import { useTheme } from "../../theme";
 import { Amount } from "../amount";
 import { Body, Card, GlassButton, Heading } from "../brand";
@@ -20,6 +21,19 @@ export function BalancesTab({ groupId }: { groupId: string }) {
 	const router = useRouter();
 	const context = useGroupContext(groupId);
 	const summary = useGroupSummary(groupId);
+	// Only an explicit "Paid" on the return prompt opens the record sheet.
+	const upi = useUpiHandoff((attempt) =>
+		router.push({
+			pathname: "/group/[groupId]/record-payment",
+			params: {
+				groupId: attempt.groupId,
+				from: attempt.fromUserId,
+				to: attempt.toUserId,
+				currency: attempt.currency,
+				amount: fromMinor(attempt.amountMinor, attempt.currency),
+			},
+		}),
+	);
 	if (!context.data || !summary.data)
 		return summary.isError ? (
 			<Card>
@@ -139,7 +153,21 @@ export function BalancesTab({ groupId }: { groupId: string }) {
 										size={17}
 									/>
 								}
-								upiUrl={archived ? null : upiUrl}
+								onPayUpi={
+									archived || !upiUrl
+										? null
+										: () =>
+												upi.payViaUpi(
+													{
+														groupId,
+														fromUserId: transfer.from.userId,
+														toUserId: transfer.to.userId,
+														currency: transfer.currency,
+														amountMinor: transfer.amountMinor,
+													},
+													upiUrl,
+												)
+								}
 								onRecord={
 									archived
 										? null
@@ -172,13 +200,13 @@ function TransferRow({
 	from,
 	to,
 	amount,
-	upiUrl,
+	onPayUpi,
 	onRecord,
 }: {
 	from: string;
 	to: string;
 	amount: React.ReactNode;
-	upiUrl: string | null | undefined;
+	onPayUpi: (() => void) | null;
 	onRecord: (() => void) | null;
 }) {
 	const t = useTheme();
@@ -203,21 +231,11 @@ function TransferRow({
 				<View style={{ flex: 1 }} />
 				{amount}
 			</View>
-			{onRecord || upiUrl ? (
+			{onRecord || onPayUpi ? (
 				<View style={{ flexDirection: "row", gap: 10 }}>
-					{upiUrl ? (
+					{onPayUpi ? (
 						<View style={{ flex: 1 }}>
-							<GlassButton
-								label="Pay via UPI"
-								onPress={() =>
-									void Linking.openURL(upiUrl).catch(() =>
-										Alert.alert(
-											"No UPI app found",
-											"Install a UPI app, or pay another way and record it here.",
-										),
-									)
-								}
-							/>
+							<GlassButton label="Pay via UPI" onPress={onPayUpi} />
 						</View>
 					) : null}
 					{onRecord ? (
