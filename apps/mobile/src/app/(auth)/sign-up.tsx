@@ -12,6 +12,7 @@ import {
 	Screen,
 	TextLink,
 } from "../../components/brand";
+import { PendingInviteNotice } from "../../components/pending-invite-handoff";
 import { SocialSignIn } from "../../components/social-sign-in";
 import { useSession } from "../../lib/session";
 
@@ -100,6 +101,7 @@ export default function SignUp() {
 				<View style={{ gap: 8 }}>
 					<Display>Start splitting</Display>
 					<Body tone="muted">Create an account in under a minute.</Body>
+					<PendingInviteNotice action="Sign up" />
 				</View>
 				<Field
 					label="Name"

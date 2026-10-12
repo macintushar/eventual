@@ -123,6 +123,22 @@ export default function Account() {
 					<ChevronRight size={20} color={t.mutedInk} />
 				</Card>
 			</Pressable>
+			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel="Integrations and help"
+				onPress={() => router.push("/account/integrations")}
+				style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+			>
+				<Card style={{ flexDirection: "row", alignItems: "center" }}>
+					<View style={{ flex: 1, gap: 4 }}>
+						<Body weight="semibold">Integrations and help</Body>
+						<Body tone="muted" size={14}>
+							MCP, REST API, Shortcut and docs
+						</Body>
+					</View>
+					<ChevronRight size={20} color={t.mutedInk} />
+				</Card>
+			</Pressable>
 			<Card style={{ gap: 14 }}>
 				<Body tone="muted" size={14}>
 					Appearance

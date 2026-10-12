@@ -20,6 +20,7 @@ export default function AccountLayout() {
 			<Stack.Screen name="email" />
 			<Stack.Screen name="notifications" />
 			<Stack.Screen name="api-keys" />
+			<Stack.Screen name="integrations" />
 		</Stack>
 	);
 }

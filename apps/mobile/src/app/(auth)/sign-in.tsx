@@ -1,5 +1,4 @@
 import { useRouter } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import { useRef, useState } from "react";
 import { type TextInput, View } from "react-native";
 import {
@@ -12,6 +11,7 @@ import {
 	Screen,
 	TextLink,
 } from "../../components/brand";
+import { PendingInviteNotice } from "../../components/pending-invite-handoff";
 import { ServerRow } from "../../components/server-row";
 import { SocialSignIn } from "../../components/social-sign-in";
 import { useSession } from "../../lib/session";
@@ -20,7 +20,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SignIn() {
 	const router = useRouter();
-	const { origin, auth, refreshSession } = useSession();
+	const { auth, refreshSession } = useSession();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const passwordInput = useRef<TextInput>(null);
@@ -64,6 +64,7 @@ export default function SignIn() {
 				<View style={{ gap: 8 }}>
 					<Display>Welcome back</Display>
 					<Body tone="muted">Sign in to see your groups and balances.</Body>
+					<PendingInviteNotice action="Log in" />
 				</View>
 				<Field
 					label="Email"
@@ -95,7 +96,10 @@ export default function SignIn() {
 				<TextLink
 					center
 					onPress={() =>
-						void WebBrowser.openBrowserAsync(`${origin}/forgot-password`)
+						router.push({
+							pathname: "/forgot-password",
+							params: email.trim() ? { email: email.trim() } : {},
+						})
 					}
 				>
 					Forgot your password?

@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { PendingInviteHandoff } from "../components/pending-invite-handoff";
 import { PushLifecycle } from "../components/push-lifecycle";
 import {
 	ReliabilityStatus,
@@ -23,6 +24,8 @@ export default function RootLayout() {
 				<View style={{ flex: 1 }}>
 					<ReliabilityStatus />
 					<SessionRecovery />
+					{/* Holds an invitation link through sign-in, then opens it. */}
+					<PendingInviteHandoff />
 					{/* Registers the native push device, routes taps safely, and
 					    hosts the contextual permission explainer. Inert pre-rebuild. */}
 					<PushLifecycle />
