@@ -688,3 +688,57 @@ test("an archived group can't be joined through an earlier invitation", async ()
 		f.client.close();
 	}
 });
+
+test("re-adding a signed-up guest whose invitation expired sends a fresh one", async () => {
+	const f = await fixture();
+	try {
+		const guest = await addMember(f.owner, {
+			groupId: "G",
+			name: "Gomathi",
+			email: "gomathi@example.com",
+		});
+		assert.ok(guest.invitation);
+		await f.db
+			.update(schema.invitation)
+			.set({ expiresAt: new Date(Date.now() - 1000) })
+			.where(eq(schema.invitation.id, guest.invitation.invitationId));
+		const now = new Date();
+		await f.db.insert(schema.user).values({
+			id: "Z",
+			name: "Gomathi R",
+			email: "gomathi@example.com",
+			emailVerified: true,
+			createdAt: now,
+			updatedAt: now,
+		});
+		await f.db.insert(schema.account).values({
+			id: "account-Z",
+			userId: "Z",
+			accountId: "Z",
+			providerId: "credential",
+			createdAt: now,
+			updatedAt: now,
+		});
+		const again = await addMember(f.owner, {
+			groupId: "G",
+			name: "Gomathi",
+			email: "gomathi@example.com",
+		});
+		assert.equal(again.userId, guest.userId);
+		assert.ok(again.invitation);
+		assert.notEqual(
+			again.invitation.invitationId,
+			guest.invitation.invitationId,
+		);
+		const z = {
+			...f.owner,
+			user: { ...f.owner.user, id: "Z", email: "gomathi@example.com" },
+		} as Ctx;
+		await acceptInvitation(z, { invitationId: again.invitation.invitationId });
+		const joined = await listMembers(f.owner, { groupId: "G" });
+		assert.ok(joined.some((row) => row.userId === "Z"));
+		assert.ok(!joined.some((row) => row.userId === guest.userId));
+	} finally {
+		f.client.close();
+	}
+});

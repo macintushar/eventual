@@ -165,7 +165,17 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 				return {
 					userId: standInMember.userId,
 					member: standInMember,
-					invitation: standIn,
+					// An expired link can't be accepted, so re-adding issues a fresh
+					// one for the same guest.
+					invitation:
+						standIn.expiresAt >= new Date()
+							? standIn
+							: await ensureInvitation(tx, ctx, {
+									groupId: input.groupId,
+									email: standIn.email,
+									role: (standIn.role ?? role) as Role,
+									guestUserId: standInMember.userId,
+								}),
 					groupName: group.name,
 				};
 			const [added] = await tx
