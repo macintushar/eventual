@@ -21,6 +21,7 @@ import {
 	id,
 	membership,
 	recordActivity,
+	writableMembership,
 } from "./shared";
 
 export { getBalances } from "./balances";
@@ -76,7 +77,7 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 	// so someone can log what a guest paid them or what they saw change hands.
 	// Paying more than is owed flips the debt onto the recipient; the
 	// simplified debts suggest an amount but never gate one.
-	await membership(ctx, input.groupId);
+	await writableMembership(ctx, input.groupId);
 	const fromUserId = input.fromUserId ?? ctx.user.id;
 	if (input.toUserId === fromUserId)
 		throw new AppError(
@@ -160,7 +161,7 @@ export async function deleteSettlement(
 		with: { allocations: true },
 	});
 	if (!row) throw new AppError("NOT_FOUND", "Settlement not found");
-	await membership(ctx, row.organizationId);
+	await writableMembership(ctx, row.organizationId);
 	await ctx.db.transaction(async (tx) => {
 		if (row.allocations.length)
 			await tx

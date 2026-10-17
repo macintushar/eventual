@@ -44,7 +44,10 @@ import {
 import { Spinner } from "#/components/ui/spinner";
 import { builtInCategories, builtInCategory } from "#/lib/categories";
 import { can } from "#/lib/permissions";
-import { groupSettingsQueryOptions } from "#/lib/queries";
+import {
+	dashboardQueryOptions,
+	groupSettingsQueryOptions,
+} from "#/lib/queries";
 import {
 	type Execute,
 	LoadError,
@@ -110,11 +113,13 @@ export function SettingsTab({
 	const role = data.group.myRole;
 	const canEditGroup = can(role, "group", "update");
 	const canDeleteGroup = can(role, "group", "delete");
-	const canAddRule = can(role, "category", "create");
-	const canDeleteRule = can(role, "category", "delete");
 	const navigate = useNavigate();
 	const [duplicating, setDuplicating] = useState(false);
+	// An archived group is read-only, so its rules and reminders are shown but
+	// can't be changed or run.
 	const archived = Boolean(data.group.archivedAt);
+	const canAddRule = !archived && can(role, "category", "create");
+	const canDeleteRule = !archived && can(role, "category", "delete");
 	const reportHref = (format: "csv" | "pdf") =>
 		`/api/v1/groups/${groupId}/reports/expenses?format=${format}`;
 	const names = new Map(
@@ -183,12 +188,17 @@ export function SettingsTab({
 								<Input
 									id="group-rename"
 									value={groupName}
+									disabled={archived}
 									onChange={(event) => setGroupName(event.target.value)}
 								/>
 								<Button
 									type="submit"
 									variant="outline"
-									disabled={!groupName.trim() || groupName === data.group.name}
+									disabled={
+										archived ||
+										!groupName.trim() ||
+										groupName === data.group.name
+									}
 								>
 									Save
 								</Button>
@@ -247,16 +257,18 @@ export function SettingsTab({
 					description="New expenses whose description contains the phrase get the category automatically. Common expenses are already covered by built-in keywords; your rules run first, so they can also override them."
 				>
 					<div className="flex flex-col gap-4">
-						<CategoryReviewDialog
-							groupId={groupId}
-							execute={execute}
-							trigger={
-								<Button variant="outline" className="self-start">
-									<Tags data-icon="inline-start" />
-									Review categories
-								</Button>
-							}
-						/>
+						{archived ? null : (
+							<CategoryReviewDialog
+								groupId={groupId}
+								execute={execute}
+								trigger={
+									<Button variant="outline" className="self-start">
+										<Tags data-icon="inline-start" />
+										Recategorize existing expenses
+									</Button>
+								}
+							/>
+						)}
 						<Accordion
 							type="single"
 							collapsible
@@ -301,20 +313,22 @@ export function SettingsTab({
 											<span className="sr-only">sets category to </span>
 											<Badge variant="secondary">{rule.category}</Badge>
 										</span>
-										<CategoryReviewDialog
-											groupId={groupId}
-											ruleId={rule.id}
-											execute={execute}
-											trigger={
-												<Button
-													size="sm"
-													variant="ghost"
-													aria-label={`Apply rule for “${rule.pattern}” to existing expenses`}
-												>
-													Apply to existing
-												</Button>
-											}
-										/>
+										{archived ? null : (
+											<CategoryReviewDialog
+												groupId={groupId}
+												ruleId={rule.id}
+												execute={execute}
+												trigger={
+													<Button
+														size="sm"
+														variant="ghost"
+														aria-label={`Apply rule for “${rule.pattern}” to existing expenses`}
+													>
+														Apply to existing
+													</Button>
+												}
+											/>
+										)}
 										{canDeleteRule ? (
 											<Button
 												size="icon-sm"
@@ -338,7 +352,7 @@ export function SettingsTab({
 								))}
 							</ul>
 						) : null}
-						{!canAddRule ? (
+						{archived ? null : !canAddRule ? (
 							<RoleNote permissions={{ category: ["create"] }}>
 								add or remove rules
 							</RoleNote>
@@ -426,6 +440,9 @@ export function SettingsTab({
 								) : null}
 							</form>
 						)}
+						{canAddRule ? (
+							<ImportCategoryRules groupId={groupId} execute={execute} />
+						) : null}
 					</div>
 				</SettingsRow>
 
@@ -455,58 +472,64 @@ export function SettingsTab({
 								})}
 							</ul>
 						) : null}
-						<form
-							className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
-							onSubmit={async (event) => {
-								event.preventDefault();
-								const dueAt = new Date(reminderAt);
-								if (!reminderUser || Number.isNaN(dueAt.getTime())) return;
-								if (
-									await run(
-										{
-											action: "reminder.schedule",
-											input: { groupId, userId: reminderUser, dueAt },
-										},
-										"Reminder scheduled",
+						{archived ? (
+							<p className="text-sm text-muted-foreground">
+								Unarchive the group to schedule reminders.
+							</p>
+						) : (
+							<form
+								className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+								onSubmit={async (event) => {
+									event.preventDefault();
+									const dueAt = new Date(reminderAt);
+									if (!reminderUser || Number.isNaN(dueAt.getTime())) return;
+									if (
+										await run(
+											{
+												action: "reminder.schedule",
+												input: { groupId, userId: reminderUser, dueAt },
+											},
+											"Reminder scheduled",
+										)
 									)
-								)
-									setReminderAt("");
-							}}
-						>
-							<Field className="gap-1.5">
-								<FieldLabel htmlFor="reminder-user">Remind</FieldLabel>
-								<Select value={reminderUser} onValueChange={setReminderUser}>
-									<SelectTrigger id="reminder-user" className="w-full">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectGroup>
-											{data.group.members.map((member) => (
-												<SelectItem key={member.userId} value={member.userId}>
-													{member.name}
-												</SelectItem>
-											))}
-										</SelectGroup>
-									</SelectContent>
-								</Select>
-							</Field>
-							<Field className="gap-1.5">
-								<FieldLabel htmlFor="reminder-at">Send on</FieldLabel>
-								<Input
-									id="reminder-at"
-									type="datetime-local"
-									value={reminderAt}
-									onChange={(event) => setReminderAt(event.target.value)}
-								/>
-							</Field>
-							<Button
-								type="submit"
-								variant="outline"
-								disabled={!reminderAt || !reminderUser}
+										setReminderAt("");
+								}}
 							>
-								Schedule
-							</Button>
-						</form>
+								<Field className="gap-1.5">
+									<FieldLabel htmlFor="reminder-user">Remind</FieldLabel>
+									<Select value={reminderUser} onValueChange={setReminderUser}>
+										<SelectTrigger id="reminder-user" className="w-full">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectGroup>
+												{data.group.members.map((member) => (
+													<SelectItem key={member.userId} value={member.userId}>
+														{member.name}
+													</SelectItem>
+												))}
+											</SelectGroup>
+										</SelectContent>
+									</Select>
+								</Field>
+								<Field className="gap-1.5">
+									<FieldLabel htmlFor="reminder-at">Send on</FieldLabel>
+									<Input
+										id="reminder-at"
+										type="datetime-local"
+										value={reminderAt}
+										onChange={(event) => setReminderAt(event.target.value)}
+									/>
+								</Field>
+								<Button
+									type="submit"
+									variant="outline"
+									disabled={!reminderAt || !reminderUser}
+								>
+									Schedule
+								</Button>
+							</form>
+						)}
 					</div>
 				</SettingsRow>
 			</SettingsSection>
@@ -638,5 +661,85 @@ export function SettingsTab({
 				)}
 			</SettingsSection>
 		</div>
+	);
+}
+
+/**
+ * Rules built up in one group carry over to another in one step. Phrases this
+ * group already has a rule for keep their own category.
+ */
+function ImportCategoryRules({
+	groupId,
+	execute,
+}: {
+	groupId: string;
+	execute: Execute;
+}) {
+	const groups = useQuery(dashboardQueryOptions);
+	const others = (groups.data?.groups ?? []).filter(
+		(group) => group.id !== groupId,
+	);
+	const [from, setFrom] = useState("");
+	const [importing, setImporting] = useState(false);
+	if (!others.length) return null;
+
+	return (
+		<form
+			className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end"
+			onSubmit={async (event) => {
+				event.preventDefault();
+				if (!from) return;
+				setImporting(true);
+				const outcome = await execute({
+					action: "category.import",
+					input: { groupId, fromGroupId: from },
+				});
+				setImporting(false);
+				if (!outcome.ok) return;
+				const { imported, skipped } = outcome.result as {
+					imported: number;
+					skipped: number;
+				};
+				toast.success(
+					imported
+						? `Imported ${imported} ${imported === 1 ? "rule" : "rules"}`
+						: "No new rules to import",
+					{
+						description: skipped
+							? `${skipped} ${skipped === 1 ? "phrase already has" : "phrases already have"} a rule here, so ${skipped === 1 ? "it was" : "they were"} kept.`
+							: undefined,
+					},
+				);
+				setFrom("");
+			}}
+		>
+			<Field className="gap-1.5">
+				<FieldLabel htmlFor="category-import">
+					Copy rules from another group
+				</FieldLabel>
+				<Select value={from} onValueChange={setFrom}>
+					<SelectTrigger id="category-import" className="w-full">
+						<SelectValue placeholder="Choose a group" />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectGroup>
+							{others.map((group) => (
+								<SelectItem key={group.id} value={group.id}>
+									{group.name}
+								</SelectItem>
+							))}
+						</SelectGroup>
+					</SelectContent>
+				</Select>
+			</Field>
+			<Button type="submit" variant="outline" disabled={!from || importing}>
+				{importing ? (
+					<Spinner data-icon="inline-start" />
+				) : (
+					<Download data-icon="inline-start" />
+				)}
+				Import rules
+			</Button>
+		</form>
 	);
 }

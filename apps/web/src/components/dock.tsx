@@ -34,7 +34,7 @@ import {
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
 import { authClient } from "#/lib/auth-client";
-import { sessionQueryOptions } from "#/lib/queries";
+import { groupContextQueryOptions, sessionQueryOptions } from "#/lib/queries";
 import { clearSession } from "#/lib/session";
 import { cn } from "#/lib/utils";
 
@@ -174,6 +174,13 @@ function ComposeButton({
 	onOpenChange: (open: boolean) => void;
 }) {
 	const composer = useComposer();
+	// The group page has already loaded this, so it costs no request. An
+	// archived group is read-only, so the button stays but does nothing.
+	const context = useQuery({
+		...groupContextQueryOptions(groupId ?? ""),
+		enabled: Boolean(groupId),
+	});
+	const archived = Boolean(context.data?.group.archivedAt);
 
 	if (groupId)
 		return (
@@ -181,7 +188,12 @@ function ComposeButton({
 				<Button
 					size="icon"
 					className="press size-full rounded-full"
-					aria-label="New expense in this group"
+					aria-label={
+						archived
+							? "This group is archived, so no expenses can be added"
+							: "New expense in this group"
+					}
+					disabled={archived}
 					onClick={() => composer.expense({ groupId })}
 				>
 					<Plus className={ICON} aria-hidden="true" />

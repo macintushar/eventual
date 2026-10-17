@@ -21,9 +21,11 @@ import { weightedParticipants } from "./members";
 import {
 	activityRow,
 	assertExpenseMembers,
+	assertGroupWritable,
 	id,
 	membership,
 	recordActivity,
+	writableMembership,
 } from "./shared";
 
 export async function getExpense(ctx: Ctx, input: { expenseId: string }) {
@@ -254,7 +256,7 @@ function assertReviewedShares(
 }
 
 export async function createExpense(ctx: Ctx, input: CreateExpenseInput) {
-	await membership(ctx, input.groupId);
+	await writableMembership(ctx, input.groupId);
 	await assertExpenseMembers(
 		ctx,
 		input.groupId,
@@ -362,6 +364,7 @@ async function changeExpense(
 		await lockExpense(tx, expenseId);
 		const txCtx = { ...ctx, db: tx as unknown as Ctx["db"] };
 		const current = await unlockedExpense(txCtx, expenseId);
+		await assertGroupWritable(tx, current.organizationId);
 		const input = makeInput(current);
 		await assertExpenseMembers(
 			txCtx,
@@ -452,7 +455,7 @@ async function changeExpense(
 
 export async function bulkResplitExpenses(ctx: Ctx, raw: BulkResplitInput) {
 	const input = bulkResplitSchema.parse(raw);
-	await membership(ctx, input.groupId);
+	await writableMembership(ctx, input.groupId);
 	const successes: { expenseId: string }[] = [];
 	const skips: { expenseId: string; code: string; reason: string }[] = [];
 	for (const expenseId of new Set(input.expenseIds)) {
@@ -498,6 +501,7 @@ export async function deleteExpense(ctx: Ctx, input: { expenseId: string }) {
 			{ ...ctx, db: tx as unknown as Ctx["db"] },
 			input.expenseId,
 		);
+		await assertGroupWritable(tx, current.organizationId);
 		await recordActivity(
 			tx,
 			activityRow(
@@ -534,6 +538,7 @@ export async function setSharePaid(
 	const current = await getExpense(ctx, { expenseId: input.expenseId });
 	const share = current.shares.find((row) => row.userId === input.userId);
 	if (!share) throw new AppError("NOT_FOUND", "Expense share not found");
+	await assertGroupWritable(ctx.db, current.organizationId);
 	await ctx.db.transaction(async (tx) => {
 		const latest = await tx.query.expense.findFirst({
 			where: eq(expense.id, input.expenseId),

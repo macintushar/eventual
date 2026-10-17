@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
+	Archive,
 	HandCoins,
 	History,
 	Plus,
@@ -13,6 +14,7 @@ import { Amount } from "#/components/amount";
 import { AppBreadcrumb } from "#/components/app-breadcrumb";
 import { useCommands } from "#/components/command-palette";
 import { useComposer } from "#/components/composer";
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Button } from "#/components/ui/button";
 import { Spinner } from "#/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
@@ -73,6 +75,7 @@ function GroupPage() {
 	const composer = useComposer();
 	const { run, execute } = useAppMutation();
 
+	const archived = Boolean(data.group.archivedAt);
 	const mine = data.balances.members.filter(
 		(row) => row.userId === data.user.id,
 	);
@@ -100,16 +103,21 @@ function GroupPage() {
 	const [settleRequest, setSettleRequest] = useState(0);
 
 	useCommands(data.group.name, [
-		{
-			id: "group.settle",
-			title: "Record a payment",
-			icon: HandCoins,
-			keywords: ["settle up", "pay back", "repay", "transfer"],
-			run: () => {
-				setTab("balances");
-				setSettleRequest((count) => count + 1);
-			},
-		},
+		// An archived group is read-only, so it takes no payments.
+		...(archived
+			? []
+			: [
+					{
+						id: "group.settle",
+						title: "Record a payment",
+						icon: HandCoins,
+						keywords: ["settle up", "pay back", "repay", "transfer"],
+						run: () => {
+							setTab("balances");
+							setSettleRequest((count) => count + 1);
+						},
+					},
+				]),
 		{
 			id: "group.tab.balances",
 			title: "Show balances",
@@ -178,12 +186,27 @@ function GroupPage() {
 				{/* Duplicated by the tab bar's centre action on a phone. */}
 				<Button
 					className="hidden sm:inline-flex"
+					disabled={archived}
 					onClick={() => composer.expense({ groupId })}
 				>
 					<Plus data-icon="inline-start" />
 					Add expense
 				</Button>
 			</header>
+
+			{archived ? (
+				<Alert>
+					<Archive aria-hidden="true" />
+					<AlertTitle>This group is archived</AlertTitle>
+					<AlertDescription>
+						It's read-only: expenses, payments and members can't be added,
+						edited or removed. Balances and history stay visible.
+						{data.group.myRole === "member"
+							? " An owner or admin can unarchive it."
+							: " Unarchive it from Settings to make changes."}
+					</AlertDescription>
+				</Alert>
+			) : null}
 
 			<Tabs value={tab} onValueChange={setTab}>
 				{/*

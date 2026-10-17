@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
-import { Lock, Pencil, Trash2 } from "lucide-react";
+import { Archive, Lock, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { Amount } from "#/components/amount";
@@ -83,6 +83,7 @@ function ExpenseDetail() {
 		expenseQueryOptions(expenseId),
 	);
 	const { data: page } = useSuspenseQuery(groupContextQueryOptions(groupId));
+	const archived = Boolean(page.group.archivedAt);
 	const weighted = page.group.members.some(
 		(member) => member.weight !== page.group.members[0]?.weight,
 	);
@@ -100,10 +101,11 @@ function ExpenseDetail() {
 		setEditOpen(true);
 	}
 
-	// A locked expense has neither button, so it offers nothing here either.
+	// A locked expense, or one in an archived group, can't be edited or
+	// deleted, so it offers neither here either.
 	useCommands(
 		expense.description,
-		expense.locked
+		expense.locked || archived
 			? []
 			: [
 					{
@@ -182,6 +184,17 @@ function ExpenseDetail() {
 					</CardContent>
 				) : null}
 			</Card>
+
+			{archived ? (
+				<Alert>
+					<Archive aria-hidden="true" />
+					<AlertTitle className="font-semibold">Archived group</AlertTitle>
+					<AlertDescription>
+						This group is read-only, so this expense can't be edited, deleted or
+						marked paid. An owner or admin can unarchive the group.
+					</AlertDescription>
+				</Alert>
+			) : null}
 
 			{expense.locked && (
 				<Alert className="border-warning/40 bg-warning/10 text-warning [&>svg]:text-warning">
@@ -270,7 +283,7 @@ function ExpenseDetail() {
 												id={`paid-${share.id}`}
 												checked={paid}
 												aria-label={`Mark ${share.user.name}'s share paid`}
-												disabled={Boolean(invalid)}
+												disabled={archived || Boolean(invalid)}
 												onCheckedChange={(checked) =>
 													toggle(share.userId, checked === true)
 												}
@@ -294,7 +307,7 @@ function ExpenseDetail() {
 
 			{!expense.locked && (
 				<>
-					{editOpen ? (
+					{editOpen && !archived ? (
 						<ExpenseComposer
 							key={editToken}
 							open
@@ -314,14 +327,18 @@ function ExpenseDetail() {
 					) : null}
 
 					<div className="flex flex-wrap gap-2">
-						<Button className="press" onClick={edit}>
+						<Button className="press" disabled={archived} onClick={edit}>
 							<Pencil data-icon="inline-start" />
 							Edit expense
 						</Button>
 
 						<Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
 							<DialogTrigger asChild>
-								<Button variant="outline" className="press text-destructive">
+								<Button
+									variant="outline"
+									className="press text-destructive"
+									disabled={archived}
+								>
 									<Trash2 data-icon="inline-start" />
 									Delete expense
 								</Button>

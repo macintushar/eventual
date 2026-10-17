@@ -13,6 +13,7 @@ import {
 	type Role,
 	recordActivity,
 	requirePermission,
+	writableMembership,
 } from "./shared";
 
 export async function listInvitations(ctx: Ctx, input: { groupId: string }) {
@@ -31,7 +32,7 @@ export async function createInvitation(
 	ctx: Ctx,
 	input: { groupId: string; email: string; role: Role },
 ) {
-	const mine = await membership(ctx, input.groupId);
+	const mine = await writableMembership(ctx, input.groupId);
 	requirePermission(mine.role, { invitation: ["create"] });
 	if (input.role === "owner")
 		throw new AppError("FORBIDDEN", "Each group has one owner");
@@ -189,7 +190,7 @@ export async function revokeInvitation(
 		where: eq(invitation.id, input.invitationId),
 	});
 	if (!invite) throw new AppError("NOT_FOUND", "Invitation not found");
-	const mine = await membership(ctx, invite.organizationId);
+	const mine = await writableMembership(ctx, invite.organizationId);
 	requirePermission(mine.role, { invitation: ["cancel"] });
 	await ctx.db.transaction(async (tx) => {
 		await tx

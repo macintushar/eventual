@@ -18,7 +18,7 @@ import {
 	ownedJob,
 } from "#/server/jobs";
 import { createExpense, previewExpense } from "./expenses";
-import { assertExpenseMembers, membership } from "./shared";
+import { assertExpenseMembers, membership, writableMembership } from "./shared";
 
 type Recurrence = typeof expenseTemplate.$inferSelect.recurrence;
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
@@ -101,7 +101,7 @@ export async function createRecurringExpense(
 	input: z.infer<typeof createRecurringExpenseSchema>,
 ) {
 	const parsed = createRecurringExpenseSchema.parse(input);
-	await membership(ctx, parsed.groupId);
+	await writableMembership(ctx, parsed.groupId);
 	await validatePayload(ctx, parsed.groupId, parsed.payload);
 	return ctx.db.transaction(async (tx) => {
 		const [template] = await tx
@@ -140,7 +140,7 @@ async function editableTemplate(ctx: Ctx, templateId: string) {
 		where: eq(expenseTemplate.id, templateId),
 	});
 	if (!template) throw new AppError("NOT_FOUND", "Recurring expense not found");
-	const membershipRow = await membership(ctx, template.organizationId);
+	const membershipRow = await writableMembership(ctx, template.organizationId);
 	if (
 		!canEditRecurring(
 			membershipRow.role,

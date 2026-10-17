@@ -251,6 +251,7 @@ function sampleInput(name: string): Record<string, unknown> {
 			priority: 0,
 		};
 	if (name === "category.delete") return { groupId: "g", ruleId: "r" };
+	if (name === "category.import") return { groupId: "g", fromGroupId: "h" };
 	if (name === "category.apply")
 		return { groupId: "g", changes: [{ expenseId: "e", category: "Food" }] };
 	if (name === "reminder.schedule")

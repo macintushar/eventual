@@ -10,6 +10,7 @@ import {
 	acceptInvitation,
 	addMember,
 	createExpense,
+	createInvitation,
 	createSettlement,
 	listMembers,
 	setSharePaid,
@@ -109,8 +110,14 @@ test("a guest added with an email never holds it and merges on accept", async ()
 			name: "Charita",
 			email: "x@example.com",
 		});
-		// X already has an account, so they are invited rather than added.
-		assert.equal(added.member, null);
+		// X already has an account, so they join straight away and hear about
+		// it in their feed, with no invitation to accept.
+		assert.equal(added.member.userId, "X");
+		assert.equal(added.invitation, null);
+		const notice = await f.db.query.activityRecipient.findFirst({
+			where: eq(schema.activityRecipient.userId, "X"),
+		});
+		assert.ok(notice, "the person added is notified");
 
 		const guest = await addMember(f.owner, {
 			groupId: "G",
@@ -170,7 +177,12 @@ test("a guest added with an email never holds it and merges on accept", async ()
 			undefined,
 		);
 		const joined = await listMembers(f.owner, { groupId: "G" });
-		assert.deepEqual(joined.map((row) => row.userId).sort(), ["A", "M", "Z"]);
+		assert.deepEqual(joined.map((row) => row.userId).sort(), [
+			"A",
+			"M",
+			"X",
+			"Z",
+		]);
 	} finally {
 		f.client.close();
 	}
@@ -533,9 +545,8 @@ test("an admin cannot redirect an owner invitation", async () => {
 test("a pending owner invitation joins as admin, never a second owner", async () => {
 	const f = await fixture();
 	try {
-		await addMember(f.owner, {
+		await createInvitation(f.owner, {
 			groupId: "G",
-			name: "Guest",
 			email: "x@example.com",
 			role: "admin",
 		});

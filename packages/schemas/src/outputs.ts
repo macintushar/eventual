@@ -169,7 +169,8 @@ export const invitationDeliverySchema = z.object({
 
 export const addMemberResultSchema = z.object({
 	userId: z.string(),
-	member: membershipRecordSchema.nullable(),
+	/** Everyone added joins straight away, with or without an account. */
+	member: membershipRecordSchema,
 	invitation: invitationDeliverySchema.nullable(),
 });
 

@@ -8,11 +8,14 @@ import {
 } from "@eventual/schemas/people";
 import { and, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import * as s from "#/db/schema";
+import { emailKey } from "#/lib/auth-email";
+import { runInBackground } from "#/server/background";
 import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
 import { deliverInvitation, ensureInvitation } from "./invitations";
 import {
 	activityRow,
+	assertGroupWritable,
 	id,
 	type Role,
 	recordActivity,
@@ -31,6 +34,7 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 		if (!mine)
 			throw new AppError("FORBIDDEN", "You are not a member of this group");
 		requirePermission(mine.role as Role, { member: ["create"] });
+		await assertGroupWritable(tx, input.groupId);
 		const role = input.role ?? "member";
 		if (role === "owner")
 			throw new AppError("FORBIDDEN", "Each group has one owner");
@@ -122,9 +126,9 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 				eq(s.member.userId, person.id),
 			),
 		});
-		// Registered users consent through invitation; adding someone cannot change
-		// their global profile, phone ownership, or existing membership weight.
-		// Weight is ignored here: it's set once they accept (member stays null).
+		// People with an account join straight away and are told about it, the
+		// same as a guest does; they can leave if it was a mistake. Adding someone
+		// still cannot change their global profile or phone ownership.
 		if (!person.isGuest) {
 			if (existing)
 				return {
@@ -138,15 +142,47 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 					"CONFLICT",
 					"Only the account holder can attach a phone to a registered account",
 				);
+			const [added] = await tx
+				.insert(s.member)
+				.values({
+					id: id(),
+					organizationId: input.groupId,
+					userId: person.id,
+					role,
+					weight: input.weight ?? 1,
+					createdAt: new Date(),
+				})
+				.returning();
+			// An invitation sent before people were added directly has nothing
+			// left to do.
+			await tx
+				.update(s.invitation)
+				.set({ status: "accepted" })
+				.where(
+					and(
+						eq(s.invitation.organizationId, input.groupId),
+						eq(s.invitation.email, person.email.toLowerCase()),
+						eq(s.invitation.status, "pending"),
+					),
+				);
+			await recordActivity(
+				tx,
+				activityRow(
+					input.groupId,
+					ctx.user.id,
+					"member.joined",
+					"member",
+					added.id,
+					{ userId: person.id },
+				),
+				[{ userId: person.id, deltaMinor: null }],
+			);
 			return {
 				userId: person.id,
-				member: null,
-				invitation: await ensureInvitation(tx, ctx, {
-					groupId: input.groupId,
-					email: person.email,
-					role,
-				}),
+				member: added,
+				invitation: null,
 				groupName: group.name,
+				notify: person.email,
 			};
 		}
 		if (input.phone && !phone) {
@@ -216,6 +252,13 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 			groupName: group.name,
 		};
 	});
+	if ("notify" in result && result.notify)
+		await notifyAddedMember(ctx, {
+			email: result.notify,
+			groupId: input.groupId,
+			groupName: result.groupName,
+			memberId: result.member.id,
+		});
 	return {
 		userId: result.userId,
 		member: result.member,
@@ -223,6 +266,39 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 			? await deliverInvitation(ctx, result.invitation, result.groupName)
 			: null,
 	};
+}
+
+/** Emails someone with an account that they were added to a group. */
+async function notifyAddedMember(
+	ctx: Ctx,
+	added: {
+		email: string;
+		groupId: string;
+		groupName: string;
+		memberId: string;
+	},
+) {
+	if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) return;
+	const [{ env }, { sendEmail }] = await Promise.all([
+		import("#/env"),
+		import("#/server/email"),
+	]);
+	runInBackground(
+		sendEmail(
+			added.email,
+			{
+				kind: "added-to-group",
+				url: new URL(
+					`/app/groups/${added.groupId}`,
+					env.BETTER_AUTH_URL,
+				).toString(),
+				groupName: added.groupName,
+				inviterName: ctx.user.name,
+			},
+			emailKey("added-to-group", added.memberId),
+		),
+		{ component: "email", kind: "added-to-group" },
+	);
 }
 
 const placeholderDomain = "@guests.eventual.invalid";
@@ -246,6 +322,7 @@ export async function updateGuest(ctx: Ctx, raw: UpdateGuestInput) {
 		if (!mine)
 			throw new AppError("FORBIDDEN", "You are not a member of this group");
 		requirePermission(mine.role as Role, { member: ["update"] });
+		await assertGroupWritable(tx, input.groupId);
 		if (!(await inGroup(input.userId)))
 			throw new AppError("NOT_FOUND", "Member not found");
 		const guest = await tx.query.user.findFirst({

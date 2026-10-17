@@ -11,6 +11,7 @@ import {
 	membership,
 	recordActivity,
 	requirePermission,
+	writableMembership,
 } from "./shared";
 
 export async function listGroups(ctx: Ctx) {
@@ -149,9 +150,8 @@ export async function unarchiveGroup(ctx: Ctx, input: { groupId: string }) {
 }
 
 /**
- * Archives never hide money: archived groups stay readable and settleable, so
- * only the composer filters them out. `listGroups` still returns them, with
- * `archivedAt` carried on the group row for any surface that wants the flag.
+ * Archived groups stay readable but take no writes (see `assertGroupWritable`).
+ * Duplicating one is still allowed: the copy is a fresh, writable group.
  */
 export async function duplicateGroup(
 	ctx: Ctx,
@@ -261,7 +261,7 @@ export async function renameGroup(
 	ctx: Ctx,
 	input: { groupId: string; name: string },
 ) {
-	const mine = await membership(ctx, input.groupId);
+	const mine = await writableMembership(ctx, input.groupId);
 	requirePermission(mine.role, { group: ["update"] });
 	await ctx.db.transaction(async (tx) => {
 		const previous = await tx.query.organization.findFirst({

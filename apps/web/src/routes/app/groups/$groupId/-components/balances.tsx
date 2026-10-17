@@ -92,9 +92,11 @@ export function BalancesTab({
 	// Errors wait for a submit (or for typing an amount) rather than greeting an
 	// empty form; the button stays live so it can explain what's missing.
 	const [attempted, setAttempted] = useState(false);
+	// An archived group is read-only: no payments in or out.
+	const archived = Boolean(data.group.archivedAt);
 	useEffect(() => {
-		if (settleRequest > 0) setSettleOpen(true);
-	}, [settleRequest]);
+		if (settleRequest > 0 && !archived) setSettleOpen(true);
+	}, [settleRequest, archived]);
 	const repayment = {
 		fromUserId: settleFrom,
 		toUserId: settleTo,
@@ -224,6 +226,7 @@ export function BalancesTab({
 							<Button
 								variant="outline"
 								size="sm"
+								disabled={archived}
 								onClick={() => setSettleOpen(true)}
 							>
 								Record payment
@@ -260,7 +263,8 @@ export function BalancesTab({
 											</strong>
 											{
 												<>
-													{transfer.from.userId === data.user.id &&
+													{!archived &&
+													transfer.from.userId === data.user.id &&
 													data.paymentIntents.intents.find(
 														(intent) =>
 															intent.fromUserId === transfer.from.userId &&
@@ -288,6 +292,7 @@ export function BalancesTab({
 													) : null}
 													<Button
 														size="sm"
+														disabled={archived}
 														onClick={() => {
 															setSettleFrom(transfer.from.userId);
 															setSettleTo(transfer.to.userId);
@@ -553,6 +558,7 @@ export function BalancesTab({
 														size="icon-sm"
 														variant="ghost"
 														className="press text-destructive"
+														disabled={archived}
 														aria-label={`Delete payment of ${formatMinor(
 															row.amountMinor,
 															row.currency,
