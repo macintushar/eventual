@@ -9,6 +9,7 @@ import type { Ctx } from "#/server/context";
 import {
 	acceptInvitation,
 	addMember,
+	archiveGroup,
 	createExpense,
 	createInvitation,
 	createSettlement,
@@ -604,6 +605,85 @@ test("accepting a legacy owner invitation never demotes the current owner", asyn
 			where: eq(schema.member.userId, guest.userId),
 		});
 		assert.equal(row?.role, "owner");
+	} finally {
+		f.client.close();
+	}
+});
+
+test("re-adding a guest's address after they sign up keeps their history waiting on the invitation", async () => {
+	const f = await fixture();
+	try {
+		const guest = await addMember(f.owner, {
+			groupId: "G",
+			name: "Gomathi",
+			email: "gomathi@example.com",
+		});
+		assert.ok(guest.invitation);
+		await hotel(f.owner, guest.userId);
+		// She signs up before accepting, and an admin adds her address again.
+		const now = new Date();
+		await f.db.insert(schema.user).values({
+			id: "Z",
+			name: "Gomathi R",
+			email: "gomathi@example.com",
+			emailVerified: true,
+			createdAt: now,
+			updatedAt: now,
+		});
+		await f.db.insert(schema.account).values({
+			id: "account-Z",
+			userId: "Z",
+			accountId: "Z",
+			providerId: "credential",
+			createdAt: now,
+			updatedAt: now,
+		});
+		const again = await addMember(f.owner, {
+			groupId: "G",
+			name: "Gomathi",
+			email: "gomathi@example.com",
+		});
+		assert.equal(again.userId, guest.userId, "the guest still stands in");
+		assert.equal(again.invitation?.invitationId, guest.invitation.invitationId);
+		assert.equal(
+			await f.db.query.member.findFirst({
+				where: eq(schema.member.userId, "Z"),
+			}),
+			undefined,
+		);
+		// Accepting still moves the guest's shares onto her account.
+		const z = {
+			...f.owner,
+			user: { ...f.owner.user, id: "Z", email: "gomathi@example.com" },
+		} as Ctx;
+		await acceptInvitation(z, { invitationId: guest.invitation.invitationId });
+		const shares = await f.db.query.expenseShare.findMany();
+		assert.ok(shares.some((row) => row.userId === "Z"));
+		assert.ok(!shares.some((row) => row.userId === guest.userId));
+	} finally {
+		f.client.close();
+	}
+});
+
+test("an archived group can't be joined through an earlier invitation", async () => {
+	const f = await fixture();
+	try {
+		const invite = await createInvitation(f.owner, {
+			groupId: "G",
+			email: "x@example.com",
+			role: "member",
+		});
+		await archiveGroup(f.owner, { groupId: "G" });
+		await assert.rejects(
+			acceptInvitation(f.x, { invitationId: invite.invitationId }),
+			/archived and read-only/,
+		);
+		assert.equal(
+			await f.db.query.member.findFirst({
+				where: eq(schema.member.userId, "X"),
+			}),
+			undefined,
+		);
 	} finally {
 		f.client.close();
 	}

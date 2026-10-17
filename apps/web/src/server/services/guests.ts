@@ -142,6 +142,32 @@ export async function addMember(ctx: Ctx, raw: AddMemberInput) {
 					"CONFLICT",
 					"Only the account holder can attach a phone to a registered account",
 				);
+			// A guest already stands in for this address, so their shares and
+			// payments wait on that invitation: accepting it moves them onto the
+			// account. Adding the account alongside would strand that history.
+			const standIn = await tx.query.invitation.findFirst({
+				where: and(
+					eq(s.invitation.organizationId, input.groupId),
+					eq(s.invitation.email, person.email.toLowerCase()),
+					eq(s.invitation.status, "pending"),
+					isNotNull(s.invitation.guestUserId),
+				),
+			});
+			const standInMember = standIn?.guestUserId
+				? await tx.query.member.findFirst({
+						where: and(
+							eq(s.member.organizationId, input.groupId),
+							eq(s.member.userId, standIn.guestUserId),
+						),
+					})
+				: undefined;
+			if (standIn && standInMember)
+				return {
+					userId: standInMember.userId,
+					member: standInMember,
+					invitation: standIn,
+					groupName: group.name,
+				};
 			const [added] = await tx
 				.insert(s.member)
 				.values({

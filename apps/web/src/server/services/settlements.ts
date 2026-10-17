@@ -88,6 +88,21 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 	const settlementId = id();
 	const now = new Date();
 	await ctx.db.transaction(async (tx) => {
+		// Writing first takes SQLite's writer lock before the unpaid shares are
+		// read, so two payments at once queue up: the second sees the shares
+		// the first just paid and lands as a reverse debt, rather than both
+		// reading the same unpaid share.
+		await tx.insert(settlement).values({
+			id: settlementId,
+			organizationId: input.groupId,
+			fromUserId,
+			toUserId: input.toUserId,
+			amountMinor: input.amountMinor,
+			currency: input.currency,
+			note: input.note,
+			createdByUserId: ctx.user.id,
+			createdAt: now,
+		});
 		const candidates = await tx
 			.select({ share: expenseShare, expense })
 			.from(expenseShare)
@@ -102,17 +117,6 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 				),
 			)
 			.orderBy(asc(expense.date), asc(expense.createdAt));
-		await tx.insert(settlement).values({
-			id: settlementId,
-			organizationId: input.groupId,
-			fromUserId,
-			toUserId: input.toUserId,
-			amountMinor: input.amountMinor,
-			currency: input.currency,
-			note: input.note,
-			createdByUserId: ctx.user.id,
-			createdAt: now,
-		});
 		let remaining = input.amountMinor;
 		for (const candidate of candidates) {
 			if (candidate.share.amountMinor > remaining) break;

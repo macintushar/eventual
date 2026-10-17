@@ -8,6 +8,7 @@ import { AppError } from "#/server/errors";
 import { mergeGuestIdentity } from "./guests";
 import {
 	activityRow,
+	assertGroupWritable,
 	id,
 	membership,
 	type Role,
@@ -233,6 +234,8 @@ export async function acceptInvitation(
 	const invited = preview.invitation.role ?? "member";
 	const role = invited === "owner" ? "admin" : invited;
 	await ctx.db.transaction(async (tx) => {
+		// An archived group takes no new members, and no guest history moves.
+		await assertGroupWritable(tx, groupId);
 		// The guest who stood in for this person becomes them: their shares,
 		// payments and history move to the account. The admin's invitation is the
 		// consent, so this only touches the group that sent it.

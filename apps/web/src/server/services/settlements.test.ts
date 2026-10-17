@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
+import { Worker } from "node:worker_threads";
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
@@ -15,8 +19,8 @@ import {
 	setSharePaid,
 } from "#/server/services/app";
 
-async function fixture() {
-	const client = createClient({ url: ":memory:" });
+async function fixture(url = ":memory:") {
+	const client = createClient({ url });
 	const db = drizzle(client, { schema });
 	await migrate(db, { migrationsFolder: "drizzle" });
 	const now = new Date();
@@ -288,6 +292,66 @@ test("a payment recorded twice still only settles the shares once", async () => 
 		);
 	} finally {
 		f.client.close();
+	}
+});
+
+test("simultaneous payments both record but settle the shares only once", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "eventual-settle-"));
+	const url = `file:${join(dir, "race.db")}`;
+	const f = await fixture(url);
+	try {
+		await f.client.execute("PRAGMA busy_timeout = 5000");
+		await f.expense("USD");
+		const input = {
+			groupId: "G",
+			toUserId: "B",
+			currency: "USD",
+			amountMinor: 20000,
+		};
+		// The other payment comes from a second connection on its own thread,
+		// as a second request would.
+		const { db: _db, ...ctx } = f.ctx;
+		const worker = new Worker(
+			new URL("./settlement-race.worker.ts", import.meta.url),
+			{ workerData: { url, ctx, input } },
+		);
+		const replies: unknown[] = [];
+		const next = () =>
+			new Promise((resolve, reject) => {
+				worker.once("message", resolve);
+				worker.once("error", reject);
+			});
+		replies.push(await next());
+		const theirs = next();
+		worker.postMessage("go");
+		const [mine, other] = await Promise.all([
+			createSettlement(f.ctx, input),
+			theirs,
+		]);
+		await worker.terminate();
+		assert.deepEqual(replies, ["ready"]);
+		const otherResult = other as { ok: boolean; allocations?: number };
+		assert.ok(otherResult.ok, JSON.stringify(other));
+		assert.ok(mine);
+		assert.equal((await f.db.query.settlement.findMany()).length, 2);
+		// Whichever commits first takes the share; the other finds it paid.
+		assert.deepEqual(
+			[mine.allocations.length, otherResult.allocations].sort(),
+			[0, 1],
+		);
+		assert.equal((await f.db.query.settlementAllocation.findMany()).length, 1);
+		assert.deepEqual(
+			(await getBalances(f.ctx, { groupId: "G" })).transfers.map((t) => [
+				t.currency,
+				t.from.userId,
+				t.to.userId,
+				t.amountMinor,
+			]),
+			[["USD", "B", "A", 20000]],
+		);
+	} finally {
+		f.client.close();
+		rmSync(dir, { recursive: true, force: true });
 	}
 });
 
