@@ -1,5 +1,4 @@
 import { isCurrency } from "./currencies";
-import { formatMinor } from "./money";
 
 export type Repayment = {
 	fromUserId: string;
@@ -14,7 +13,8 @@ type Transfer = {
 	amountMinor: number;
 };
 
-export function repaymentLimit(
+/** Suggested amount only; free-form payments are not limited by balances. */
+export function repaymentSuggestion(
 	transfers: Transfer[],
 	input: Omit<Repayment, "amountMinor">,
 ): number {
@@ -28,11 +28,8 @@ export function repaymentLimit(
 	);
 }
 
-/** Same rule in the form and in the server's transaction, against fresh balances. */
-export function validateRepayment(
-	transfers: Transfer[],
-	input: Repayment,
-): string | null {
+/** Validate the payment shape; overpayments and either direction are allowed. */
+export function validateRepayment(input: Repayment): string | null {
 	if (!isCurrency(input.currency)) return "Choose a supported currency";
 	if (!input.fromUserId) return "Choose who paid";
 	if (!input.toUserId) return "Choose who was paid";
@@ -44,25 +41,14 @@ export function validateRepayment(
 		input.amountMinor <= 0
 	)
 		return `Enter a valid positive ${input.currency} amount`;
-	const limit = repaymentLimit(transfers, input);
-	if (limit === 0)
-		return `No ${input.currency} payment is owed between these members in the current simplified debts`;
-	if (input.amountMinor > limit)
-		return `The payment can't be more than the ${formatMinor(limit, input.currency)} owed`;
 	return null;
 }
 
-export function validateSharePayment(
-	transfers: Transfer[],
-	input: Repayment & { paid: boolean; hasAllocations: boolean },
-): string | null {
+/** Allocated shares stay owned by their payment until that payment is deleted. */
+export function validateSharePayment(input: {
+	hasAllocations: boolean;
+}): string | null {
 	if (input.hasAllocations)
 		return "Delete the linked payment before changing this share's paid status";
-	if (
-		!input.paid ||
-		input.fromUserId === input.toUserId ||
-		input.amountMinor === 0
-	)
-		return null;
-	return validateRepayment(transfers, input);
+	return null;
 }

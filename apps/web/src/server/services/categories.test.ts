@@ -9,6 +9,8 @@ import type { Ctx } from "#/server/context";
 import {
 	applyCategories,
 	createCategoryRule,
+	importCategoryRules,
+	listCategoryRules,
 	previewCategoryBackfill,
 } from "#/server/services/categories";
 
@@ -112,6 +114,64 @@ test("category rules backfill existing expenses", async () => {
 		assert.equal(applied.updated, 1);
 		assert.equal(await categoryOf("E3"), "Transport");
 		assert.equal(await categoryOf("E4"), "Gifts");
+	} finally {
+		client.close();
+	}
+});
+
+test("importing rules copies another group's and keeps this group's own", async () => {
+	const client = createClient({ url: ":memory:" });
+	try {
+		const db = drizzle(client, { schema });
+		await migrate(db, { migrationsFolder: "./drizzle" });
+		const now = new Date("2026-09-01T00:00:00Z");
+		const owner = {
+			id: "A",
+			name: "Zoe",
+			email: "zoe@test.invalid",
+			emailVerified: true,
+			image: null,
+			createdAt: now,
+			updatedAt: now,
+		};
+		await db.insert(schema.user).values(owner);
+		await db.insert(schema.organization).values(
+			["G", "H", "X"].map((id) => ({
+				id,
+				name: id,
+				slug: id,
+				createdAt: now,
+			})),
+		);
+		await db.insert(schema.member).values(
+			["G", "H"].map((organizationId) => ({
+				id: `member-${organizationId}`,
+				organizationId,
+				userId: "A",
+				role: "owner",
+				createdAt: now,
+			})),
+		);
+		const ctx = { db, user: owner } as unknown as Ctx;
+		const rule = (groupId: string, pattern: string, category: string) =>
+			createCategoryRule(ctx, { groupId, pattern, category });
+		await rule("H", "zomato", "Food");
+		await rule("H", "netflix", "Subscriptions");
+		await rule("G", "zomato", "Work");
+
+		assert.deepEqual(
+			await importCategoryRules(ctx, { groupId: "G", fromGroupId: "H" }),
+			{ imported: 1, skipped: 1 },
+		);
+		const rules = await listCategoryRules(ctx, { groupId: "G" });
+		assert.deepEqual(rules.map((row) => [row.pattern, row.category]).sort(), [
+			["netflix", "Subscriptions"],
+			["zomato", "Work"],
+		]);
+		await assert.rejects(
+			importCategoryRules(ctx, { groupId: "G", fromGroupId: "X" }),
+			/not a member/,
+		);
 	} finally {
 		client.close();
 	}

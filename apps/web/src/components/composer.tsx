@@ -176,7 +176,13 @@ export function ComposerProvider({
 						}}
 						groups={composerGroups}
 						currentUserId={currentUserId}
-						defaultGroupId={open.groupId}
+						// Only a group the composer can offer: an archived one isn't
+						// in the list, and preselecting it left an empty member step.
+						defaultGroupId={
+							composerGroups.some((group) => group.id === open.groupId)
+								? open.groupId
+								: undefined
+						}
 						onCreateGroup={composer.group}
 						onSaved={async (groupId) => {
 							if (groupId !== routeGroupId)

@@ -6,7 +6,6 @@ import {
 	settlement,
 	settlementAllocation,
 } from "#/db/schema";
-import { validateRepayment } from "#/lib/settlements";
 import type { Ctx } from "#/server/context";
 import { people } from "#/server/domain/activity";
 import { AppError } from "#/server/errors";
@@ -16,14 +15,13 @@ import {
 	encodePageCursor,
 	pageLimit,
 } from "#/server/pagination";
-import { readBalances } from "./balances";
-import { listMembers } from "./members";
 import {
 	activityRow,
 	assertExpenseMembers,
 	id,
 	membership,
 	recordActivity,
+	writableMembership,
 } from "./shared";
 
 export { getBalances } from "./balances";
@@ -75,9 +73,11 @@ export async function listSettlementPage(
 }
 
 export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
-	// Any member can record a repayment between any two members, so someone
-	// can log what a guest paid them or what they saw change hands.
-	await membership(ctx, input.groupId);
+	// Any member can record a payment between any two members, of any amount,
+	// so someone can log what a guest paid them or what they saw change hands.
+	// Paying more than is owed flips the debt onto the recipient; the
+	// simplified debts suggest an amount but never gate one.
+	await writableMembership(ctx, input.groupId);
 	const fromUserId = input.fromUserId ?? ctx.user.id;
 	if (input.toUserId === fromUserId)
 		throw new AppError(
@@ -85,16 +85,24 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 			"A settlement must be between two different members",
 		);
 	await assertExpenseMembers(ctx, input.groupId, input.toUserId, [fromUserId]);
-	const members = await listMembers(ctx, input);
 	const settlementId = id();
 	const now = new Date();
 	await ctx.db.transaction(async (tx) => {
-		const balances = await readBalances(tx, input.groupId, members);
-		const invalid = validateRepayment(balances.transfers, {
-			...input,
+		// Writing first takes SQLite's writer lock before the unpaid shares are
+		// read, so two payments at once queue up: the second sees the shares
+		// the first just paid and lands as a reverse debt, rather than both
+		// reading the same unpaid share.
+		await tx.insert(settlement).values({
+			id: settlementId,
+			organizationId: input.groupId,
 			fromUserId,
+			toUserId: input.toUserId,
+			amountMinor: input.amountMinor,
+			currency: input.currency,
+			note: input.note,
+			createdByUserId: ctx.user.id,
+			createdAt: now,
 		});
-		if (invalid) throw new AppError("VALIDATION", invalid);
 		const candidates = await tx
 			.select({ share: expenseShare, expense })
 			.from(expenseShare)
@@ -109,17 +117,6 @@ export async function createSettlement(ctx: Ctx, input: CreateSettlementInput) {
 				),
 			)
 			.orderBy(asc(expense.date), asc(expense.createdAt));
-		await tx.insert(settlement).values({
-			id: settlementId,
-			organizationId: input.groupId,
-			fromUserId,
-			toUserId: input.toUserId,
-			amountMinor: input.amountMinor,
-			currency: input.currency,
-			note: input.note,
-			createdByUserId: ctx.user.id,
-			createdAt: now,
-		});
 		let remaining = input.amountMinor;
 		for (const candidate of candidates) {
 			if (candidate.share.amountMinor > remaining) break;
@@ -168,7 +165,7 @@ export async function deleteSettlement(
 		with: { allocations: true },
 	});
 	if (!row) throw new AppError("NOT_FOUND", "Settlement not found");
-	await membership(ctx, row.organizationId);
+	await writableMembership(ctx, row.organizationId);
 	await ctx.db.transaction(async (tx) => {
 		if (row.allocations.length)
 			await tx

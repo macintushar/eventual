@@ -5,6 +5,7 @@ export {
 	applyCategories,
 	createCategoryRule,
 	deleteCategoryRule,
+	importCategoryRules,
 	listCategoryRules,
 	previewCategoryBackfill,
 	suggestCategory,

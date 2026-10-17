@@ -89,7 +89,9 @@ test("category rules backfill existing expenses from one review list", async ({
 			owner.page.getByText("Category rule added. 2 existing expenses updated."),
 		).toBeVisible();
 
-		await owner.page.getByRole("button", { name: "Review categories" }).click();
+		await owner.page
+			.getByRole("button", { name: "Recategorize existing expenses" })
+			.click();
 		const dialog = owner.page.getByRole("dialog");
 		await expect(dialog.getByText("Uber home")).toBeVisible();
 		await expect(dialog.getByText("Taxi to airport")).toBeVisible();

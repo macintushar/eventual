@@ -146,7 +146,12 @@ test("two people join, split expenses, settle, and net balances across groups", 
 		await composer.getByLabel("Amount").fill("200");
 		await composer.getByRole("button", { name: "Continue" }).click();
 		await composer.getByRole("button", { name: "Add expense" }).click();
-		await expect(a.page.getByText("Dinner together")).toBeVisible();
+		// The composer still shows the description while it animates closed,
+		// so wait for it to go before looking for the new row.
+		await expect(composer).toBeHidden();
+		await expect(
+			a.page.getByRole("link", { name: /Dinner together/ }),
+		).toBeVisible();
 		const expenses = await json<any>(
 			a.context,
 			"GET",

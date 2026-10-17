@@ -62,6 +62,10 @@ export const createCategoryRuleSchema = categoryRulesSchema.extend({
 export const updateCategoryRuleSchema = createCategoryRuleSchema
 	.omit({ applyToExisting: true })
 	.extend({ ruleId: idSchema });
+/** Copy another group's rules into this one. */
+export const importCategoryRulesSchema = categoryRulesSchema.extend({
+	fromGroupId: idSchema,
+});
 export const deleteCategoryRuleSchema = categoryRulesSchema.extend({
 	ruleId: idSchema,
 });

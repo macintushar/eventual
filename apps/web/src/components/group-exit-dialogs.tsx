@@ -633,9 +633,9 @@ export function DeleteGroupDialog({
 }
 
 /**
- * Archiving never hides money (archived groups stay settleable), so open
- * debts aren't a blocker. They're listed so nobody archives believing the
- * group is squared away. It's undone with one click, so it isn't painted red.
+ * An archived group is read-only, payments included, so open debts are
+ * listed: nobody should archive believing the group is squared away. It's
+ * undone with one click, so it isn't painted red, and debts don't block it.
  */
 export function ArchiveGroupDialog({
 	data,
@@ -660,7 +660,7 @@ export function ArchiveGroupDialog({
 			tone="neutral"
 			media={<Archive />}
 			title={`Archive “${data.group.name}”?`}
-			description="The group becomes read-only, so no one can add expenses. Balances and history stay visible, and you can unarchive it any time."
+			description="The group becomes read-only: no one can add, edit or delete expenses, payments or members. Balances and history stay visible, and you can unarchive it any time."
 			footer={
 				<>
 					<AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
@@ -682,7 +682,8 @@ export function ArchiveGroupDialog({
 							<span className="font-medium">
 								{debtCount(debts.length)} still open.
 							</span>{" "}
-							People can still record payments after the group is archived.
+							Payments can't be recorded while the group is archived, so settle
+							up first or unarchive it later.
 						</p>
 					</div>
 					<OpenDebts transfers={debts} meId={data.user.id} />

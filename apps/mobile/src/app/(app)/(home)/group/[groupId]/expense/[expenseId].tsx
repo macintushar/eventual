@@ -141,7 +141,6 @@ export default function ExpenseDetail() {
 		group?.members.some(
 			(member) => member.weight !== group.members[0]?.weight,
 		) ?? false;
-	const transfers = summary.data?.balances.transfers ?? [];
 	// The payer's own share is never owed to anyone.
 	const owing =
 		data?.shares.filter((share) => share.userId !== data.paidByUserId) ?? [];
@@ -270,12 +269,7 @@ export default function ExpenseDetail() {
 							{data.shares.map((share) => {
 								const paid = share.paidAt !== null;
 								const isPayer = share.userId === data.paidByUserId;
-								const blocked = validateSharePayment(transfers, {
-									fromUserId: share.userId,
-									toUserId: data.paidByUserId,
-									currency: data.currency,
-									amountMinor: share.amountMinor,
-									paid: !paid,
+								const blocked = validateSharePayment({
 									hasAllocations: share.allocations.length > 0,
 								});
 								const saving =

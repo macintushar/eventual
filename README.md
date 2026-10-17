@@ -116,13 +116,13 @@ Set `STATUS_PAGE_URL` when that uptime check has a public status page. The site 
 - Balances use unpaid expense shares plus settlement records. Settlement allocations mark complete matching shares paid FIFO and never partially settle a share.
 - A settlement moves the balance by its *unallocated* remainder only. The allocated part already moved the balance by marking those shares paid, so counting the raw amount as well would double-count it. Partial and indirect repayments reduce the same-currency net balance even when no complete direct share can be marked paid.
 - Positive balance means others owe that member. The simplified debt list greedily pairs largest debtors and creditors separately for each currency.
-- Repayments require an explicit currency and cannot exceed the current simplified transfer from the payer to the recipient in that currency. The shared validator in `src/lib/settlements.ts` runs in the UI and again against fresh balances inside the database transaction. Invalid or excessive repayments return `VALIDATION` (HTTP 422). A paid-status toggle cannot bypass this limit; undo a linked settlement before unmarking an allocated share.
+- Payments are free-form. Any member can record money moving between any two members, of any positive amount in any supported currency, in either direction — including more than is owed. Matching same-currency shares are still marked paid FIFO first, and the remainder settles onto the net balances, so overpaying simply flips the debt onto the recipient. The shared validator in `src/lib/settlements.ts` checks only the shape of the payment (supported currency, two different members, a positive amount); the simplified debts suggest an amount but never cap one, and no balance check runs inside the database transaction. Marking a share paid is likewise unconstrained by balances: the one integrity rule is that a share paid through a settlement stays owned by it, so delete the payment before unmarking its shares.
 
 ### Currency-aware API responses
 
 `GET /api/groups` returns each group's `balances: [{ currency, balanceMinor }]` for the current user, replacing the former single `balanceMinor` total. `GET /api/groups/{groupId}/balances` returns `members` and `transfers` arrays with a `currency` on every row. The same user or pair can have multiple rows, one per currency. Empty groups return empty arrays.
 
-Expense creation accepts `currency` (omitting it defaults to INR for existing clients). Expense updates and settlements require it explicitly. For example, `{"toUserId":"B","currency":"USD","amountMinor":20000}` records a US$200 repayment and can only reduce USD debt. If the current suggested payment is US$200, attempting US$200.01 or US$400 is rejected. INR debt is unaffected.
+Expense creation accepts `currency` (omitting it defaults to INR for existing clients). Expense updates and settlements require it explicitly. For example, `{"toUserId":"B","currency":"USD","amountMinor":20000}` records a US$200 payment and can only affect USD debt: matching USD shares are marked paid first, and any remainder becomes a USD credit B owes back. INR debt is unaffected.
 
 ## Auth emails
 

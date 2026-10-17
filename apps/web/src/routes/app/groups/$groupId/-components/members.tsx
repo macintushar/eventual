@@ -437,7 +437,6 @@ function AddPersonDialog({
 		setSubmitting(false);
 		if (!outcome.ok) return;
 		const result = outcome.result as {
-			member: unknown;
 			invitation: {
 				inviteUrl: string;
 				emailDelivery: "scheduled" | "unconfigured";
@@ -445,22 +444,20 @@ function AddPersonDialog({
 		} | null;
 		const invitation = result?.invitation;
 		if (!invitation) {
-			toast.success(`${name.trim()} added`);
+			// An email with no invitation is someone who already has an account:
+			// they're in the group now, and we've told them so.
+			toast.success(
+				hasEmail ? `${name.trim()} added and notified` : `${name.trim()} added`,
+			);
 			setOpen(false);
 			reset();
 			return;
 		}
-		if (!result.member)
-			toast.success("They already have an account — invitation sent", {
-				description:
-					weightValue !== 1 ? "Set their weight once they accept." : undefined,
-			});
-		else
-			toast.success(
-				invitation.emailDelivery === "scheduled"
-					? `${name.trim()} added and invited by email`
-					: `${name.trim()} added`,
-			);
+		toast.success(
+			invitation.emailDelivery === "scheduled"
+				? `${name.trim()} added and invited by email`
+				: `${name.trim()} added`,
+		);
 		setInviteUrl(`${window.location.origin}${invitation.inviteUrl}`);
 	};
 
@@ -531,8 +528,9 @@ function AddPersonDialog({
 						<DialogHeader>
 							<DialogTitle>Add a person</DialogTitle>
 							<DialogDescription>
-								They can be part of expenses right away. Add their email to
-								invite them, so they can sign in and see the group.
+								They can be part of expenses right away. Add their email so they
+								can see the group: people already on Eventual are added and
+								notified, everyone else gets an invite.
 							</DialogDescription>
 						</DialogHeader>
 						<FieldGroup>
@@ -587,9 +585,7 @@ function AddPersonDialog({
 											</SelectGroup>
 										</SelectContent>
 									</Select>
-									<FieldDescription>
-										{ROLE_ABILITIES[role]} Applies once they accept the invite.
-									</FieldDescription>
+									<FieldDescription>{ROLE_ABILITIES[role]}</FieldDescription>
 								</Field>
 							) : null}
 							{showMore ? (
@@ -663,10 +659,14 @@ export function MembersTab({
 	execute: Execute;
 }) {
 	const myRole = data.group.myRole;
+	// An archived group is read-only: nobody joins, leaves by an admin's hand,
+	// or changes role or weight until it is unarchived.
+	const archived = Boolean(data.group.archivedAt);
 	const canAdd = can(myRole, "member", "create");
 	const canManageMembers =
-		can(myRole, "member", "update") || can(myRole, "member", "delete");
-	const canRevokeInvite = can(myRole, "invitation", "cancel");
+		!archived &&
+		(can(myRole, "member", "update") || can(myRole, "member", "delete"));
+	const canRevokeInvite = !archived && can(myRole, "invitation", "cancel");
 	const invites = useQuery({
 		...groupInvitationsQueryOptions(groupId),
 		enabled: can(myRole, "invitation", "read"),
@@ -687,7 +687,12 @@ export function MembersTab({
 						</h2>
 						<RolesInfo />
 					</div>
-					{canAdd ? (
+					{canAdd && archived ? (
+						<Button disabled>
+							<UserPlus data-icon="inline-start" />
+							Add person
+						</Button>
+					) : canAdd ? (
 						<AddPersonDialog
 							groupId={groupId}
 							people={{ myRole, members: data.group.members, invitations }}

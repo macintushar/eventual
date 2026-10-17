@@ -224,6 +224,7 @@ export const SUMMARIES: Record<string, string> = {
 	"share.unpaid": "Mark a share unpaid",
 	"category.list": "List category rules",
 	"category.create": "Create a category rule",
+	"category.import": "Import category rules from another group",
 	"category.suggest": "Suggest a category",
 	"category.backfillPreview": "Preview categories for existing expenses",
 	"category.apply": "Apply categories to existing expenses",

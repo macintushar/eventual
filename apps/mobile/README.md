@@ -1,6 +1,6 @@
 # Eventual mobile
 
-Expo / React Native scaffold for iOS and Android, using the existing Bun workspace and `@eventual/sdk`. Start commands below from the repository root.
+Expo / React Native app for iOS and Android, using the existing Bun workspace and `@eventual/sdk`. Start commands below from the repository root.
 
 ## Local development
 
@@ -19,25 +19,30 @@ Native `ios/` and `android/` directories are generated and ignored. Change app c
 
 ## Included
 
-- Expo Router tabs: Groups, Activity, Account.
+- Expo Router tabs: Groups, Activity, Account, with native glass navigation and a separate quick-actions button on supported iOS versions.
 - Bundled Inter Tight / Instrument Sans, semantic light/dark colors, safe areas, scalable text.
-- An editable server address with a timed, response-validated health/site check through the shared SDK. HTTPS is required except loopback/emulator addresses in development. The address is kept in memory only.
-- Clearly labeled unsigned-in scaffold states; no mock balances or financial writes.
+- Persisted server selection, capability checks, secure sessions, email/password authentication, password reset, and server-configured social sign-in.
+- Groups, expense creation/editing/search/sorting, split previews, free-form payments, balances, members, invitations, activity, recurring expenses, bulk re-split, and reviewed guest merges.
+- Group settings, category rules, reminders, report export, profile/photo, account email/sign-in settings, API keys, and integrations/help.
+- Offline/session recovery, unsaved-expense prompts, UPI handoff with clipboard fallback and explicit payment confirmation.
+- Hosted-only native push registration, preferences, server delivery, and notification routing. Custom servers remain usable without push.
 - Root Turbo typechecking and Biome coverage. Native builds stay explicit local commands and do not join the web deployment build.
 
-## Next slices
+## Validation and release follow-ups
 
-1. Native session storage and email/password authentication with the existing Better Auth server. Validate OAuth return links and the single-app/custom-server Google strategy before implementing Google sign-in.
-2. Persist selected server; add server capability/version negotiation, clean sign-out/server switching, and authenticated SDK headers.
-3. Real dashboard/groups, then expense entry, split previews, balances and settlement flows with server-authoritative calculations.
-4. Complete the parity inventory: invitations, members, recurring expenses, categories, profile, exports and integrations.
-5. Hosted-only push registration/preferences/delivery and notification routing; custom servers stay usable without push.
-6. Device QA on both platforms, accessibility, network/expired-session states, and review of the proposed design decisions.
+The implementation threads report a successful local iOS build and simulator QA of the main flows. Android and physical-device QA remain outstanding. The latest launch-invite replay fix still needs a simulator retest after switching servers.
 
-The existing design package is a review draft, not proof that those flows are implemented. Local simulator success does not establish Android or physical-device readiness.
+- Run a local Android build and emulator pass, then physical-device tests including UPI handoff.
+- Verify real push delivery with APNs/FCM credentials and the hosted job schedule; see [push deployment notes](../web/PUSH.md). Apply the new database migration before enabling push.
+- Verify real Sign in with Apple after configuring the server credentials.
+- Verify the deployed web preview with the separate React installations.
+- Complete VoiceOver/Dynamic Type accessibility review and store assets/signing setup. Native builds remain local until separately requested otherwise.
+- Follow up on cross-server invite prompts, invited-email prefill, and native guest-claim support (currently handed off to the browser).
+
+Run mobile policy tests with `bun test apps/mobile/src` from the root, alongside workspace typechecks and `bun run check`.
 
 ## Dependency layout
 
-`react-dom` is pinned to the Expo-compatible React version to keep Expo Router’s optional web peer from resolving the web workspace’s different React version. This scaffold targets iOS and Android only.
+The web app uses React/React DOM 19.2.8 at the workspace root. Mobile keeps its Expo-compatible 19.2.3 copies in its own `node_modules`; `metro.config.js` resolves React imports, including those from hoisted dependencies, to those mobile copies. This app targets iOS and Android only.
 
 The root `bunfig.toml` uses Bun's hoisted linker to avoid duplicate native module installations with Bun 1.3.14. Run installs from the repository root. See [Bun linker configuration](https://bun.com/docs/pm/isolated-installs) and [Expo monorepo guidance](https://docs.expo.dev/guides/monorepos/).

@@ -1,6 +1,6 @@
 import { formatMinor, parseMinor } from "@eventual/schemas/money";
 import {
-	repaymentLimit,
+	repaymentSuggestion,
 	validateRepayment,
 } from "@eventual/schemas/settlements";
 import { isEventualApiError } from "@eventual/sdk";
@@ -75,8 +75,8 @@ export default function RecordPayment() {
 		currency,
 		amountMinor: parseMinor(amount, currency),
 	};
-	const invalid = validateRepayment(transfers, repayment);
-	const limit = repaymentLimit(transfers, repayment);
+	const invalid = validateRepayment(repayment);
+	const suggestion = repaymentSuggestion(transfers, repayment);
 	const toError = attempted && !to ? "Choose who was paid" : null;
 	const amountError = !amount.trim()
 		? attempted
@@ -169,7 +169,9 @@ export default function RecordPayment() {
 				onChange={setAmount}
 				hint={
 					amountError ??
-					(to ? `Up to ${formatMinor(limit, currency)} is owed.` : undefined)
+					(suggestion > 0
+						? `Suggested: ${formatMinor(suggestion, currency)}. Any positive amount is allowed.`
+						: undefined)
 				}
 				invalid={Boolean(amountError)}
 			/>

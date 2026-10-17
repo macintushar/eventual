@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { activity, activityRecipient, member } from "#/db/schema";
+import { activity, activityRecipient, member, organization } from "#/db/schema";
 import { type Permissions, roleCan } from "#/lib/permissions";
 import type { Ctx } from "#/server/context";
 import type { Recipient } from "#/server/domain/activity";
@@ -19,6 +19,35 @@ export async function membership(ctx: Ctx, organizationId: string) {
 	if (!row)
 		throw new AppError("FORBIDDEN", "You are not a member of this group");
 	return row as typeof row & { role: Role };
+}
+
+/**
+ * An archived group is read-only: nothing in it can be added, edited or
+ * deleted until it is unarchived. Reading, exporting, leaving, deleting and
+ * unarchiving stay open, so every write goes through this instead of
+ * `membership`.
+ */
+export async function assertGroupWritable(
+	db: Pick<Ctx["db"], "query">,
+	organizationId: string,
+) {
+	const group = await db.query.organization.findFirst({
+		where: eq(organization.id, organizationId),
+		columns: { archivedAt: true },
+	});
+	if (!group) throw new AppError("NOT_FOUND", "Group not found");
+	if (group.archivedAt)
+		throw new AppError(
+			"FORBIDDEN",
+			"This group is archived and read-only. Unarchive it to make changes.",
+		);
+}
+
+/** `membership`, for a write: the group must also not be archived. */
+export async function writableMembership(ctx: Ctx, organizationId: string) {
+	const row = await membership(ctx, organizationId);
+	await assertGroupWritable(ctx.db, organizationId);
+	return row;
 }
 
 /**

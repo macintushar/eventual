@@ -296,12 +296,18 @@ test("split variants, categories, paid locks, reporting, activity and validation
 			amountMinor: 20000,
 			splitMethod: "even",
 		});
-		const activity = await json<any>(
-			a.context,
-			"GET",
-			`/groups/${g.id}/activity?limit=10`,
-		);
-		expect(JSON.stringify(activity)).toContain("expense.updated");
+		// Group activity is stamped to the second, so everything this test did
+		// ties on time and the newest ten are an arbitrary slice. Look for this
+		// expense's update among all of it instead.
+		const activity = await json<{
+			items: { type: string; targetId: string }[];
+		}>(a.context, "GET", `/groups/${g.id}/activity?limit=100`);
+		expect(
+			activity.items.some(
+				(item) =>
+					item.type === "expense.updated" && item.targetId === dinner.id,
+			),
+		).toBe(true);
 		await json(a.context, "DELETE", `/expenses/${dinner.id}`);
 		await json(a.context, "DELETE", `/groups/${g.id}/categories/${rule.id}`);
 		expect(
@@ -552,24 +558,25 @@ test("idempotency, bulk resplit, guest merge and Shortcut API share persisted st
 				(row: any) => row.userId === second.id,
 			).amountMinor,
 		).toBe(7000);
-		await json(
+		const overpaid = await json<any>(
 			b.context,
 			"POST",
 			`/groups/${g.id}/settlements`,
 			{ toUserId: owner.id, currency: "INR", amountMinor: 7001 },
-			422,
 		);
+		expect(overpaid.allocations).toHaveLength(1);
+		// The extra rupee flips the debt: the owner now owes the member ₹0.01.
 		expect(
 			(await json<any>(b.context, "GET", `/groups/${g.id}/balances`))
 				.transfers[0].amountMinor,
-		).toBe(7000);
+		).toBe(1);
 		expect(
 			(await json<any>(a.context, "GET", `/groups/${g.id}/payment-intents`))
 				.intents[0].amountMinor,
-		).toBe(7000);
+		).toBe(1);
 		expect(
 			JSON.stringify(
-				await json<any>(b.context, "GET", "/me/activity?limit=10"),
+				await json<any>(b.context, "GET", "/me/activity?limit=100"),
 			),
 		).toContain("expense.created");
 

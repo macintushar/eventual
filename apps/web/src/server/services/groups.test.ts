@@ -8,10 +8,14 @@ import * as schema from "#/db/schema";
 import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
 import {
+	addMember,
 	createExpense,
 	createGroup,
+	createSettlement,
+	deleteExpense,
 	listGroupsWithMembers,
 	previewGroupExpense,
+	renameGroup,
 	updateExpense,
 	updateMemberWeight,
 } from "#/server/services/app";
@@ -156,6 +160,72 @@ test("archived groups stay out of the composer but keep data readable", async ()
 		assert.equal(stayReadable.length, 1);
 		await unarchiveGroup(f.ctx, { groupId: "G" });
 		assert.equal((await listGroupsWithMembers(f.ctx)).length, 1);
+	} finally {
+		f.client.close();
+	}
+});
+
+test("archived groups are read-only until unarchived", async () => {
+	const f = await fixture();
+	try {
+		await archiveGroup(f.ctx, { groupId: "G" });
+		const readOnly = /archived and read-only/;
+		await assert.rejects(
+			createExpense(f.ctx, {
+				groupId: "G",
+				description: "Taxi",
+				amountMinor: 1000,
+				currency: "INR",
+				paidByUserId: "A",
+				date: new Date(),
+				splitMethod: "even",
+				participants: [
+					{ userId: "A", input: null },
+					{ userId: "B", input: null },
+				],
+			}),
+			readOnly,
+		);
+		await assert.rejects(
+			updateExpense(f.ctx, {
+				expenseId: "E1",
+				description: "Dinner",
+				amountMinor: 30000,
+				currency: "INR",
+				paidByUserId: "B",
+				date: new Date(),
+				splitMethod: "even",
+				participants: [
+					{ userId: "A", input: null },
+					{ userId: "B", input: null },
+				],
+			}),
+			readOnly,
+		);
+		await assert.rejects(deleteExpense(f.ctx, { expenseId: "E1" }), readOnly);
+		await assert.rejects(
+			createSettlement(f.ctx, {
+				groupId: "G",
+				toUserId: "B",
+				amountMinor: 100,
+				currency: "INR",
+			}),
+			readOnly,
+		);
+		await assert.rejects(
+			addMember(f.ctx, { groupId: "G", name: "Guest" }),
+			readOnly,
+		);
+		await assert.rejects(
+			updateMemberWeight(f.ctx, { groupId: "G", userId: "B", weight: 1 }),
+			readOnly,
+		);
+		await assert.rejects(
+			renameGroup(f.ctx, { groupId: "G", name: "Renamed" }),
+			readOnly,
+		);
+		await unarchiveGroup(f.ctx, { groupId: "G" });
+		await deleteExpense(f.ctx, { expenseId: "E1" });
 	} finally {
 		f.client.close();
 	}
