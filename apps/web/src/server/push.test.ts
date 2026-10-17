@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import * as schema from "#/db/schema";
+import { env } from "#/env";
 import type { Ctx } from "./context";
 import { expenseRecipients, updatedExpenseRecipients } from "./domain/activity";
 import {
@@ -227,7 +228,7 @@ test("transactional fan-out deduplicates, applies mutes, marks recurring and ski
 		assert.equal(jobs.length, 1);
 		assert.deepEqual(JSON.parse(jobs[0].payload), {
 			body: message.body,
-			data: { ...data, origin: "http://localhost:3000" },
+			data: { ...data, origin: new URL(env.BETTER_AUTH_URL).origin },
 			deviceIds: ["db"],
 		});
 		await enqueueActivityPush(
@@ -324,6 +325,40 @@ test("preferences default on, partial updates preserve categories and reject unr
 		);
 		assert.equal((await getPushPreferences(f.ctx("b"))).payments, true);
 		await assert.rejects(listPushDevices({ ...f.ctx("b"), apiKeyId: "key" }));
+	} finally {
+		f.client.close();
+	}
+});
+
+test("departed group mutes are hidden and cached stale mutes do not block current changes", async () => {
+	const f = await fixture();
+	try {
+		await updatePushPreferences(f.ctx("b"), { mutedGroupIds: ["g"] });
+		await f.db.delete(schema.member).where(eq(schema.member.userId, "b"));
+		assert.deepEqual((await getPushPreferences(f.ctx("b"))).mutedGroupIds, []);
+		await f.db
+			.insert(schema.organization)
+			.values({ id: "new", name: "New", slug: "new", createdAt: new Date() });
+		await f.db.insert(schema.member).values({
+			id: "new-b",
+			userId: "b",
+			organizationId: "new",
+			role: "member",
+			createdAt: new Date(),
+		});
+		assert.deepEqual(
+			(await updatePushPreferences(f.ctx("b"), { mutedGroupIds: ["g", "new"] }))
+				.mutedGroupIds,
+			["new"],
+		);
+		assert.deepEqual(
+			(await updatePushPreferences(f.ctx("b"), { mutedGroupIds: [] }))
+				.mutedGroupIds,
+			[],
+		);
+		await assert.rejects(
+			updatePushPreferences(f.ctx("b"), { mutedGroupIds: ["g"] }),
+		);
 	} finally {
 		f.client.close();
 	}

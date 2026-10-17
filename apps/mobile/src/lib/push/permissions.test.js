@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { IosAuthorizationStatus as ios } from "expo-notifications/src/NotificationPermissions.types";
 import {
+	normalizeOsPermission,
 	notificationSettingsState,
 	pushCapability,
 	shouldOfferExplainer,
@@ -9,6 +11,39 @@ const HOSTED = "https://eventual.macintushar.xyz";
 const SELF_HOSTED = "https://self.example.com";
 const sitePush = { push: { available: true, via: "direct" } };
 const siteNoPush = { push: { available: false, via: "none" } };
+
+// Import only Expo's pure enum definitions, without loading native modules.
+test("numeric iOS permission responses include provisional, ephemeral and zero", () => {
+	for (const status of [2, 3, 4]) {
+		expect(
+			normalizeOsPermission(
+				{
+					granted: status === 2,
+					status: status === 2 ? "granted" : "undetermined",
+					ios: { status },
+				},
+				ios,
+			),
+		).toBe("granted");
+	}
+	expect(
+		normalizeOsPermission(
+			{ granted: false, status: "denied", ios: { status: 1 } },
+			ios,
+		),
+	).toBe("denied");
+	expect(
+		normalizeOsPermission(
+			{ granted: false, status: "undetermined", ios: { status: 0 } },
+			ios,
+		),
+	).toBe("undetermined");
+	expect(normalizeOsPermission({ granted: true, status: "granted" }, ios)).toBe(
+		"granted",
+	);
+	expect(normalizeOsPermission({ status: "denied" }, ios)).toBe("denied");
+	expect(normalizeOsPermission({}, ios)).toBe("unknown");
+});
 
 describe("push capability (hosted-only in v1)", () => {
 	test("hosted with a direct capability is available", () => {

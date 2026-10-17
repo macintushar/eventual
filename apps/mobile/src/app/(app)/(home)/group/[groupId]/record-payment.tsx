@@ -1,3 +1,4 @@
+import { currencies } from "@eventual/schemas/currencies";
 import { formatMinor, parseMinor } from "@eventual/schemas/money";
 import {
 	repaymentSuggestion,
@@ -18,7 +19,8 @@ import {
 	Screen,
 } from "../../../../../components/brand";
 import { SelectField } from "../../../../../components/select-field";
-import { idempotencyKey } from "../../../../../lib/mutations";
+import { WriteRecovery } from "../../../../../components/write-recovery";
+import { createWriteAttempt } from "../../../../../lib/mutations";
 import {
 	useGroupContext,
 	useGroupSummary,
@@ -66,8 +68,7 @@ export default function RecordPayment() {
 			setCurrency(mine.currency);
 		}
 	}, [me, mine, params.from, params.to, summary.data]);
-	// One key per sheet, so a retry after a dropped connection can't record twice.
-	const key = useRef(idempotencyKey());
+	const attempt = useRef(createWriteAttempt()).current;
 
 	const repayment = {
 		fromUserId: from,
@@ -88,17 +89,19 @@ export default function RecordPayment() {
 
 	const save = useMutation({
 		mutationFn: (amountMinor: number) =>
-			api.call(
-				"settlement.create",
-				{
-					groupId,
-					fromUserId: from,
-					toUserId: to,
-					amountMinor,
-					currency,
-					note: note.trim() || null,
-				},
-				{ idempotencyKey: key.current },
+			attempt.run((key) =>
+				api.call(
+					"settlement.create",
+					{
+						groupId,
+						fromUserId: from,
+						toUserId: to,
+						amountMinor,
+						currency,
+						note: note.trim() || null,
+					},
+					{ idempotencyKey: key },
+				),
 			),
 		onSuccess: async () => {
 			await refresh(groupId);
@@ -115,10 +118,9 @@ export default function RecordPayment() {
 	const members = context.data?.group.members ?? [];
 	const name = (userId: string, label: string) =>
 		userId === me ? `${label} (you)` : label;
-	const currencies = [
-		...new Set([currency, ...transfers.map((row) => row.currency)]),
-	];
 
+	if (attempt.unresolved)
+		return <WriteRecovery busy={save.isPending} retry={() => save.mutate(0)} />;
 	return (
 		<Screen edges={[]} contentStyle={{ paddingTop: 28 }}>
 			<View style={{ gap: 8 }}>
@@ -156,7 +158,10 @@ export default function RecordPayment() {
 				<SelectField
 					label="Currency"
 					value={currency}
-					options={currencies.map((code) => ({ value: code, label: code }))}
+					options={currencies.map(({ code, name }) => ({
+						value: code,
+						label: `${code} · ${name}`,
+					}))}
 					onChange={(value) => {
 						setCurrency(value);
 						setAmount("");

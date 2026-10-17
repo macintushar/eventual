@@ -103,6 +103,13 @@ export async function readPushPreferences(
 	const mutes = await db
 		.select({ groupId: pushGroupMute.groupId })
 		.from(pushGroupMute)
+		.innerJoin(
+			member,
+			and(
+				eq(member.organizationId, pushGroupMute.groupId),
+				eq(member.userId, pushGroupMute.userId),
+			),
+		)
 		.where(eq(pushGroupMute.userId, userId))
 		.orderBy(asc(pushGroupMute.groupId));
 	return {
@@ -149,15 +156,25 @@ export async function updatePushPreferences(
 							),
 						)
 				: [];
-			if (memberships.length !== ids.length)
+			const existing = await tx
+				.select({ groupId: pushGroupMute.groupId })
+				.from(pushGroupMute)
+				.where(eq(pushGroupMute.userId, ctx.user.id));
+			const activeIds = new Set(memberships.map((row) => row.groupId));
+			const oldIds = new Set(existing.map((row) => row.groupId));
+			// A cached client can echo a mute from before membership ended. Drop it,
+			// but still reject attempts to mute an unrelated group.
+			if (ids.some((id) => !activeIds.has(id) && !oldIds.has(id)))
 				throw new AppError("FORBIDDEN", "Only your groups can be muted");
 			await tx
 				.delete(pushGroupMute)
 				.where(eq(pushGroupMute.userId, ctx.user.id));
-			if (ids.length)
+			if (activeIds.size)
 				await tx
 					.insert(pushGroupMute)
-					.values(ids.map((groupId) => ({ userId: ctx.user.id, groupId })));
+					.values(
+						[...activeIds].map((groupId) => ({ userId: ctx.user.id, groupId })),
+					);
 		}
 		return readPushPreferences(tx, ctx.user.id);
 	});

@@ -14,7 +14,8 @@ import {
 	Screen,
 } from "../../../../../components/brand";
 import { Segmented } from "../../../../../components/segmented";
-import { idempotencyKey } from "../../../../../lib/mutations";
+import { WriteRecovery } from "../../../../../components/write-recovery";
+import { createWriteAttempt } from "../../../../../lib/mutations";
 import {
 	useGroupContext,
 	useRefreshAfterWrite,
@@ -36,7 +37,7 @@ export default function AddPerson() {
 	const [role, setRole] = useState<"member" | "admin">("member");
 	const [inviteUrl, setInviteUrl] = useState("");
 	const [notice, setNotice] = useState("");
-	const key = useRef(idempotencyKey());
+	const attempt = useRef(createWriteAttempt()).current;
 
 	const address = email.trim().toLowerCase();
 	const overlap = address
@@ -56,16 +57,18 @@ export default function AddPerson() {
 
 	const add = useMutation({
 		mutationFn: () =>
-			api.call(
-				"member.add",
-				{
-					groupId,
-					name: name.trim(),
-					email: address || undefined,
-					// The role applies once they accept the emailed invitation.
-					role: address ? role : undefined,
-				},
-				{ idempotencyKey: key.current },
+			attempt.run((key) =>
+				api.call(
+					"member.add",
+					{
+						groupId,
+						name: name.trim(),
+						email: address || undefined,
+						// The role applies once they accept the emailed invitation.
+						role: address ? role : undefined,
+					},
+					{ idempotencyKey: key },
+				),
 			),
 		onSuccess: async (result) => {
 			await refresh(groupId);
@@ -81,6 +84,8 @@ export default function AddPerson() {
 		},
 	});
 
+	if (attempt.unresolved)
+		return <WriteRecovery busy={add.isPending} retry={() => add.mutate()} />;
 	if (inviteUrl)
 		return (
 			<Screen edges={[]} contentStyle={{ paddingTop: 28 }}>

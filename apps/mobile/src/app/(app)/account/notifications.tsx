@@ -1,7 +1,7 @@
 import { isEventualApiError } from "@eventual/sdk";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, View } from "react-native";
+import { ActivityIndicator, AppState, Linking, View } from "react-native";
 import {
 	Body,
 	Card,
@@ -62,18 +62,25 @@ export default function Notifications() {
 	useEffect(() => {
 		if (capability !== "available") return;
 		let cancelled = false;
-		void (async () => {
+		let generation = 0;
+		async function readPermission() {
+			const current = ++generation;
 			const supported = await notificationsSupported();
 			const read = supported
 				? await readNotificationPermission()
 				: ("unknown" as OsPermission);
-			if (!cancelled) {
+			if (!cancelled && current === generation) {
 				setModuleSupported(supported);
 				setPermission(read);
 			}
-		})();
+		}
+		void readPermission();
+		const subscription = AppState.addEventListener("change", (next) => {
+			if (next === "active") void readPermission();
+		});
 		return () => {
 			cancelled = true;
+			subscription.remove();
 		};
 	}, [capability]);
 
@@ -141,6 +148,22 @@ export default function Notifications() {
 						this server without any other setup.
 					</Body>
 				</Card>
+			</Screen>
+		);
+	}
+
+	if (preferences.isError) {
+		return (
+			<Screen masthead>
+				<Display size={32}>Notifications</Display>
+				<FormMessage>
+					Couldn’t load notification settings. Try again.
+				</FormMessage>
+				<GlassButton
+					label="Retry"
+					busy={preferences.isFetching}
+					onPress={() => void preferences.refetch()}
+				/>
 			</Screen>
 		);
 	}

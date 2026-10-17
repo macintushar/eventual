@@ -39,7 +39,8 @@ import {
 	SelectField,
 	useOptionPicker,
 } from "../../../../../../components/select-field";
-import { idempotencyKey } from "../../../../../../lib/mutations";
+import { WriteRecovery } from "../../../../../../components/write-recovery";
+import { createWriteAttempt } from "../../../../../../lib/mutations";
 import { notifyExpenseSaved } from "../../../../../../lib/push/events";
 import {
 	useGroupContext,
@@ -191,8 +192,7 @@ function Composer({
 		),
 	);
 	const [splitChanged, setSplitChanged] = useState(false);
-	// One key per sheet: a retry after a dropped connection can't add twice.
-	const key = useRef(idempotencyKey());
+	const attempt = useRef(createWriteAttempt()).current;
 
 	// What the form first rendered with, to tell real edits from none.
 	const draft: ExpenseDraft = {
@@ -280,17 +280,19 @@ function Composer({
 					amountMinor: share.amountMinor,
 				})),
 			};
-			return initial
-				? api.call(
-						"expense.update",
-						{ ...base, expenseId: initial.id },
-						{ idempotencyKey: key.current },
-					)
-				: api.call(
-						"expense.create",
-						{ ...base, groupId },
-						{ idempotencyKey: key.current },
-					);
+			return attempt.run((key) =>
+				initial
+					? api.call(
+							"expense.update",
+							{ ...base, expenseId: initial.id },
+							{ idempotencyKey: key },
+						)
+					: api.call(
+							"expense.create",
+							{ ...base, groupId },
+							{ idempotencyKey: key },
+						),
+			);
 		},
 		onSuccess: async (saved) => {
 			queryClient.setQueryData(["expense", saved.id], saved);
@@ -308,7 +310,6 @@ function Composer({
 					"split_changed"
 			) {
 				// A member's weight changed while this was open: show the new split.
-				key.current = idempotencyKey();
 				await queryClient.invalidateQueries({
 					queryKey: ["group", groupId, "context"],
 				});
@@ -326,7 +327,7 @@ function Composer({
 			navigation.dispatch(data.action);
 			return;
 		}
-		if (save.isPending) return;
+		if (save.isPending || attempt.unresolved) return;
 		Alert.alert(
 			initial ? "Discard changes?" : "Discard this expense?",
 			"Your edits haven’t been saved.",
@@ -380,6 +381,11 @@ function Composer({
 
 	const title = initial ? "Edit expense" : "Add an expense";
 	const index = step === "details" ? 0 : 1;
+
+	if (attempt.unresolved)
+		return (
+			<WriteRecovery busy={save.isPending} retry={() => save.mutate([])} />
+		);
 
 	return (
 		<View style={{ flex: 1 }}>

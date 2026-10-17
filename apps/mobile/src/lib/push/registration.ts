@@ -2,7 +2,11 @@ import type { EventualClient } from "@eventual/sdk";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
-import { type OsPermission, pushCapability } from "./permissions";
+import {
+	normalizeOsPermission,
+	type OsPermission,
+	pushCapability,
+} from "./permissions";
 import {
 	planRegistration,
 	planRetirement,
@@ -124,41 +128,15 @@ function clearStoredRegistration() {
 	return SecureStore.deleteItemAsync(REGISTRATION_KEY).catch(() => {});
 }
 
-/**
- * Map the module's permission response onto the app's own states. iOS is
- * granular; provisional/ephemeral still allow delivery. The module's enums
- * are compared case-insensitively so JS/TS string typing stays loose.
- */
-function normalizeOsPermission(response: {
-	granted?: boolean | null;
-	status?: unknown;
-	ios?: { status?: unknown } | null;
-}): OsPermission {
-	const iosStatus = response.ios?.status
-		? String(response.ios.status).toUpperCase()
-		: undefined;
-	if (iosStatus) {
-		if (["AUTHORIZED", "PROVISIONAL", "EPHEMERAL"].includes(iosStatus))
-			return "granted";
-		if (iosStatus === "DENIED") return "denied";
-		if (iosStatus === "NOT_DETERMINED") return "undetermined";
-	} else {
-		if (response.granted) return "granted";
-		const topLevel = response.status
-			? String(response.status).toLowerCase()
-			: undefined;
-		if (topLevel === "denied") return "denied";
-		if (topLevel === "undetermined") return "undetermined";
-	}
-	return "unknown";
-}
-
 /** Reading can fail on old binaries; every caller already handles that. */
 export async function readNotificationPermission(): Promise<OsPermission> {
 	const mod = await ensureNotificationsModule();
 	if (!mod) return "unknown";
 	try {
-		return normalizeOsPermission(await mod.getPermissionsAsync());
+		return normalizeOsPermission(
+			await mod.getPermissionsAsync(),
+			mod.IosAuthorizationStatus,
+		);
 	} catch {
 		return "unknown";
 	}
@@ -169,7 +147,10 @@ export async function requestNotificationPermission(): Promise<OsPermission> {
 	const mod = await ensureNotificationsModule();
 	if (!mod) return "unknown";
 	try {
-		return normalizeOsPermission(await mod.requestPermissionsAsync());
+		return normalizeOsPermission(
+			await mod.requestPermissionsAsync(),
+			mod.IosAuthorizationStatus,
+		);
 	} catch {
 		return "unknown";
 	}
@@ -226,7 +207,10 @@ export async function ensurePushRegistration(
 	if (!(await notificationsSupported())) return;
 	const mod = await ensureNotificationsModule();
 	if (!mod) return;
-	const permission = normalizeOsPermission(await mod.getPermissionsAsync());
+	const permission = normalizeOsPermission(
+		await mod.getPermissionsAsync(),
+		mod.IosAuthorizationStatus,
+	);
 	if (permission !== "granted") return;
 	await ensureAndroidChannel(mod);
 	if (!options.userId) return;

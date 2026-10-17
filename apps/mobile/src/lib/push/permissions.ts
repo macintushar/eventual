@@ -29,6 +29,35 @@ export function pushCapability(
  */
 export type OsPermission = "undetermined" | "granted" | "denied" | "unknown";
 
+/** Receive Expo's enum from the lazy native module, keeping this policy testable. */
+export function normalizeOsPermission(
+	response: { granted?: boolean; status?: string; ios?: { status: number } },
+	ios: {
+		AUTHORIZED: number;
+		PROVISIONAL: number;
+		EPHEMERAL: number;
+		DENIED: number;
+		NOT_DETERMINED: number;
+	},
+): OsPermission {
+	if (response.ios) {
+		switch (response.ios.status) {
+			case ios.AUTHORIZED:
+			case ios.PROVISIONAL:
+			case ios.EPHEMERAL:
+				return "granted";
+			case ios.DENIED:
+				return "denied";
+			case ios.NOT_DETERMINED:
+				return "undetermined";
+		}
+	}
+	if (response.granted || response.status === "granted") return "granted";
+	if (response.status === "denied") return "denied";
+	if (response.status === "undetermined") return "undetermined";
+	return "unknown";
+}
+
 export type PermissionDecision = "offer" | "idle";
 
 export type ExplainerGate = {

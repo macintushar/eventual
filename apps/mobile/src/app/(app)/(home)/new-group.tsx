@@ -11,7 +11,8 @@ import {
 	GlassButton,
 	Screen,
 } from "../../../components/brand";
-import { idempotencyKey } from "../../../lib/mutations";
+import { WriteRecovery } from "../../../components/write-recovery";
+import { createWriteAttempt } from "../../../lib/mutations";
 import { useApi } from "../../../lib/session";
 
 export default function NewGroup() {
@@ -19,13 +20,15 @@ export default function NewGroup() {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const [name, setName] = useState("");
-	const key = useRef(idempotencyKey());
+	const attempt = useRef(createWriteAttempt()).current;
 	const create = useMutation({
 		mutationFn: () =>
-			api.call(
-				"group.create",
-				{ name: name.trim() },
-				{ idempotencyKey: key.current },
+			attempt.run((key) =>
+				api.call(
+					"group.create",
+					{ name: name.trim() },
+					{ idempotencyKey: key },
+				),
 			),
 		onSuccess: async (group) => {
 			await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -36,6 +39,10 @@ export default function NewGroup() {
 			});
 		},
 	});
+	if (attempt.unresolved)
+		return (
+			<WriteRecovery busy={create.isPending} retry={() => create.mutate()} />
+		);
 	return (
 		<Screen edges={[]} contentStyle={{ paddingTop: 28 }}>
 			<View style={{ gap: 8 }}>
