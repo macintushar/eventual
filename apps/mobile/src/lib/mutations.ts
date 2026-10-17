@@ -36,7 +36,7 @@ export function createWriteAttempt() {
 					current.result = { value };
 					return value;
 				} catch (error) {
-					// Only definitive refusals permit editing and a fresh attempt.
+					// Domain refusals prove this write did not commit, even on a retry.
 					// Generic 409s can mean the original write is still in progress.
 					const splitChanged =
 						isEventualApiError(error) &&
@@ -44,6 +44,9 @@ export function createWriteAttempt() {
 							"split_changed";
 					if (
 						splitChanged ||
+						(isEventualApiError(error) &&
+							(error.code === "EXPENSE_LOCKED" ||
+								error.code === "VALIDATION")) ||
 						(first &&
 							(error instanceof OfflineWriteError ||
 								(isEventualApiError(error) &&

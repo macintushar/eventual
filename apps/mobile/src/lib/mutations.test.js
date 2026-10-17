@@ -70,6 +70,41 @@ test("offline retries and in-progress conflicts retain an uncertain original", a
 	expect(new Set(keys).size).toBe(1);
 });
 
+for (const [code, status] of [
+	["EXPENSE_LOCKED", 409],
+	["VALIDATION", 422],
+]) {
+	for (const lostResponse of [false, true]) {
+		test(`${code} releases ${lostResponse ? "an uncertain retry" : "the initial attempt"} and preserves the explanation`, async () => {
+			const attempt = createWriteAttempt();
+			const keys = [];
+			const refusal = new EventualApiError(status, {
+				code,
+				message: "The expense cannot be changed",
+			});
+			const send = async (key) => {
+				keys.push(key);
+				if (lostResponse && keys.length === 1)
+					throw new TypeError("response lost");
+				throw refusal;
+			};
+			if (lostResponse) {
+				await expect(attempt.run(send)).rejects.toThrow("response lost");
+				expect(attempt.unresolved).toBe(true);
+			}
+			await expect(attempt.run(send)).rejects.toBe(refusal);
+			expect(attempt.unresolved).toBe(false);
+			expect(new Set(keys).size).toBe(1);
+			expect(
+				await attempt.run(async (key) => {
+					expect(key).not.toBe(keys[0]);
+					return "corrected";
+				}),
+			).toBe("corrected");
+		});
+	}
+}
+
 test("concurrent submissions share one in-flight write", async () => {
 	const attempt = createWriteAttempt();
 	let finish;
