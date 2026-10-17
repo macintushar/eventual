@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
+import { Worker } from "node:worker_threads";
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import * as schema from "#/db/schema";
-import { validateRepayment } from "#/lib/settlements";
 import type { Ctx } from "#/server/context";
 import {
 	createExpense,
@@ -13,12 +16,11 @@ import {
 	deleteSettlement,
 	getBalances,
 	getExpense,
-	listGroups,
 	setSharePaid,
 } from "#/server/services/app";
 
-async function fixture() {
-	const client = createClient({ url: ":memory:" });
+async function fixture(url = ":memory:") {
+	const client = createClient({ url });
 	const db = drizzle(client, { schema });
 	await migrate(db, { migrationsFolder: "drizzle" });
 	const now = new Date();
@@ -82,14 +84,13 @@ async function fixture() {
 	return { client, db, ctx, expense, pay };
 }
 
-test("USD repayment closes only USD shares, rejects overpayment, and deletion restores only USD", async () => {
+test("USD repayment closes only USD shares, overpayment flips the debt, and deletion restores only USD", async () => {
 	const f = await fixture();
 	try {
 		const inr = await f.expense("INR");
 		const usd = await f.expense("USD");
-		await assert.rejects(f.pay("USD", 40000), /can't be more than the/);
-		assert.equal((await f.db.query.settlement.findMany()).length, 0);
-		const payment = await f.pay("USD", 20000);
+		// Twice the debt: the share is paid and the extra becomes a reverse debt.
+		const payment = await f.pay("USD", 40000);
 		assert.ok(payment);
 		assert.equal(payment.currency, "USD");
 		assert.equal(payment.allocations.length, 1);
@@ -100,20 +101,39 @@ test("USD repayment closes only USD shares, rejects overpayment, and deletion re
 			(await getExpense(f.ctx, { expenseId: inr.id })).shares[0].paidAt,
 			null,
 		);
-		const balances = await getBalances(f.ctx, { groupId: "G" });
 		assert.deepEqual(
-			balances.transfers.map((t) => [t.currency, t.amountMinor]),
-			[["INR", 20000]],
+			(await getBalances(f.ctx, { groupId: "G" })).transfers.map((t) => [
+				t.currency,
+				t.from.userId,
+				t.to.userId,
+				t.amountMinor,
+			]),
+			[
+				["INR", "A", "B", 20000],
+				["USD", "B", "A", 20000],
+			],
 		);
-		await assert.rejects(f.pay("USD", 1), /No USD payment/);
+		// The reverse direction records too; it just chips at A's credit.
+		const gift = await f.pay("USD", 1);
+		assert.ok(gift);
+		assert.equal(gift.allocations.length, 0);
 		await assert.rejects(
 			setSharePaid(f.ctx, { expenseId: usd.id, userId: "A" }, false),
 			/linked payment/,
 		);
+		await deleteSettlement(f.ctx, { settlementId: gift.id });
 		await deleteSettlement(f.ctx, { settlementId: payment.id });
-		assert.equal(
-			(await getBalances(f.ctx, { groupId: "G" })).transfers.length,
-			2,
+		assert.deepEqual(
+			(await getBalances(f.ctx, { groupId: "G" })).transfers.map((t) => [
+				t.currency,
+				t.from.userId,
+				t.to.userId,
+				t.amountMinor,
+			]),
+			[
+				["INR", "A", "B", 20000],
+				["USD", "A", "B", 20000],
+			],
 		);
 		assert.equal(
 			(await getExpense(f.ctx, { expenseId: usd.id })).shares[0].paidAt,
@@ -124,40 +144,72 @@ test("USD repayment closes only USD shares, rejects overpayment, and deletion re
 	}
 });
 
-test("partial repayments reduce the limit; stale submissions and paid toggles cannot overpay", async () => {
+test("partial repayments stack, paying past the debt flips it, and paid toggles are free", async () => {
 	const f = await fixture();
 	try {
-		const expense = await f.expense("USD");
+		await f.expense("USD");
 		await f.expense("INR", 50000);
 		await f.pay("USD", 5000);
-		const balances = await getBalances(f.ctx, { groupId: "G" });
 		assert.equal(
-			balances.transfers.find((t) => t.currency === "USD")?.amountMinor,
+			(await getBalances(f.ctx, { groupId: "G" })).transfers.find(
+				(t) => t.currency === "USD",
+			)?.amountMinor,
 			15000,
 		);
-		const invalid = validateRepayment(balances.transfers, {
-			fromUserId: "A",
-			toUserId: "B",
-			currency: "USD",
-			amountMinor: 20000,
-		});
-		assert.ok(invalid);
-		await assert.rejects(
-			f.pay("USD", 20000),
-			(error: Error) => error.message === invalid,
-		);
-		await assert.rejects(
-			setSharePaid(f.ctx, { expenseId: expense.id, userId: "A" }, true),
-			/can't be more than the/,
-		);
-		await f.pay("USD", 15000);
-		await assert.rejects(f.pay("USD", 1), /No USD payment/);
-		const group = (await listGroups(f.ctx))[0];
+		// More than the remaining debt: the share is paid and the rest flips.
+		await f.pay("USD", 20000);
 		assert.deepEqual(
-			group.balances.map((b) => [b.currency, b.balanceMinor]),
+			(await getBalances(f.ctx, { groupId: "G" })).transfers.map((t) => [
+				t.currency,
+				t.from.userId,
+				t.to.userId,
+				t.amountMinor,
+			]),
 			[
-				["INR", -50000],
-				["USD", 0],
+				["INR", "A", "B", 50000],
+				["USD", "B", "A", 5000],
+			],
+		);
+		// Marking a share paid never consults the simplified debts anymore.
+		const second = await f.expense("USD");
+		await setSharePaid(f.ctx, { expenseId: second.id, userId: "A" }, true);
+		assert.ok(
+			(await getExpense(f.ctx, { expenseId: second.id })).shares[0].paidAt,
+		);
+		await setSharePaid(f.ctx, { expenseId: second.id, userId: "A" }, false);
+		assert.equal(
+			(await getExpense(f.ctx, { expenseId: second.id })).shares[0].paidAt,
+			null,
+		);
+	} finally {
+		f.client.close();
+	}
+});
+
+test("direct payments are always allowed and settle matching shares first", async () => {
+	const f = await fixture();
+	try {
+		const first = await f.expense("USD", 20000, "B", "A");
+		await f.expense("USD", 20000, "C", "B");
+		await f.expense("INR", 10000, "B", "A");
+		// Paying the actual creditor works even when the simplified debts
+		// route the money indirectly; the matching USD share is marked paid.
+		const payment = await f.pay("USD", 20000, "B");
+		assert.ok(payment);
+		assert.equal(payment.allocations.length, 1);
+		assert.ok(
+			(await getExpense(f.ctx, { expenseId: first.id })).shares[0].paidAt,
+		);
+		assert.deepEqual(
+			(await getBalances(f.ctx, { groupId: "G" })).transfers.map((t) => [
+				t.currency,
+				t.from.userId,
+				t.to.userId,
+				t.amountMinor,
+			]),
+			[
+				["INR", "A", "B", 10000],
+				["USD", "B", "C", 20000],
 			],
 		);
 	} finally {
@@ -165,45 +217,141 @@ test("partial repayments reduce the limit; stale submissions and paid toggles ca
 	}
 });
 
-test("simplified payments may go to an indirect creditor but never to another currency", async () => {
+test("a payment allocates complete shares FIFO and skips one that does not fit", async () => {
 	const f = await fixture();
 	try {
-		await f.expense("USD", 20000, "B", "A");
-		await f.expense("USD", 20000, "C", "B");
-		await f.expense("INR", 10000, "B", "A");
-		await assert.rejects(f.pay("USD", 20000, "B"), /No USD payment/);
-		const payment = await f.pay("USD", 20000, "C");
+		// Two USD shares of very different sizes, dated to fix FIFO order.
+		const older = await createExpense(f.ctx, {
+			groupId: "G",
+			description: "USD expense 1",
+			amountMinor: 15000,
+			currency: "USD",
+			paidByUserId: "B",
+			splitMethod: "even",
+			date: new Date("2026-01-01"),
+			participants: [{ userId: "A", input: null }],
+		});
+		const newer = await createExpense(f.ctx, {
+			groupId: "G",
+			description: "USD expense 2",
+			amountMinor: 8000,
+			currency: "USD",
+			paidByUserId: "B",
+			splitMethod: "even",
+			date: new Date("2026-06-01"),
+			participants: [{ userId: "A", input: null }],
+		});
+		const payment = await f.pay("USD", 20000);
 		assert.ok(payment);
-		assert.equal(payment.allocations.length, 0);
+		// The older share fits, so it is marked paid; the newer one does not.
+		assert.deepEqual(
+			payment.allocations.map((a) => a.amountMinor),
+			[15000],
+		);
+		assert.ok(
+			(await getExpense(f.ctx, { expenseId: older.id })).shares[0].paidAt,
+		);
+		assert.equal(
+			(await getExpense(f.ctx, { expenseId: newer.id })).shares[0].paidAt,
+			null,
+		);
+		// $150 allocated + $50 remainder leaves a $30 net debt (of the $80 share).
 		assert.deepEqual(
 			(await getBalances(f.ctx, { groupId: "G" })).transfers.map((t) => [
 				t.currency,
+				t.from.userId,
 				t.to.userId,
 				t.amountMinor,
 			]),
-			[["INR", "B", 10000]],
+			[["USD", "A", "B", 3000]],
 		);
 	} finally {
 		f.client.close();
 	}
 });
 
-test("simultaneous repayments cannot both consume the same outstanding debt", async () => {
+test("a payment recorded twice still only settles the shares once", async () => {
 	const f = await fixture();
 	try {
 		await f.expense("USD");
-		const results = await Promise.allSettled([
-			f.pay("USD", 20000),
-			f.pay("USD", 20000),
-		]);
-		assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
-		assert.equal((await f.db.query.settlement.findMany()).length, 1);
-		assert.equal(
-			(await getBalances(f.ctx, { groupId: "G" })).transfers.length,
-			0,
+		// Two payments for the same debt both record; the second finds no unpaid
+		// share left for it and lands entirely as a reverse debt.
+		const first = await f.pay("USD", 20000);
+		const second = await f.pay("USD", 20000);
+		assert.ok(first && second);
+		assert.equal(first.allocations.length, 1);
+		assert.equal(second.allocations.length, 0);
+		assert.deepEqual(
+			(await getBalances(f.ctx, { groupId: "G" })).transfers.map((t) => [
+				t.currency,
+				t.from.userId,
+				t.to.userId,
+				t.amountMinor,
+			]),
+			[["USD", "B", "A", 20000]],
 		);
 	} finally {
 		f.client.close();
+	}
+});
+
+test("simultaneous payments both record but settle the shares only once", async () => {
+	const dir = mkdtempSync(join(tmpdir(), "eventual-settle-"));
+	const url = `file:${join(dir, "race.db")}`;
+	const f = await fixture(url);
+	try {
+		await f.client.execute("PRAGMA busy_timeout = 5000");
+		await f.expense("USD");
+		const input = {
+			groupId: "G",
+			toUserId: "B",
+			currency: "USD",
+			amountMinor: 20000,
+		};
+		// The other payment comes from a second connection on its own thread,
+		// as a second request would.
+		const { db: _db, ...ctx } = f.ctx;
+		const worker = new Worker(
+			new URL("./settlement-race.worker.ts", import.meta.url),
+			{ workerData: { url, ctx, input } },
+		);
+		const replies: unknown[] = [];
+		const next = () =>
+			new Promise((resolve, reject) => {
+				worker.once("message", resolve);
+				worker.once("error", reject);
+			});
+		replies.push(await next());
+		const theirs = next();
+		worker.postMessage("go");
+		const [mine, other] = await Promise.all([
+			createSettlement(f.ctx, input),
+			theirs,
+		]);
+		await worker.terminate();
+		assert.deepEqual(replies, ["ready"]);
+		const otherResult = other as { ok: boolean; allocations?: number };
+		assert.ok(otherResult.ok, JSON.stringify(other));
+		assert.ok(mine);
+		assert.equal((await f.db.query.settlement.findMany()).length, 2);
+		// Whichever commits first takes the share; the other finds it paid.
+		assert.deepEqual(
+			[mine.allocations.length, otherResult.allocations].sort(),
+			[0, 1],
+		);
+		assert.equal((await f.db.query.settlementAllocation.findMany()).length, 1);
+		assert.deepEqual(
+			(await getBalances(f.ctx, { groupId: "G" })).transfers.map((t) => [
+				t.currency,
+				t.from.userId,
+				t.to.userId,
+				t.amountMinor,
+			]),
+			[["USD", "B", "A", 20000]],
+		);
+	} finally {
+		f.client.close();
+		rmSync(dir, { recursive: true, force: true });
 	}
 });
 

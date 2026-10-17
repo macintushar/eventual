@@ -57,7 +57,7 @@ import { Spinner } from "#/components/ui/spinner";
 import { Textarea } from "#/components/ui/textarea";
 import { formatMinor, fromMinor, parseMinor } from "#/lib/money";
 import { settlementsInfiniteOptions } from "#/lib/queries";
-import { repaymentLimit, validateRepayment } from "#/lib/settlements";
+import { repaymentSuggestion, validateRepayment } from "#/lib/settlements";
 import { LoadError, type LoaderData, Loading, type Run } from "./shared";
 
 /* ---------------------------------------------------------------- Balances */
@@ -92,16 +92,18 @@ export function BalancesTab({
 	// Errors wait for a submit (or for typing an amount) rather than greeting an
 	// empty form; the button stays live so it can explain what's missing.
 	const [attempted, setAttempted] = useState(false);
+	// An archived group is read-only: no payments in or out.
+	const archived = Boolean(data.group.archivedAt);
 	useEffect(() => {
-		if (settleRequest > 0) setSettleOpen(true);
-	}, [settleRequest]);
+		if (settleRequest > 0 && !archived) setSettleOpen(true);
+	}, [settleRequest, archived]);
 	const repayment = {
 		fromUserId: settleFrom,
 		toUserId: settleTo,
 		currency: settleCurrency,
 		amountMinor: parseMinor(settleAmount, settleCurrency),
 	};
-	const invalid = validateRepayment(data.balances.transfers, repayment);
+	const invalid = validateRepayment(repayment);
 	const recipientError = attempted && !settleTo ? "Choose who you paid" : null;
 	const amountError = !settleAmount.trim()
 		? attempted
@@ -110,7 +112,7 @@ export function BalancesTab({
 		: settleTo && (attempted || settleAmount)
 			? invalid
 			: null;
-	const limit = repaymentLimit(data.balances.transfers, repayment);
+	const suggested = repaymentSuggestion(data.balances.transfers, repayment);
 	const recipient = data.group.members.find(
 		(member) => member.userId === settleTo,
 	);
@@ -224,6 +226,7 @@ export function BalancesTab({
 							<Button
 								variant="outline"
 								size="sm"
+								disabled={archived}
 								onClick={() => setSettleOpen(true)}
 							>
 								Record payment
@@ -260,7 +263,8 @@ export function BalancesTab({
 											</strong>
 											{
 												<>
-													{transfer.from.userId === data.user.id &&
+													{!archived &&
+													transfer.from.userId === data.user.id &&
 													data.paymentIntents.intents.find(
 														(intent) =>
 															intent.fromUserId === transfer.from.userId &&
@@ -288,6 +292,7 @@ export function BalancesTab({
 													) : null}
 													<Button
 														size="sm"
+														disabled={archived}
 														onClick={() => {
 															setSettleFrom(transfer.from.userId);
 															setSettleTo(transfer.to.userId);
@@ -460,7 +465,7 @@ export function BalancesTab({
 												<InputGroupInput
 													id="settle-amount"
 													aria-invalid={Boolean(amountError)}
-													aria-describedby="settle-limit settle-error"
+													aria-describedby="settle-hint settle-error"
 													inputMode="decimal"
 													className="tabular"
 													placeholder={fromMinor(0, settleCurrency)}
@@ -470,9 +475,10 @@ export function BalancesTab({
 													}
 												/>
 											</InputGroup>
-											<FieldDescription id="settle-limit">
-												Maximum: {formatMinor(limit, settleCurrency)} based on
-												current simplified debts.
+											<FieldDescription id="settle-hint">
+												{suggested > 0
+													? `Suggested: ${formatMinor(suggested, settleCurrency)} to settle up. Any amount works — extra flips who owes whom.`
+													: "Any amount works — paying more than owed flips who owes whom."}
 											</FieldDescription>
 											<FieldError id="settle-error">{amountError}</FieldError>
 										</Field>
@@ -552,6 +558,7 @@ export function BalancesTab({
 														size="icon-sm"
 														variant="ghost"
 														className="press text-destructive"
+														disabled={archived}
 														aria-label={`Delete payment of ${formatMinor(
 															row.amountMinor,
 															row.currency,

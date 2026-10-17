@@ -22,6 +22,7 @@ export type EmailKind =
 	| "reset-password"
 	| "password-changed"
 	| "invitation"
+	| "added-to-group"
 	| "reminder";
 type BaseEmailProps = {
 	url: string;
@@ -41,6 +42,7 @@ export type TransactionalEmailProps = BaseEmailProps &
 				inviterName: string;
 				inviteeRole: string;
 		  }
+		| { kind: "added-to-group"; groupName: string; inviterName: string }
 	);
 
 /*
@@ -134,6 +136,18 @@ export function emailCopy(props: TransactionalEmailProps) {
 				action: "Accept invitation",
 				note: "One group, no awkward maths.",
 				footer: `This invitation expires ${deadline}. If you weren't expecting it, you can ignore this email.`,
+			};
+		case "added-to-group":
+			return {
+				subject: `${props.inviterName} added you to ${props.groupName}`,
+				preview: `You're now in ${props.groupName} on Eventual.`,
+				kicker: "New group",
+				heading: `You're in ${props.groupName}`,
+				message: `${props.inviterName} added you to ${props.groupName}. You can see its expenses and balances now, and be included in new ones.`,
+				action: "Open group",
+				note: "One group, no awkward maths.",
+				footer:
+					"You can leave the group any time from its settings once your balance is settled.",
 			};
 	}
 }

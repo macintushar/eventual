@@ -69,6 +69,7 @@ export const handlers = {
 	"category.backfillPreview": services.previewCategoryBackfill,
 	"category.apply": services.applyCategories,
 	"category.create": services.createCategoryRule,
+	"category.import": services.importCategoryRules,
 	"category.update": services.updateCategoryRule,
 	"category.delete": services.deleteCategoryRule,
 	"balance.get": services.getBalances,

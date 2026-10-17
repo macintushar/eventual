@@ -107,6 +107,14 @@ function sentence(item: ActivityItem, nameOf: (userId: string) => string) {
 				</>
 			);
 		case "member.joined":
+			// Someone added by another member carries their id; joining by
+			// accepting an invitation doesn't.
+			if (str(meta.userId))
+				return (
+					<>
+						{actor} added {strong(nameOf(str(meta.userId)))}
+					</>
+				);
 			return str(meta.replacedGuestName) ? (
 				<>
 					{actor} joined the group and took over{" "}

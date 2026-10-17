@@ -110,6 +110,7 @@ export function RecurringExpenses({
 	currentUserId,
 	myRole,
 	run,
+	readOnly = false,
 }: {
 	groupId: string;
 	templates: Template[];
@@ -117,6 +118,8 @@ export function RecurringExpenses({
 	currentUserId: string;
 	myRole: string;
 	run: Run;
+	/** An archived group: list the schedules, but offer no changes. */
+	readOnly?: boolean;
 }) {
 	const names = new Map(members.map((member) => [member.userId, member.name]));
 	const [busy, setBusy] = useState<string | null>(null);
@@ -142,12 +145,14 @@ export function RecurringExpenses({
 						Added to the group automatically on schedule.
 					</p>
 				</div>
-				<NewRecurringExpense
-					groupId={groupId}
-					members={members}
-					currentUserId={currentUserId}
-					run={run}
-				/>
+				{readOnly ? null : (
+					<NewRecurringExpense
+						groupId={groupId}
+						members={members}
+						currentUserId={currentUserId}
+						run={run}
+					/>
+				)}
 			</div>
 			<ul className="island-shell divide-y overflow-hidden rounded-2xl">
 				{sorted.map((template) => {
@@ -155,10 +160,12 @@ export function RecurringExpenses({
 					const label = expense.description ?? "Recurring expense";
 					// Per-row affordance: hidden rather than locked, so the list
 					// reads cleanly for members who didn't set this one up.
-					const editable = canEditRecurring(
-						myRole,
-						template.createdByUserId === currentUserId,
-					);
+					const editable =
+						!readOnly &&
+						canEditRecurring(
+							myRole,
+							template.createdByUserId === currentUserId,
+						);
 					const payer = expense.paidByUserId
 						? (names.get(expense.paidByUserId) ?? "someone")
 						: null;

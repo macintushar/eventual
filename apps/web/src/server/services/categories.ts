@@ -2,6 +2,7 @@ import {
 	applyCategoriesSchema,
 	categoryBackfillSchema,
 	createCategoryRuleSchema,
+	importCategoryRulesSchema,
 	updateCategoryRuleSchema,
 } from "@eventual/schemas/expenses";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
@@ -9,7 +10,12 @@ import { categoryRule, expense } from "#/db/schema";
 import { builtInCategory, normalizeSearchText } from "#/lib/categories";
 import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
-import { id, membership, requirePermission } from "./shared";
+import {
+	id,
+	membership,
+	requirePermission,
+	writableMembership,
+} from "./shared";
 
 export { normalizeSearchText };
 
@@ -172,7 +178,7 @@ export async function applyCategories(
 	raw: Parameters<typeof applyCategoriesSchema.parse>[0],
 ) {
 	const input = applyCategoriesSchema.parse(raw);
-	await membership(ctx, input.groupId);
+	await writableMembership(ctx, input.groupId);
 	return writeCategories(ctx, input.groupId, input.changes);
 }
 
@@ -181,7 +187,7 @@ export async function createCategoryRule(
 	raw: Parameters<typeof createCategoryRuleSchema.parse>[0],
 ) {
 	const input = createCategoryRuleSchema.parse(raw);
-	requirePermission((await membership(ctx, input.groupId)).role, {
+	requirePermission((await writableMembership(ctx, input.groupId)).role, {
 		category: ["create"],
 	});
 	const [row] = await ctx.db
@@ -203,12 +209,47 @@ export async function createCategoryRule(
 	return { ...row, recategorized: updated };
 }
 
+/**
+ * Copies another group's rules into this one, so a set built up once doesn't
+ * have to be typed again. Where this group already has a rule for the same
+ * phrase, its own rule stays: the group's choice wins over the import.
+ */
+export async function importCategoryRules(
+	ctx: Ctx,
+	raw: Parameters<typeof importCategoryRulesSchema.parse>[0],
+) {
+	const input = importCategoryRulesSchema.parse(raw);
+	if (input.fromGroupId === input.groupId)
+		throw new AppError("VALIDATION", "Choose another group to import from");
+	requirePermission((await writableMembership(ctx, input.groupId)).role, {
+		category: ["create"],
+	});
+	// Reading the source checks the caller belongs to it too.
+	const [source, current] = await Promise.all([
+		listCategoryRules(ctx, { groupId: input.fromGroupId }),
+		listCategoryRules(ctx, { groupId: input.groupId }),
+	]);
+	const taken = new Set(current.map((rule) => rule.pattern));
+	const fresh = source.filter((rule) => !taken.has(rule.pattern));
+	if (fresh.length)
+		await ctx.db.insert(categoryRule).values(
+			fresh.map((rule) => ({
+				id: id(),
+				organizationId: input.groupId,
+				pattern: rule.pattern,
+				category: rule.category,
+				priority: rule.priority,
+			})),
+		);
+	return { imported: fresh.length, skipped: source.length - fresh.length };
+}
+
 export async function updateCategoryRule(
 	ctx: Ctx,
 	raw: Parameters<typeof updateCategoryRuleSchema.parse>[0],
 ) {
 	const input = updateCategoryRuleSchema.parse(raw);
-	requirePermission((await membership(ctx, input.groupId)).role, {
+	requirePermission((await writableMembership(ctx, input.groupId)).role, {
 		category: ["update"],
 	});
 	const [row] = await ctx.db
@@ -233,7 +274,7 @@ export async function deleteCategoryRule(
 	ctx: Ctx,
 	input: { groupId: string; ruleId: string },
 ) {
-	requirePermission((await membership(ctx, input.groupId)).role, {
+	requirePermission((await writableMembership(ctx, input.groupId)).role, {
 		category: ["delete"],
 	});
 	const rows = await ctx.db

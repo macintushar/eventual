@@ -111,7 +111,13 @@ function sentence(
 				</>
 			);
 		case "member.joined":
-			return <>You joined {group}.</>;
+			return item.actorUserId === viewerId ? (
+				<>You joined {group}.</>
+			) : (
+				<>
+					{actor} added you to {group}.
+				</>
+			);
 		case "member.removed":
 			return (
 				<>

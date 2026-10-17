@@ -5,6 +5,12 @@ import { ArrowRight, Mail, Plus, Users } from "lucide-react";
 import { Amount } from "#/components/amount";
 import { useComposer } from "#/components/composer";
 import { EmptyState } from "#/components/empty-state";
+import {
+	Accordion,
+	AccordionContent,
+	AccordionItem,
+	AccordionTrigger,
+} from "#/components/ui/accordion";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
@@ -41,6 +47,8 @@ function Dashboard() {
 				.reduce((sum, row) => sum + Math.max(-row.amountMinor, 0), 0),
 		}));
 	const allSquare = totals.every((row) => row.owed === 0 && row.owing === 0);
+	const active = groups.filter((group) => !group.archivedAt);
+	const archived = groups.filter((group) => group.archivedAt);
 
 	return (
 		<div className="flex flex-col gap-6 sm:gap-8">
@@ -166,64 +174,52 @@ function Dashboard() {
 					</Button>
 				</div>
 				{groups.length ? (
-					<ul className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-						{groups.map((group) => {
-							const outstanding = group.balances.filter(
-								(row) => row.balanceMinor !== 0,
-							);
-							return (
-								<li key={group.id}>
-									{/*
-									 * One card, two shapes: a dense row on a phone, where a
-									 * name and a number is all that fits, and the full stacked
-									 * article card once the grid has columns to fill.
-									 */}
-									<Link
-										to="/app/groups/$groupId"
-										params={{ groupId: group.id }}
-										className="feature-card flex h-full items-center gap-4 rounded-2xl p-4 no-underline sm:flex-col sm:items-stretch sm:gap-4 sm:p-6"
-									>
-										<div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-none sm:gap-2">
-											<div className="flex items-center gap-2">
-												<Badge variant="secondary" className="capitalize">
-													{group.role}
-												</Badge>
-												<ArrowRight
-													className="hidden size-4 text-muted-foreground sm:ml-auto sm:block"
-													aria-hidden="true"
-												/>
-											</div>
-											<h3 className="display-title truncate text-xl">
-												{group.name}
-											</h3>
-										</div>
-										<div className="shrink-0 text-right sm:text-left">
-											{outstanding.length ? (
-												outstanding.map((row) => (
-													<div key={row.currency}>
-														<p className="text-xl font-bold sm:text-2xl">
-															<Amount
-																minor={row.balanceMinor}
-																currency={row.currency}
-																tone="signed"
-															/>
-														</p>
-														<p className="text-xs text-muted-foreground sm:text-sm">
-															{row.balanceMinor > 0 ? "Owed to you" : "You owe"}
-														</p>
-													</div>
-												))
-											) : (
-												<p className="text-sm text-muted-foreground">
-													Settled up
-												</p>
-											)}
-										</div>
-									</Link>
-								</li>
-							);
-						})}
-					</ul>
+					archived.length ? (
+						/*
+						 * Archived groups are read-only and rarely visited, so they fold
+						 * away under their own heading; active ones stay open.
+						 */
+						<Accordion
+							type="multiple"
+							defaultValue={["active"]}
+							className="flex flex-col gap-2"
+						>
+							<AccordionItem value="active" className="border-b-0">
+								<AccordionTrigger className="py-2 text-base">
+									<span>
+										Active{" "}
+										<span className="font-normal text-muted-foreground">
+											{active.length}
+										</span>
+									</span>
+								</AccordionTrigger>
+								<AccordionContent className="pt-1">
+									{active.length ? (
+										<GroupGrid groups={active} />
+									) : (
+										<p className="text-sm text-muted-foreground">
+											Every group is archived. Start a new one for what's next.
+										</p>
+									)}
+								</AccordionContent>
+							</AccordionItem>
+							<AccordionItem value="archived" className="border-b-0">
+								<AccordionTrigger className="py-2 text-base">
+									<span>
+										Archived{" "}
+										<span className="font-normal text-muted-foreground">
+											{archived.length}
+										</span>
+									</span>
+								</AccordionTrigger>
+								<AccordionContent className="pt-1">
+									<GroupGrid groups={archived} />
+								</AccordionContent>
+							</AccordionItem>
+						</Accordion>
+					) : (
+						<GroupGrid groups={active} />
+					)
 				) : (
 					<EmptyState
 						icon={Users}
@@ -239,5 +235,68 @@ function Dashboard() {
 				)}
 			</section>
 		</div>
+	);
+}
+
+type DashboardGroup = Awaited<
+	ReturnType<NonNullable<typeof dashboardQueryOptions.queryFn>>
+>["groups"][number];
+
+function GroupGrid({ groups }: { groups: DashboardGroup[] }) {
+	return (
+		<ul className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+			{groups.map((group) => {
+				const outstanding = group.balances.filter(
+					(row) => row.balanceMinor !== 0,
+				);
+				return (
+					<li key={group.id}>
+						{/*
+						 * One card, two shapes: a dense row on a phone, where a
+						 * name and a number is all that fits, and the full stacked
+						 * article card once the grid has columns to fill.
+						 */}
+						<Link
+							to="/app/groups/$groupId"
+							params={{ groupId: group.id }}
+							className="feature-card flex h-full items-center gap-4 rounded-2xl p-4 no-underline sm:flex-col sm:items-stretch sm:gap-4 sm:p-6"
+						>
+							<div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-none sm:gap-2">
+								<div className="flex items-center gap-2">
+									<Badge variant="secondary" className="capitalize">
+										{group.role}
+									</Badge>
+									<ArrowRight
+										className="hidden size-4 text-muted-foreground sm:ml-auto sm:block"
+										aria-hidden="true"
+									/>
+								</div>
+								<h3 className="display-title truncate text-xl">{group.name}</h3>
+							</div>
+							<div className="shrink-0 text-right sm:text-left">
+								{outstanding.length ? (
+									outstanding.map((row) => (
+										<div key={row.currency}>
+											<p className="text-xl font-bold sm:text-2xl">
+												<Amount
+													minor={row.balanceMinor}
+													currency={row.currency}
+													tone="signed"
+												/>
+											</p>
+											<p className="text-xs text-muted-foreground sm:text-sm">
+												{row.balanceMinor > 0 ? "Owed to you" : "You owe"}
+											</p>
+										</div>
+									))
+								) : (
+									<p className="text-sm text-muted-foreground">Settled up</p>
+								)}
+							</div>
+						</Link>
+					</li>
+				);
+			})}
+		</ul>
 	);
 }

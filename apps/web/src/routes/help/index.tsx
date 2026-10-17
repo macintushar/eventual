@@ -199,7 +199,7 @@ const categories: FaqCategory[] = [
 				id: "settle",
 				question: "How do I settle up?",
 				answer:
-					"The Balances tab shows who owes whom, simplified into as few transfers as possible. Use Record payment there when money actually moves. Eventual keeps each currency separate.",
+					"The Balances tab shows who owes whom, simplified into as few transfers as possible. Use Record payment there when money actually moves — any member can pay any other any amount, and paying more than owed just flips who owes whom. Eventual keeps each currency separate.",
 			},
 		],
 	},

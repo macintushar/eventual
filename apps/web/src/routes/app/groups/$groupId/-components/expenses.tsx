@@ -38,6 +38,7 @@ export function ExpensesTab({
 	run: Run;
 }) {
 	const composer = useComposer();
+	const archived = Boolean(data.group.archivedAt);
 	const [search, setSearch] = useState("");
 	const [submitted, setSubmitted] = useState("");
 	const [sort, setSort] = useState<{ id: ExpenseSortBy; desc: boolean }>({
@@ -62,8 +63,9 @@ export function ExpensesTab({
 
 	// Until the list has loaded, don't offer to set one up: a schedule may
 	// already exist, and a second one would double-charge the group.
+	// An archived group takes no new schedules either.
 	const hasRecurring =
-		!recurringQuery.isSuccess || recurringExpenses.length > 0;
+		archived || !recurringQuery.isSuccess || recurringExpenses.length > 0;
 	const recurring = recurringQuery.isError ? (
 		<LoadError
 			title="Couldn't load recurring expenses"
@@ -77,6 +79,7 @@ export function ExpensesTab({
 			currentUserId={data.user.id}
 			myRole={data.group.myRole}
 			run={run}
+			readOnly={archived}
 		/>
 	);
 	const newRecurring = (trigger?: ReactNode) => (
@@ -101,10 +104,17 @@ export function ExpensesTab({
 				<EmptyState
 					icon={Receipt}
 					title="No expenses yet"
-					description="Add the first shared cost and Eventual works out who owes what in each currency."
+					description={
+						archived
+							? "This group is archived, so no expenses can be added."
+							: "Add the first shared cost and Eventual works out who owes what in each currency."
+					}
 					action={
 						<div className="flex flex-wrap justify-center gap-2">
-							<Button onClick={() => composer.expense({ groupId })}>
+							<Button
+								disabled={archived}
+								onClick={() => composer.expense({ groupId })}
+							>
 								<Plus data-icon="inline-start" />
 								Add expense
 							</Button>

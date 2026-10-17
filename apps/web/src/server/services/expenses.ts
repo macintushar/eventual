@@ -16,15 +16,16 @@ import {
 } from "#/server/domain/activity";
 import { computeShares } from "#/server/domain/split";
 import { AppError } from "#/server/errors";
-import { readBalances } from "./balances";
 import { normalizeSearchText, suggestCategory } from "./categories";
-import { listMembers, weightedParticipants } from "./members";
+import { weightedParticipants } from "./members";
 import {
 	activityRow,
 	assertExpenseMembers,
+	assertGroupWritable,
 	id,
 	membership,
 	recordActivity,
+	writableMembership,
 } from "./shared";
 
 export async function getExpense(ctx: Ctx, input: { expenseId: string }) {
@@ -255,7 +256,7 @@ function assertReviewedShares(
 }
 
 export async function createExpense(ctx: Ctx, input: CreateExpenseInput) {
-	await membership(ctx, input.groupId);
+	await writableMembership(ctx, input.groupId);
 	await assertExpenseMembers(
 		ctx,
 		input.groupId,
@@ -363,6 +364,7 @@ async function changeExpense(
 		await lockExpense(tx, expenseId);
 		const txCtx = { ...ctx, db: tx as unknown as Ctx["db"] };
 		const current = await unlockedExpense(txCtx, expenseId);
+		await assertGroupWritable(tx, current.organizationId);
 		const input = makeInput(current);
 		await assertExpenseMembers(
 			txCtx,
@@ -453,7 +455,7 @@ async function changeExpense(
 
 export async function bulkResplitExpenses(ctx: Ctx, raw: BulkResplitInput) {
 	const input = bulkResplitSchema.parse(raw);
-	await membership(ctx, input.groupId);
+	await writableMembership(ctx, input.groupId);
 	const successes: { expenseId: string }[] = [];
 	const skips: { expenseId: string; code: string; reason: string }[] = [];
 	for (const expenseId of new Set(input.expenseIds)) {
@@ -499,6 +501,7 @@ export async function deleteExpense(ctx: Ctx, input: { expenseId: string }) {
 			{ ...ctx, db: tx as unknown as Ctx["db"] },
 			input.expenseId,
 		);
+		await assertGroupWritable(tx, current.organizationId);
 		await recordActivity(
 			tx,
 			activityRow(
@@ -535,7 +538,7 @@ export async function setSharePaid(
 	const current = await getExpense(ctx, { expenseId: input.expenseId });
 	const share = current.shares.find((row) => row.userId === input.userId);
 	if (!share) throw new AppError("NOT_FOUND", "Expense share not found");
-	const members = await listMembers(ctx, { groupId: current.organizationId });
+	await assertGroupWritable(ctx.db, current.organizationId);
 	await ctx.db.transaction(async (tx) => {
 		const latest = await tx.query.expense.findFirst({
 			where: eq(expense.id, input.expenseId),
@@ -547,13 +550,7 @@ export async function setSharePaid(
 		if (!latest || !latestShare)
 			throw new AppError("NOT_FOUND", "Expense share not found");
 		if (Boolean(latestShare.paidAt) === paid) return;
-		const balances = await readBalances(tx, latest.organizationId, members);
-		const invalid = validateSharePayment(balances.transfers, {
-			fromUserId: input.userId,
-			toUserId: latest.paidByUserId,
-			currency: latest.currency,
-			amountMinor: latestShare.amountMinor,
-			paid,
+		const invalid = validateSharePayment({
 			hasAllocations: latestShare.allocations.length > 0,
 		});
 		if (invalid) throw new AppError("VALIDATION", invalid);

@@ -19,10 +19,12 @@ import { AppError } from "#/server/errors";
 import { getBalances } from "./balances";
 import {
 	activityRow,
+	assertGroupWritable,
 	membership,
 	type Role,
 	recordActivity,
 	requirePermission,
+	writableMembership,
 } from "./shared";
 
 export async function listMembers(ctx: Ctx, input: { groupId: string }) {
@@ -192,6 +194,7 @@ export async function updateMemberWeight(
 		if (!mine)
 			throw new AppError("FORBIDDEN", "You are not a member of this group");
 		requirePermission(mine.role as Role, { member: ["update"] });
+		await assertGroupWritable(tx, input.groupId);
 		const rows = await tx
 			.update(member)
 			.set({ weight: input.weight })
@@ -221,7 +224,7 @@ export async function updateMemberRole(
 	ctx: Ctx,
 	input: { groupId: string; userId: string; role: Role },
 ) {
-	const mine = await membership(ctx, input.groupId);
+	const mine = await writableMembership(ctx, input.groupId);
 	requirePermission(mine.role, { member: ["role"] });
 	if (input.role === "owner")
 		throw new AppError("FORBIDDEN", "Each group has one owner");
@@ -271,7 +274,7 @@ export async function removeMember(
 	ctx: Ctx,
 	input: { groupId: string; userId: string },
 ) {
-	const mine = await membership(ctx, input.groupId);
+	const mine = await writableMembership(ctx, input.groupId);
 	requirePermission(mine.role, { member: ["delete"] });
 	const target = await ctx.db.query.member.findFirst({
 		where: and(

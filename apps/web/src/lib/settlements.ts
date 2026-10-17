@@ -1,5 +1,4 @@
 import { isCurrency } from "@eventual/schemas/currencies";
-import { formatMinor } from "#/lib/money";
 
 export type Repayment = {
 	fromUserId: string;
@@ -14,7 +13,12 @@ type Transfer = {
 	amountMinor: number;
 };
 
-export function repaymentLimit(
+/**
+ * What the simplified debts currently suggest for this pair, if anything.
+ * Suggestions pre-fill the form and drive UPI intents; they never gate a
+ * payment.
+ */
+export function repaymentSuggestion(
 	transfers: Transfer[],
 	input: Omit<Repayment, "amountMinor">,
 ): number {
@@ -28,11 +32,13 @@ export function repaymentLimit(
 	);
 }
 
-/** Same rule in the form and in the server's transaction, against fresh balances. */
-export function validateRepayment(
-	transfers: Transfer[],
-	input: Repayment,
-): string | null {
+/**
+ * Payments are free-form: any member can record money moving between any two
+ * members, of any amount, in either direction — the same model Splitwise
+ * uses. Paying more than is owed simply flips the debt onto the recipient.
+ * Only the shape of the payment is checked here, never the group balance.
+ */
+export function validateRepayment(input: Repayment): string | null {
 	if (!isCurrency(input.currency)) return "Choose a supported currency";
 	if (!input.fromUserId) return "Choose who paid";
 	if (!input.toUserId) return "Choose who was paid";
@@ -44,25 +50,18 @@ export function validateRepayment(
 		input.amountMinor <= 0
 	)
 		return `Enter a valid positive ${input.currency} amount`;
-	const limit = repaymentLimit(transfers, input);
-	if (limit === 0)
-		return `No ${input.currency} payment is owed between these members in the current simplified debts`;
-	if (input.amountMinor > limit)
-		return `The payment can't be more than the ${formatMinor(limit, input.currency)} owed`;
 	return null;
 }
 
-export function validateSharePayment(
-	transfers: Transfer[],
-	input: Repayment & { paid: boolean; hasAllocations: boolean },
-): string | null {
+/**
+ * Marking a share paid needs no balance check either. The one integrity rule
+ * left: a share paid through a settlement stays owned by that settlement, so
+ * its paid status can only change by deleting the payment that paid it.
+ */
+export function validateSharePayment(input: {
+	hasAllocations: boolean;
+}): string | null {
 	if (input.hasAllocations)
 		return "Delete the linked payment before changing this share's paid status";
-	if (
-		!input.paid ||
-		input.fromUserId === input.toUserId ||
-		input.amountMinor === 0
-	)
-		return null;
-	return validateRepayment(transfers, input);
+	return null;
 }

@@ -154,7 +154,7 @@ test("the personal feed follows each person through an expense's life and out of
 		assert.equal(removed.isMember, false);
 		assert.equal(removed.groupName, "Test");
 
-		// B owes nothing now, so a payment from A can't be recorded; add one first.
+		// Give the payment a debt to settle: B paid for A, A settles ₹10.
 		await createExpense(b, {
 			...base,
 			groupId: "G",

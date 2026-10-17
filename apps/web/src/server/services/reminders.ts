@@ -10,7 +10,7 @@ import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
 import { type ClaimedJob, enqueueJob } from "#/server/jobs";
 import { createNotifier, isSyntheticGuest } from "#/server/notifier";
-import { membership } from "./shared";
+import { membership, writableMembership } from "./shared";
 
 const reminderJobSchema = scheduleReminderSchema.extend({
 	requestedByUserId: z.string().min(1),
@@ -26,7 +26,7 @@ export async function scheduleReminder(
 			"VALIDATION",
 			"Reminder must be scheduled in the future",
 		);
-	await membership(ctx, parsed.groupId);
+	await writableMembership(ctx, parsed.groupId);
 	const recipient = await ctx.db.query.user.findFirst({
 		where: eq(user.id, parsed.userId),
 	});
