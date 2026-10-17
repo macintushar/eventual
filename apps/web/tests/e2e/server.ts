@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { hashPassword } from "better-auth/crypto";
 import * as schema from "../../src/db/schema";
 import { paginationFixture } from "../../src/server/services/pagination-fixture";
@@ -85,7 +86,10 @@ Object.assign(env, {
 const server = spawn(
 	process.execPath,
 	[
-		"node_modules/vite/bin/vite.js",
+		join(
+			dirname(createRequire(import.meta.url).resolve("vite/package.json")),
+			"bin/vite.js",
+		),
 		"--host",
 		"127.0.0.1",
 		"--port",

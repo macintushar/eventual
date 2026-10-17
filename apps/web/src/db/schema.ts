@@ -593,6 +593,48 @@ export const channelIdentity = sqliteTable(
 	],
 );
 
+export const pushDevice = sqliteTable(
+	"push_device",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		platform: text("platform", { enum: ["ios", "android"] }).notNull(),
+		token: text("token").notNull().unique(),
+		appVersion: text("app_version").notNull(),
+		locale: text("locale").notNull(),
+		createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+		lastSeenAt: integer("last_seen_at", { mode: "timestamp_ms" }).notNull(),
+	},
+	(table) => [
+		index("push_device_user_idx").on(table.userId),
+		check("push_device_platform", sql`${table.platform} in ('ios', 'android')`),
+	],
+);
+
+export const pushPreference = sqliteTable("push_preference", {
+	userId: text("user_id")
+		.primaryKey()
+		.references(() => user.id, { onDelete: "cascade" }),
+	expenses: integer("expenses", { mode: "boolean" }).default(true).notNull(),
+	payments: integer("payments", { mode: "boolean" }).default(true).notNull(),
+	recurring: integer("recurring", { mode: "boolean" }).default(true).notNull(),
+});
+
+export const pushGroupMute = sqliteTable(
+	"push_group_mute",
+	{
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		groupId: text("group_id")
+			.notNull()
+			.references(() => organization.id, { onDelete: "cascade" }),
+	},
+	(table) => [primaryKey({ columns: [table.userId, table.groupId] })],
+);
+
 export const idempotencyKey = sqliteTable(
 	"idempotency_key",
 	{

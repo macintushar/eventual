@@ -1,0 +1,53 @@
+{
+	"expo": {
+		"name": "Eventual",
+		"slug": "eventual-mobile",
+		"version": "0.1.0",
+		"scheme": "eventual",
+		"orientation": "portrait",
+		"userInterfaceStyle": "automatic",
+		"ios": {
+			"supportsTablet": false,
+			"bundleIdentifier": "app.eventual.mobile",
+			"usesAppleSignIn": true
+		},
+		"android": {
+			"package": "app.eventual.mobile"
+		},
+		"plugins": [
+			"expo-router",
+			"expo-splash-screen",
+			"expo-secure-store",
+			"expo-web-browser",
+			[
+				"expo-notifications",
+				{
+					"defaultChannel": "eventual-activity",
+					"color": "#3A9EDD"
+				}
+			],
+			[
+				"expo-font",
+				{
+					"fonts": [
+						"../../node_modules/@expo-google-fonts/inter-tight/500Medium/InterTight_500Medium.ttf",
+						"../../node_modules/@expo-google-fonts/instrument-sans/400Regular/InstrumentSans_400Regular.ttf",
+						"../../node_modules/@expo-google-fonts/instrument-sans/500Medium/InstrumentSans_500Medium.ttf",
+						"../../node_modules/@expo-google-fonts/instrument-sans/600SemiBold/InstrumentSans_600SemiBold.ttf",
+						"../../node_modules/@expo-google-fonts/instrument-sans/700Bold/InstrumentSans_700Bold.ttf"
+					]
+				}
+			],
+			"expo-apple-authentication",
+			"expo-sharing",
+			[
+				"expo-image-picker",
+				{
+					"photosPermission": "Eventual uses your photos to set your profile picture.",
+					"cameraPermission": "Eventual uses the camera to take your profile picture.",
+					"microphonePermission": false
+				}
+			]
+		]
+	}
+}

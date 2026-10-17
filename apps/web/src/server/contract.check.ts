@@ -54,6 +54,12 @@ type OperationDrift = {
 }[OperationName];
 
 const appHandlers = {
+	"push.device.register": null as unknown as typeof webApi.registerPushDevice,
+	"push.device.list": null as unknown as typeof webApi.listPushDevices,
+	"push.device.delete": null as unknown as typeof webApi.deletePushDevice,
+	"push.preferences.get": null as unknown as typeof webApi.getPushPreferences,
+	"push.preferences.update":
+		null as unknown as typeof webApi.updatePushPreferences,
 	"site.get": null as unknown as typeof webApi.siteInfo,
 	"legal.get": null as unknown as typeof webApi.legalInfo,
 	"session.get": null as unknown as typeof webApi.session,

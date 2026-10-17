@@ -69,7 +69,7 @@ export const TAG_GROUPS = [
 		name: "Balances & settling up",
 		tags: ["balance", "settlement", "payment", "reminder"],
 	},
-	{ name: "You", tags: ["activity", "profile", "apiKey"] },
+	{ name: "You", tags: ["activity", "profile", "apiKey", "push"] },
 	{ name: "Integrations", tags: ["preset"] },
 	{
 		name: "App internals",
@@ -81,6 +81,11 @@ export const TAGS: Record<
 	string,
 	{ displayName: string; description: string }
 > = {
+	push: {
+		displayName: "Push notifications",
+		description:
+			"Session-only native device registration and push preferences. Push delivery requires hosted APNs/FCM credentials; self-hosted servers advertise no push by default.",
+	},
 	group: {
 		displayName: "Groups",
 		description:
@@ -262,4 +267,9 @@ export const SUMMARIES: Record<string, string> = {
 	"apiKey.list": "List API keys",
 	"apiKey.create": "Create an API key",
 	"apiKey.delete": "Revoke an API key",
+	"push.device.register": "Register or refresh a native push device",
+	"push.device.list": "List your push devices",
+	"push.device.delete": "Retire a push device",
+	"push.preferences.get": "Get push notification preferences",
+	"push.preferences.update": "Update push notification preferences",
 };

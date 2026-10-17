@@ -20,6 +20,16 @@ import {
 import type { Ctx } from "#/server/context";
 import { AppError } from "#/server/errors";
 import { getLegalInfo } from "#/server/legal";
+import { pushCapability } from "#/server/push-config";
+
+export {
+	deletePushDevice,
+	getPushPreferences,
+	listPushDevices,
+	registerPushDevice,
+	updatePushPreferences,
+} from "#/server/services/push";
+
 import {
 	pendingVerificationUser,
 	settledVerificationSendStatus,
@@ -378,12 +388,22 @@ export async function sendPendingVerification(request: Request) {
 
 export const legalInfo = getLegalInfo;
 
+/**
+ * What this server offers the native app. Bump it when the app needs
+ * something new from the server; the app refuses servers below its minimum.
+ * 1: native sessions (the Better Auth Expo plugin and `eventual://` origin).
+ */
+const NATIVE_APP_VERSION = 1;
+
 export function siteInfo() {
 	return {
 		origin: new URL(env.BETTER_AUTH_URL).origin,
 		supportEmail: env.SUPPORT_EMAIL,
 		// Mirrors the provider registration in #/lib/auth.
 		googleSignIn: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+		appleSignIn: Boolean(auth.options.socialProviders.apple),
 		statusPageUrl: env.STATUS_PAGE_URL,
+		nativeAppVersion: NATIVE_APP_VERSION,
+		push: pushCapability(),
 	};
 }

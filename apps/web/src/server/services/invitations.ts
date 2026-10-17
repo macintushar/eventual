@@ -49,7 +49,7 @@ export async function createInvitation(
 
 /** Internal transaction seam shared with eager guest membership creation. */
 export async function ensureInvitation(
-	tx: Pick<Ctx["db"], "query" | "insert" | "update">,
+	tx: Pick<Ctx["db"], "query" | "insert" | "update" | "select">,
 	ctx: Ctx,
 	input: {
 		groupId: string;

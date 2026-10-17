@@ -582,10 +582,18 @@ export const sessionSchema = z
 	.nullable();
 
 export const siteInfoSchema = z.object({
+	/** Direct hosted push today; a future relay can extend `via`. */
+	push: z.object({ available: z.boolean(), via: z.enum(["direct", "none"]) }),
 	origin: z.string(),
 	supportEmail: z.string().nullable(),
 	googleSignIn: z.boolean(),
+	appleSignIn: z.boolean(),
 	statusPageUrl: z.string().nullable(),
+	/**
+	 * What this server supports for the native app. Servers from before the
+	 * app don't send it, so clients read it defensively.
+	 */
+	nativeAppVersion: z.number().int(),
 });
 
 export const legalInfoSchema = z.object({
