@@ -296,12 +296,18 @@ test("split variants, categories, paid locks, reporting, activity and validation
 			amountMinor: 20000,
 			splitMethod: "even",
 		});
-		const activity = await json<any>(
-			a.context,
-			"GET",
-			`/groups/${g.id}/activity?limit=10`,
-		);
-		expect(JSON.stringify(activity)).toContain("expense.updated");
+		// Group activity is stamped to the second, so everything this test did
+		// ties on time and the newest ten are an arbitrary slice. Look for this
+		// expense's update among all of it instead.
+		const activity = await json<{
+			items: { type: string; targetId: string }[];
+		}>(a.context, "GET", `/groups/${g.id}/activity?limit=100`);
+		expect(
+			activity.items.some(
+				(item) =>
+					item.type === "expense.updated" && item.targetId === dinner.id,
+			),
+		).toBe(true);
 		await json(a.context, "DELETE", `/expenses/${dinner.id}`);
 		await json(a.context, "DELETE", `/groups/${g.id}/categories/${rule.id}`);
 		expect(
@@ -570,7 +576,7 @@ test("idempotency, bulk resplit, guest merge and Shortcut API share persisted st
 		).toBe(1);
 		expect(
 			JSON.stringify(
-				await json<any>(b.context, "GET", "/me/activity?limit=10"),
+				await json<any>(b.context, "GET", "/me/activity?limit=100"),
 			),
 		).toContain("expense.created");
 
