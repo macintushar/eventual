@@ -3,10 +3,15 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	Activity,
 	ArrowRight,
+	Coins,
+	HandCoins,
+	Lock,
 	type LucideIcon,
 	Mail,
 	Receipt,
 	Rocket,
+	Smartphone,
+	UserPlus,
 	UserRound,
 	Users,
 } from "lucide-react";
@@ -28,8 +33,11 @@ import {
 	HELP_ARTICLES,
 	HELP_UPDATED,
 	type HelpArticle,
+	type HelpShotStep,
 	helpArticle,
+	shotSteps,
 } from "#/lib/help";
+import { OG_IMAGES, ogImageMeta } from "#/lib/og";
 import { siteQueryOptions } from "#/lib/queries";
 import { SITE_URL } from "#/lib/site";
 
@@ -49,9 +57,11 @@ export const Route = createFileRoute("/help/")({
 				content: "Help center · Eventual",
 			},
 			{
-				name: "twitter:card",
-				content: "summary",
+				property: "og:description",
+				content:
+					"Answers on creating groups, adding expenses, split methods, locked expenses, repayments, the mobile app and integrations in Eventual.",
 			},
+			...ogImageMeta(OG_IMAGES.help),
 		],
 		links: [
 			{
@@ -86,7 +96,7 @@ type FaqItem = {
 	id: string;
 	question: string;
 	answer: string;
-	more?: { slug: "create-a-group" | "add-an-expense" };
+	more?: { slug: HelpArticle["slug"] };
 	shots?: { src: string; alt: string; caption: string }[];
 };
 
@@ -101,6 +111,10 @@ type FaqCategory = {
 const guideIcons: Record<HelpArticle["slug"], LucideIcon> = {
 	"create-a-group": Users,
 	"add-an-expense": Receipt,
+	"invite-people": UserPlus,
+	"settle-up": HandCoins,
+	"locked-expenses": Lock,
+	"use-the-mobile-app": Smartphone,
 };
 
 const categories: FaqCategory[] = [
@@ -169,6 +183,7 @@ const categories: FaqCategory[] = [
 				question: "How do I invite people?",
 				answer:
 					"Invite by email while creating the group, or later with Add person on the Members tab. They get a link. Someone new appears in the group straight away, so you can add them to expenses; when they accept, their account takes over. Someone who already has an account joins once they accept. You can also add people without an email and keep track of their share yourself.",
+				more: { slug: "invite-people" },
 			},
 			{
 				id: "roles",
@@ -194,12 +209,39 @@ const categories: FaqCategory[] = [
 				question: "What does a locked expense mean?",
 				answer:
 					"Once someone marks their share paid, the expense locks. The settled amount cannot quietly change afterwards. Unmark every paid share before you can edit or delete it.",
+				more: { slug: "locked-expenses" },
 			},
 			{
 				id: "settle",
 				question: "How do I settle up?",
 				answer:
 					"The Balances tab shows who owes whom, simplified into as few transfers as possible. Use Record payment there when money actually moves — any member can pay any other any amount, and paying more than owed just flips who owes whom. Eventual keeps each currency separate.",
+				more: { slug: "settle-up" },
+			},
+		],
+	},
+	{
+		id: "currencies",
+		title: "Currencies",
+		icon: Coins,
+		items: [
+			{
+				id: "which-currencies",
+				question: "Which currencies can I use?",
+				answer:
+					"Twenty: INR, USD, EUR, GBP, AED, AUD, CAD, CHF, CNY, HKD, JPY, KRW, KWD, MYR, NPR, NZD, SAR, SGD, THB and VND. Pick the currency on each expense. One group can mix them, so the flights can be in rupees and the hotel in baht.",
+			},
+			{
+				id: "conversion",
+				question: "Does Eventual convert between currencies?",
+				answer:
+					"No. Each expense stays in the currency it was paid in, and the group keeps a separate balance for each currency. You settle rupee debts in rupees and baht debts in baht, so nobody has to agree on an exchange rate.",
+			},
+			{
+				id: "rounding",
+				question: "How are shares rounded?",
+				answer:
+					"Shares are exact to the currency's smallest unit and always add up to the total. ₹1,000 split three ways is ₹333.34, ₹333.33 and ₹333.33. Yen, won and dong have no decimals, so they split in whole units; the Kuwaiti dinar splits to a thousandth. Leftover units go one at a time to whoever was rounded down most.",
 			},
 		],
 	},
@@ -215,8 +257,15 @@ const categories: FaqCategory[] = [
 					"On the login screen, use Forgot your password? We email a one-hour link. After a reset, existing sessions are signed out.",
 			},
 			{
+				id: "mobile-app",
+				question: "Is there an iPhone or Android app?",
+				answer:
+					"Yes, a native app for both, with the same groups, expenses and settling up as the web. It isn't in the App Store or Play Store yet, so for now you build it from the open-source repo. It signs in to hosted Eventual by default, or to your own server.",
+				more: { slug: "use-the-mobile-app" },
+			},
+			{
 				id: "shortcut",
-				question: "How do I log an expense from my iPhone?",
+				question: "How do I log an expense with Siri or the Action Button?",
 				answer:
 					"Install the Apple Shortcut from Integration docs, then press the Action Button or ask Siri and just type an amount — it splits using group member weights and you can fine-tune later in the app. It also reads bank SMS alerts: share the message to the shortcut, copy it before running, or set a Messages automation for your bank's sender to log them automatically.",
 			},
@@ -233,15 +282,13 @@ const categories: FaqCategory[] = [
 function faqGallery(
 	item: FaqItem,
 	shot: NonNullable<FaqItem["shots"]>[number],
-): { steps: HelpArticle["steps"]; index: number } {
+): { steps: HelpShotStep[]; index: number } {
 	if (item.more) {
 		const article = helpArticle(item.more.slug);
 		if (article) {
-			const index = article.steps.findIndex((step) => step.image === shot.src);
-			return {
-				steps: article.steps,
-				index: index < 0 ? 0 : index,
-			};
+			const steps = shotSteps(article);
+			const index = steps.findIndex((step) => step.image === shot.src);
+			return { steps, index: index < 0 ? 0 : index };
 		}
 	}
 	return {

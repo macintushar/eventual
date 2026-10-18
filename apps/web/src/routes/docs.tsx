@@ -2,20 +2,23 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	ArrowRight,
+	Banknote,
 	Bot,
 	Braces,
 	Download,
 	ExternalLink,
-	IndianRupee,
 	KeyRound,
 	MessageSquareText,
 	MousePointerClick,
+	Package,
+	Smartphone,
 	Zap,
 } from "lucide-react";
 import { useState } from "react";
 
-import { type Brand, BrandLogo } from "#/components/brand-logo";
+import { BrandLogo } from "#/components/brand-logo";
 import { CodeBlock } from "#/components/code-block";
+import { SOURCE_URL } from "#/components/legal-page";
 import { OptionCombobox } from "#/components/option-combobox";
 import {
 	PublicFooter,
@@ -32,6 +35,8 @@ import {
 	CardHeader,
 } from "#/components/ui/card";
 import { Separator } from "#/components/ui/separator";
+import { MCP_TOOLS, mcpClients } from "#/lib/mcp-clients";
+import { OG_IMAGES, ogImageMeta } from "#/lib/og";
 import { siteQueryOptions } from "#/lib/queries";
 import { useClientUser } from "#/lib/session";
 import { SITE_URL } from "#/lib/site";
@@ -41,11 +46,14 @@ export const Route = createFileRoute("/docs")({
 		context.queryClient.ensureQueryData(siteQueryOptions),
 	head: () => ({
 		meta: [
-			{ title: "Integrations · Eventual" },
+			{
+				title:
+					"Integrations: mobile app, Shortcut, MCP, SDK and API · Eventual",
+			},
 			{
 				name: "description",
 				content:
-					"Log expenses from your iPhone with the Apple Shortcut, or connect Eventual to Claude, Cursor and other AI assistants over MCP.",
+					"Use Eventual on iPhone and Android, log expenses with the Apple Shortcut, connect Claude, Cursor and other AI assistants over MCP, or build on the typed SDK and REST API.",
 			},
 			{
 				property: "og:title",
@@ -54,7 +62,7 @@ export const Route = createFileRoute("/docs")({
 			{
 				property: "og:description",
 				content:
-					"Log expenses from your iPhone with the Apple Shortcut, or connect Eventual to Claude, Cursor and other AI assistants over MCP.",
+					"Use Eventual on iPhone and Android, log expenses with the Apple Shortcut, connect Claude, Cursor and other AI assistants over MCP, or build on the typed SDK and REST API.",
 			},
 			{
 				property: "og:type",
@@ -68,10 +76,7 @@ export const Route = createFileRoute("/docs")({
 				property: "og:site_name",
 				content: "Eventual",
 			},
-			{
-				name: "twitter:card",
-				content: "summary",
-			},
+			...ogImageMeta(OG_IMAGES.docs),
 		],
 		links: [
 			{
@@ -83,11 +88,9 @@ export const Route = createFileRoute("/docs")({
 	component: DocsPage,
 });
 
-const KEY = "ev_your_api_key";
-
 const shortcutSteps = [
 	{
-		icon: IndianRupee,
+		icon: Banknote,
 		title: "Type the amount",
 		text: "That's the whole ask. Your group is remembered, the payer is you.",
 	},
@@ -103,202 +106,10 @@ const shortcutSteps = [
 	},
 ];
 
-const tools = [
-	["listGroups", "Your groups and your balance in each"],
-	["listExpenses", "Recent expenses in a group"],
-	["createExpense", "Log an expense with any split method"],
-	["getBalances", "Who owes whom, with simplified transfers"],
-] as const;
-
-type Client = {
-	id: string;
-	name: string;
-	logo: Brand;
-	steps: string[];
-	docsUrl: string;
-	code?: { label: string; value: string; copyLabel: string };
-	action?: { label: string; href: string };
-	note?: string;
-};
-
-function cursorInstallUrl(mcp: string) {
-	const config = btoa(
-		JSON.stringify({ url: mcp, headers: { "x-api-key": KEY } }),
-	);
-	return `https://cursor.com/install-mcp?name=eventual&config=${encodeURIComponent(config)}`;
-}
-
-function clients(mcp: string): Client[] {
-	return [
-		{
-			id: "claude",
-			name: "Claude Desktop",
-			logo: "claude",
-			docsUrl: "https://claude.com/docs/connectors/custom/remote-mcp",
-			steps: [
-				"Open Settings → Connectors → Add custom connector on claude.ai or Claude Desktop.",
-				`Name it Eventual and set the URL to ${mcp}.`,
-				"Under Authentication, pick None, then add an x-api-key request header containing your key.",
-			],
-			code: {
-				label: "Connector details",
-				value: `Name: Eventual\nURL: ${mcp}\nAuthentication: None\nRequest header: x-api-key: ${KEY}`,
-				copyLabel: "Copy details",
-			},
-			note: "Connectors you add on claude.ai also appear in Claude Desktop and mobile.",
-		},
-		{
-			id: "chatgpt-desktop",
-			name: "ChatGPT Desktop",
-			logo: "openai",
-			docsUrl: "https://developers.openai.com/codex/extend/mcp",
-			steps: [
-				"Open Settings → MCP servers → Add server.",
-				"Choose Streamable HTTP and enter the values below.",
-				"Save the server, then restart ChatGPT.",
-			],
-			code: {
-				label: "Server details",
-				value: `Name: Eventual\nTransport: Streamable HTTP\nURL: ${mcp}\nBearer token: ${KEY}`,
-				copyLabel: "Copy details",
-			},
-			note: "ChatGPT Desktop, Codex CLI and the Codex IDE extension share this MCP configuration.",
-		},
-		{
-			id: "hermes",
-			name: "Hermes",
-			logo: "hermes",
-			docsUrl:
-				"https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp",
-			steps: [
-				"Add Eventual under mcp_servers in ~/.hermes/config.yaml.",
-				"Restart Hermes or run /reload-mcp.",
-			],
-			code: {
-				label: "~/.hermes/config.yaml",
-				value: `mcp_servers:\n  eventual:\n    url: "${mcp}"\n    headers:\n      Authorization: "Bearer \${EVENTUAL_API_KEY}"`,
-				copyLabel: "Copy config",
-			},
-		},
-		{
-			id: "opencode",
-			name: "OpenCode",
-			logo: "opencode",
-			docsUrl: "https://opencode.ai/docs/mcp-servers/",
-			steps: [
-				"Add a remote server to opencode.json in your project or ~/.config/opencode/.",
-			],
-			code: {
-				label: "opencode.json",
-				value: JSON.stringify(
-					{
-						$schema: "https://opencode.ai/config.json",
-						mcp: {
-							eventual: {
-								type: "remote",
-								url: mcp,
-								enabled: true,
-								headers: { "x-api-key": KEY },
-							},
-						},
-					},
-					null,
-					2,
-				),
-				copyLabel: "Copy config",
-			},
-		},
-		{
-			id: "openclaw",
-			name: "OpenClaw",
-			logo: "openclaw",
-			docsUrl: "https://docs.openclaw.ai/tools/mcp",
-			steps: [
-				"Add Eventual to the mcp.servers block of your OpenClaw config, or paste the same values into Settings → MCP.",
-			],
-			code: {
-				label: "OpenClaw config",
-				value: JSON.stringify(
-					{
-						mcp: {
-							servers: {
-								eventual: {
-									url: mcp,
-									transport: "streamable-http",
-									headers: { Authorization: `Bearer ${KEY}` },
-								},
-							},
-						},
-					},
-					null,
-					2,
-				),
-				copyLabel: "Copy config",
-			},
-		},
-		{
-			id: "claude-code",
-			name: "Claude Code",
-			logo: "claude",
-			docsUrl: "https://code.claude.com/docs/en/mcp",
-			steps: [
-				"Run this once in your terminal to add Eventual for every project.",
-			],
-			code: {
-				label: "Terminal",
-				value: `claude mcp add --transport http --scope user eventual ${mcp} \\\n  --header "x-api-key: ${KEY}"`,
-				copyLabel: "Copy command",
-			},
-		},
-		{
-			id: "codex",
-			name: "Codex",
-			logo: "codex",
-			docsUrl: "https://developers.openai.com/codex/extend/mcp",
-			steps: [
-				"Replace the placeholder, save EVENTUAL_API_KEY in your shell profile, then run the command.",
-				"The server also appears in ChatGPT Desktop and the Codex IDE extension.",
-			],
-			code: {
-				label: "Terminal",
-				value: `export EVENTUAL_API_KEY="${KEY}"\ncodex mcp add eventual --url ${mcp} \\\n  --bearer-token-env-var EVENTUAL_API_KEY`,
-				copyLabel: "Copy command",
-			},
-		},
-		{
-			id: "cursor",
-			name: "Cursor",
-			logo: "cursor",
-			docsUrl: "https://cursor.com/docs/context/mcp",
-			steps: [
-				"Install the server, then replace ev_your_api_key in the generated config with your API key.",
-				"You can also copy the config into ~/.cursor/mcp.json, or .cursor/mcp.json for one project.",
-			],
-			action: {
-				label: "Install in Cursor",
-				href: cursorInstallUrl(mcp),
-			},
-			code: {
-				label: "~/.cursor/mcp.json",
-				value: JSON.stringify(
-					{
-						mcpServers: {
-							eventual: { url: mcp, headers: { "x-api-key": KEY } },
-						},
-					},
-					null,
-					2,
-				),
-				copyLabel: "Copy config",
-			},
-		},
-	];
-}
-
 function DocsPage() {
 	const { origin } = useSuspenseQuery(siteQueryOptions).data;
 	const mcp = `${origin}/mcp`;
-	const list = clients(mcp);
+	const list = mcpClients(mcp);
 	const [clientId, setClientId] = useState(list[0].id);
 	const selectedClient =
 		list.find((client) => client.id === clientId) ?? list[0];
@@ -314,7 +125,7 @@ function DocsPage() {
 			user={user}
 			actions={publicSiteActions(Boolean(user))}
 			footer={
-				<PublicFooter tagline="Eventual · expenses without the spreadsheet.">
+				<PublicFooter tagline="Eventual · split it fairly, settle it once.">
 					<Link to="/help">Help</Link>
 					<Link to="/api/docs">API</Link>
 				</PublicFooter>
@@ -327,10 +138,56 @@ function DocsPage() {
 					Log it where you already are.
 				</h1>
 				<p className="mt-4 text-base text-muted-foreground sm:text-lg">
-					Log an expense from your iPhone, or ask an AI assistant to do it. Each
-					integration signs in with an API key from your account.
+					Use the iPhone and Android app, log an expense with a Shortcut, ask an
+					AI assistant, or write your own code. The Shortcut, assistants and
+					your own code each sign in with an API key from your account.
 				</p>
 			</section>
+
+			<Card id="mobile" className="island-shell scroll-mt-8 rounded-3xl">
+				<CardHeader>
+					<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+						<Smartphone className="size-5 text-primary" aria-hidden="true" />
+						<h2 className="display-title text-2xl leading-none font-bold">
+							iPhone and Android app
+						</h2>
+						<Badge variant="secondary">Build from source</Badge>
+					</div>
+					<CardDescription>
+						The native app covers everything on the web: groups, expenses,
+						settling up with a UPI handoff, invites, recurring expenses and
+						notifications. You sign in with your normal account, so it doesn't
+						need an API key.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="flex flex-col gap-4">
+					<p className="text-sm text-muted-foreground">
+						It isn't in the App Store or Play Store yet. Build it on your own
+						machine with Xcode or Android Studio. It opens on hosted Eventual,
+						and you can switch to this server with Change on the sign-in screen.
+						Android builds are less tested than iOS so far.
+					</p>
+					<CodeBlock
+						label="Build and run (from the repository root)"
+						code={[
+							`git clone ${SOURCE_URL}.git && cd eventual`,
+							"bun install",
+							"bun run --cwd apps/mobile ios      # or: android",
+						].join("\n")}
+					/>
+					<CodeBlock label="Server address" code={origin} />
+					<Button variant="link" size="sm" className="w-fit px-0" asChild>
+						<a
+							href={`${SOURCE_URL}/tree/main/apps/mobile`}
+							target="_blank"
+							rel="noreferrer"
+						>
+							Mobile app README
+							<ExternalLink data-icon="inline-end" />
+						</a>
+					</Button>
+				</CardContent>
+			</Card>
 
 			<Alert>
 				<KeyRound />
@@ -578,7 +435,7 @@ function DocsPage() {
 					<div className="flex flex-col gap-3">
 						<h3 className="font-semibold">Tools</h3>
 						<ul className="grid gap-2 sm:grid-cols-2">
-							{tools.map(([name, text]) => (
+							{MCP_TOOLS.map(([name, text]) => (
 								<li
 									key={name}
 									className="rounded-xl border bg-background/60 p-3 text-sm"
@@ -589,6 +446,55 @@ function DocsPage() {
 							))}
 						</ul>
 					</div>
+				</CardContent>
+			</Card>
+
+			<Card id="sdk" className="island-shell scroll-mt-8 rounded-3xl">
+				<CardHeader>
+					<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+						<Package className="size-5 text-primary" aria-hidden="true" />
+						<h2 className="display-title text-2xl leading-none font-bold">
+							TypeScript SDK
+						</h2>
+						<Badge variant="secondary">@eventual/sdk</Badge>
+					</div>
+					<CardDescription>
+						The web and mobile apps both call the API through a typed{" "}
+						<code>fetch</code> client. You can use it too. Every endpoint name,
+						input and output is checked against shared Zod schemas, so a typo
+						fails at compile time instead of at runtime. It runs in browsers,
+						Node, Bun and React Native.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="flex flex-col gap-4">
+					<CodeBlock
+						label="TypeScript"
+						code={[
+							'import { createEventualClient } from "@eventual/sdk";',
+							"",
+							"const eventual = createEventualClient({",
+							`  baseUrl: "${origin}",`,
+							"  apiKey: process.env.EVENTUAL_API_KEY,",
+							"});",
+							"",
+							'const groups = await eventual.call("group.list");',
+						].join("\n")}
+					/>
+					<p className="text-sm text-muted-foreground">
+						The SDK isn't on npm yet. It lives in <code>packages/sdk</code>{" "}
+						alongside <code>@eventual/schemas</code>. Add it to your project
+						from the repository.
+					</p>
+					<Button variant="link" size="sm" className="w-fit px-0" asChild>
+						<a
+							href={`${SOURCE_URL}/tree/main/packages/sdk`}
+							target="_blank"
+							rel="noreferrer"
+						>
+							SDK source
+							<ExternalLink data-icon="inline-end" />
+						</a>
+					</Button>
 				</CardContent>
 			</Card>
 

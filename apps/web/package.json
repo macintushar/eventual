@@ -1,6 +1,7 @@
 {
 	"name": "@eventual/web",
 	"private": true,
+	"license": "AGPL-3.0-only",
 	"type": "module",
 	"imports": {
 		"#/*": "./src/*"
@@ -8,6 +9,8 @@
 	"scripts": {
 		"api:docs:generate": "tsx scripts/generate-openapi.ts",
 		"api:docs:check": "tsx scripts/generate-openapi.ts --check",
+		"og:generate": "bun scripts/generate-og.tsx",
+		"og:check": "bun scripts/generate-og.tsx --check",
 		"test": "TURSO_DATABASE_URL=:memory: BETTER_AUTH_SECRET=local-test-secret-at-least-thirty-two-characters tsx --test 'src/**/*.test.ts'",
 		"test:e2e": "playwright test",
 		"test:e2e:ui": "playwright test --project=chromium --project=mobile",
@@ -85,6 +88,8 @@
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
+		"@fontsource/instrument-sans": "^5.3.0",
+		"@fontsource/inter-tight": "^5.3.0",
 		"@playwright/test": "^1.63.0",
 		"@react-email/ui": "6.9.5",
 		"@tailwindcss/typography": "^0.5.16",
@@ -93,6 +98,7 @@
 		"@types/node": "^22.10.2",
 		"@types/react": "^19.2.0",
 		"@types/react-dom": "^19.2.0",
+		"@vercel/og": "0.11.1",
 		"@vitejs/plugin-react": "^6.0.1",
 		"dotenv": "^17.3.1",
 		"tsx": "^4.21.0",

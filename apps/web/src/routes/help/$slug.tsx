@@ -10,7 +10,13 @@ import {
 	BreadcrumbSeparator,
 } from "#/components/ui/breadcrumb";
 import { Button } from "#/components/ui/button";
-import { HELP_UPDATED, type HelpArticle, helpArticle } from "#/lib/help";
+import {
+	HELP_UPDATED,
+	type HelpArticle,
+	helpArticle,
+	shotSteps,
+} from "#/lib/help";
+import { helpArticleOg, OG_IMAGES, ogImageMeta } from "#/lib/og";
 import { SITE_URL } from "#/lib/site";
 
 export const Route = createFileRoute("/help/$slug")({
@@ -32,9 +38,17 @@ export const Route = createFileRoute("/help/$slug")({
 				content: loaderData?.title ?? "Help · Eventual",
 			},
 			{
-				name: "twitter:card",
-				content: "summary",
+				property: "og:description",
+				content: loaderData?.lede ?? "How to use Eventual.",
 			},
+			{
+				property: "og:url",
+				content: `${SITE_URL}/help/${loaderData?.slug ?? ""}`,
+			},
+			{ property: "og:type", content: "article" },
+			...(loaderData
+				? ogImageMeta(helpArticleOg(loaderData))
+				: ogImageMeta(OG_IMAGES.help)),
 		],
 		links: [
 			{
@@ -81,7 +95,7 @@ function articleJsonLd(article: HelpArticle) {
 						position: index + 1,
 						name: step.title,
 						text: step.body,
-						image: `${SITE_URL}${step.image}`,
+						...(step.image ? { image: `${SITE_URL}${step.image}` } : {}),
 						url: `${url}#step-${index + 1}`,
 					})),
 				},
@@ -92,6 +106,7 @@ function articleJsonLd(article: HelpArticle) {
 
 function HelpArticlePage() {
 	const article = Route.useLoaderData();
+	const shots = shotSteps(article);
 
 	return (
 		<div className="col-read flex flex-col gap-10">
@@ -142,7 +157,12 @@ function HelpArticlePage() {
 								<p className="text-muted-foreground">{step.body}</p>
 							</div>
 						</div>
-						<HelpShot steps={article.steps} index={index} />
+						{step.image ? (
+							<HelpShot
+								steps={shots}
+								index={shots.findIndex((shot) => shot.image === step.image)}
+							/>
+						) : null}
 					</li>
 				))}
 			</ol>

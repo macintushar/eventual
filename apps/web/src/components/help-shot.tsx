@@ -19,14 +19,14 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "#/components/ui/dialog";
-import type { HelpArticle } from "#/lib/help";
+import type { HelpShotStep } from "#/lib/help";
 import { cn } from "#/lib/utils";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.25;
 
-export type HelpStep = HelpArticle["steps"][number];
+export type HelpStep = HelpShotStep;
 
 function clampZoom(value: number) {
 	const stepped = Math.round(value / ZOOM_STEP) * ZOOM_STEP;

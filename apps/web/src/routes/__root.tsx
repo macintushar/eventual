@@ -34,8 +34,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 				name: "mobile-web-app-capable",
 				content: "yes",
 			},
+			{ name: "theme-color", content: "#f3f6f9" },
 			{
-				title: "Eventual · expenses without the spreadsheet",
+				title: "Eventual · split it fairly, settle it once",
 			},
 		],
 		links: [
@@ -54,6 +55,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 				href: "/logo-dark.svg",
 				media: "(prefers-color-scheme: dark)",
 			},
+			{ rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+			{ rel: "manifest", href: "/manifest.webmanifest" },
 		],
 	}),
 	component: RootComponent,

@@ -30,7 +30,7 @@ function HelpLayout() {
 			user={user}
 			actions={publicSiteActions(Boolean(user))}
 			footer={
-				<PublicFooter tagline="Eventual · expenses without the spreadsheet.">
+				<PublicFooter tagline="Eventual · split it fairly, settle it once.">
 					<Link to="/docs">Integrations</Link>
 				</PublicFooter>
 			}
