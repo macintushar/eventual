@@ -39,8 +39,7 @@ export const Route = createFileRoute("/")({
 	head: () => ({
 		meta: [
 			{
-				title:
-					"Eventual · Split group expenses in any currency, to the last cent",
+				title: "Eventual · Split group expenses in any currency",
 			},
 			{
 				name: "description",
@@ -49,8 +48,7 @@ export const Route = createFileRoute("/")({
 			},
 			{
 				property: "og:title",
-				content:
-					"Eventual · Split group expenses in any currency, to the last cent",
+				content: "Eventual · Split group expenses in any currency",
 			},
 			{
 				property: "og:description",
@@ -247,7 +245,7 @@ function Home() {
 					</h1>
 					<p className="mt-5 max-w-xl text-base text-muted-foreground sm:mt-6 sm:text-lg">
 						Log what everyone paid. Eventual splits the bill and tells each
-						person exactly who to pay and how much, down to the last cent.
+						person exactly who to pay and how much.
 					</p>
 					<div className="mt-7 flex flex-wrap gap-3">
 						<Button size="lg" asChild>

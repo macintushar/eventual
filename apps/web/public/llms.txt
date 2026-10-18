@@ -1,6 +1,6 @@
 # Eventual
 
-> Eventual is a free, open-source expense-splitting app for groups, with 20 supported currencies. Log what everyone paid on trips, in shared flats and on nights out; Eventual splits each bill evenly, by exact amounts, by shares or by percent, and tells each person who to pay and how much, down to the smallest unit of the currency. It runs as a web app at https://eventual.macintushar.xyz, as a native iPhone and Android app built from source, and through a REST API, TypeScript SDK and MCP server.
+> Eventual is a free, open-source expense-splitting app for groups, with 20 supported currencies. Log what everyone paid on trips, in shared flats and on nights out; Eventual splits each bill evenly, by exact amounts, by shares or by percent, and tells each person who to pay and how much. Shares always add up to the total. It runs as a web app at https://eventual.macintushar.xyz, as a native iPhone and Android app built from source, and through a REST API, TypeScript SDK and MCP server.
 
 Key facts:
 

@@ -1,6 +1,6 @@
 # Eventual
 
-Split group expenses in 20 currencies, down to the last cent. Free, open source and self-hostable.
+Split it fairly, settle it once: group expenses in 20 currencies, on the web, iPhone and Android. Free, open source and self-hostable.
 
 Eventual is one backend with several ways in:
 

@@ -65,7 +65,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
 		slug: "add-an-expense",
 		title: "How do I add an expense?",
 		kicker: "Expenses",
-		lede: "Open a group and log what was paid. Eventual handles the rounding, so shares always add up exactly, down to the last cent.",
+		lede: "Open a group and log what was paid. Eventual handles the rounding, so shares always add up to the total.",
 		steps: [
 			{
 				title: "Start from the group",
