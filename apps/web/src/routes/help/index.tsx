@@ -30,6 +30,7 @@ import {
 	type HelpArticle,
 	helpArticle,
 } from "#/lib/help";
+import { OG_IMAGES, ogImageMeta } from "#/lib/og";
 import { siteQueryOptions } from "#/lib/queries";
 import { SITE_URL } from "#/lib/site";
 
@@ -53,10 +54,7 @@ export const Route = createFileRoute("/help/")({
 				content:
 					"Answers on creating groups, adding expenses, split methods, locked expenses, repayments, the mobile app and integrations in Eventual.",
 			},
-			{
-				name: "twitter:card",
-				content: "summary",
-			},
+			...ogImageMeta(OG_IMAGES.help),
 		],
 		links: [
 			{

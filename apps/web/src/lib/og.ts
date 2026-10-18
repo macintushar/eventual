@@ -1,0 +1,67 @@
+import type { HelpArticle } from "#/lib/help";
+import { HELP_ARTICLES } from "#/lib/help";
+import { SITE_URL } from "#/lib/site";
+
+/**
+ * Share images for public pages. `bun run og:generate` renders one PNG per
+ * entry into public/og/, and each page's head points at its file. Add an entry
+ * here when a public page gets its own image, then regenerate.
+ */
+export type OgImage = {
+	/** File name under public/og/, without the extension. */
+	slug: string;
+	kicker: string;
+	title: string;
+};
+
+export const OG_IMAGES = {
+	home: {
+		slug: "home",
+		kicker: "Split expenses for trips, flats and every chai run",
+		// Non-breaking hyphen so "group-chat" never splits across lines.
+		title: "Settle up without the group\u2011chat maths.",
+	},
+	docs: {
+		slug: "docs",
+		kicker: "Integrations",
+		title: "The mobile app, Shortcuts, AI assistants, the SDK and the API.",
+	},
+	help: {
+		slug: "help",
+		kicker: "Help center",
+		title: "Groups, expenses, splits and settling up, answered.",
+	},
+} satisfies Record<string, OgImage>;
+
+export function helpArticleOg(article: HelpArticle): OgImage {
+	return {
+		slug: `help-${article.slug}`,
+		kicker: `Help · ${article.kicker}`,
+		title: article.title,
+	};
+}
+
+/** Every image the generator renders. */
+export function allOgImages(): OgImage[] {
+	return [...Object.values(OG_IMAGES), ...HELP_ARTICLES.map(helpArticleOg)];
+}
+
+export const OG_WIDTH = 1200;
+export const OG_HEIGHT = 630;
+
+export function ogImageUrl(slug: string) {
+	return `${SITE_URL}/og/${slug}.png`;
+}
+
+/** Open Graph and Twitter tags for a page's share image. */
+export function ogImageMeta(image: Pick<OgImage, "slug" | "title">) {
+	const url = ogImageUrl(image.slug);
+	return [
+		{ property: "og:image", content: url },
+		{ property: "og:image:width", content: String(OG_WIDTH) },
+		{ property: "og:image:height", content: String(OG_HEIGHT) },
+		{ property: "og:image:alt", content: image.title },
+		{ name: "twitter:card", content: "summary_large_image" },
+		{ name: "twitter:image", content: url },
+	];
+}

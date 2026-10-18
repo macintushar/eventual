@@ -145,7 +145,7 @@ export function PublicPage({
 				<footer className="page-wrap py-8 text-xs text-muted-foreground">
 					<Separator className="mb-8" />
 					{footer ?? (
-						<PublicFooter tagline="Eventual · expenses without the spreadsheet." />
+						<PublicFooter tagline="Eventual · split it fairly, settle it once." />
 					)}
 				</footer>
 			) : null}

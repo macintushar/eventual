@@ -30,6 +30,7 @@ import {
 	ItemGroup,
 	ItemTitle,
 } from "#/components/ui/item";
+import { OG_IMAGES, ogImageMeta } from "#/lib/og";
 import { useClientUser } from "#/lib/session";
 import { SITE_URL } from "#/lib/site";
 import { cn } from "#/lib/utils";
@@ -66,10 +67,7 @@ export const Route = createFileRoute("/")({
 				property: "og:site_name",
 				content: "Eventual",
 			},
-			{
-				name: "twitter:card",
-				content: "summary",
-			},
+			...ogImageMeta(OG_IMAGES.home),
 		],
 		links: [
 			{
@@ -88,7 +86,7 @@ export const Route = createFileRoute("/")({
 							"@id": `${SITE_URL}/#organization`,
 							name: "Eventual",
 							url: SITE_URL,
-							logo: `${SITE_URL}/logo.svg`,
+							logo: `${SITE_URL}/icon-512.png`,
 							sameAs: [SOURCE_URL],
 						},
 						{

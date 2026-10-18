@@ -43,14 +43,13 @@ function TermsOfService() {
 						? `Eventual at ${origin} is run by ${operator} ("we").`
 						: `Eventual is open-source software, and this copy at ${origin} is run independently by whoever set it up ("we"). The Eventual project isn't a party to these terms.`}{" "}
 					Using the site, the mobile app, the API, the MCP server or the Apple
-					Shortcut means
-					you accept these terms and the{" "}
+					Shortcut means you accept these terms and the{" "}
 					<Link to="/privacy">privacy policy</Link>.
 				</p>
 				<p>
-					The code at <a href={SOURCE_URL}>{SOURCE_URL}</a> is licensed under the
-					GNU Affero General Public License v3.
-					If you run your own copy, you're the operator and set your own terms.
+					The code at <a href={SOURCE_URL}>{SOURCE_URL}</a> is licensed under
+					the GNU Affero General Public License v3. If you run your own copy,
+					you're the operator and set your own terms.
 				</p>
 			</LegalSection>
 

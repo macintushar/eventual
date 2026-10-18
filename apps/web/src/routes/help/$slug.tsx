@@ -11,6 +11,7 @@ import {
 } from "#/components/ui/breadcrumb";
 import { Button } from "#/components/ui/button";
 import { HELP_UPDATED, type HelpArticle, helpArticle } from "#/lib/help";
+import { helpArticleOg, OG_IMAGES, ogImageMeta } from "#/lib/og";
 import { SITE_URL } from "#/lib/site";
 
 export const Route = createFileRoute("/help/$slug")({
@@ -40,10 +41,9 @@ export const Route = createFileRoute("/help/$slug")({
 				content: `${SITE_URL}/help/${loaderData?.slug ?? ""}`,
 			},
 			{ property: "og:type", content: "article" },
-			{
-				name: "twitter:card",
-				content: "summary",
-			},
+			...(loaderData
+				? ogImageMeta(helpArticleOg(loaderData))
+				: ogImageMeta(OG_IMAGES.help)),
 		],
 		links: [
 			{

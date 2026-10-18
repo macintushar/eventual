@@ -1,0 +1,14 @@
+{
+	"name": "Eventual",
+	"short_name": "Eventual",
+	"description": "Split group expenses in rupees and 19 other currencies, down to the last paisa.",
+	"start_url": "/app",
+	"display": "standalone",
+	"background_color": "#f3f6f9",
+	"theme_color": "#f3f6f9",
+	"icons": [
+		{ "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml" },
+		{ "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+		{ "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+	]
+}

@@ -35,6 +35,7 @@ import {
 	CardHeader,
 } from "#/components/ui/card";
 import { Separator } from "#/components/ui/separator";
+import { OG_IMAGES, ogImageMeta } from "#/lib/og";
 import { siteQueryOptions } from "#/lib/queries";
 import { useClientUser } from "#/lib/session";
 import { SITE_URL } from "#/lib/site";
@@ -74,10 +75,7 @@ export const Route = createFileRoute("/docs")({
 				property: "og:site_name",
 				content: "Eventual",
 			},
-			{
-				name: "twitter:card",
-				content: "summary",
-			},
+			...ogImageMeta(OG_IMAGES.docs),
 		],
 		links: [
 			{
@@ -320,7 +318,7 @@ function DocsPage() {
 			user={user}
 			actions={publicSiteActions(Boolean(user))}
 			footer={
-				<PublicFooter tagline="Eventual · expenses without the spreadsheet.">
+				<PublicFooter tagline="Eventual · split it fairly, settle it once.">
 					<Link to="/help">Help</Link>
 					<Link to="/api/docs">API</Link>
 				</PublicFooter>
