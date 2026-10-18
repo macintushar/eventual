@@ -12,19 +12,25 @@ export type HelpArticle = {
 	title: string;
 	kicker: string;
 	lede: string;
-	/** A step without a screenshot is text only and skipped by the gallery. */
-	steps: { title: string; body: string; image?: string; alt?: string }[];
+	/**
+	 * A screenshot always comes with its alt text. A step without one is text
+	 * only and skipped by the gallery.
+	 */
+	steps: ({ title: string; body: string } & (
+		| { image: string; alt: string }
+		| { image?: never; alt?: never }
+	))[];
 };
 
 /** A step that has a screenshot, which is what the gallery shows. */
-export type HelpShotStep = HelpArticle["steps"][number] & {
-	image: string;
-	alt: string;
-};
+export type HelpShotStep = Extract<
+	HelpArticle["steps"][number],
+	{ image: string }
+>;
 
 export function shotSteps(article: HelpArticle): HelpShotStep[] {
 	return article.steps.filter((step): step is HelpShotStep =>
-		Boolean(step.image && step.alt),
+		Boolean(step.image),
 	);
 }
 
@@ -133,7 +139,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
 			},
 			{
 				title: "Check it's done",
-				body: "The payment moves to Payment history and the suggestion disappears. Shares it fully covers are marked paid automatically, which locks those expenses. Recorded it by mistake? Delete it from the history.",
+				body: "The payment appears in Payment history, and balances and suggested payments update. A partial payment leaves the rest to pay; paying more than owed flips who owes whom. Shares it fully covers are marked paid automatically, which locks those expenses. Recorded it by mistake? Delete it from the history.",
 				image: "/help/settle-history.webp",
 				alt: "The Balances tab after the payment: one suggested payment left and the new payment at the top of Payment history.",
 			},
