@@ -138,7 +138,6 @@ function CurrencyPageView() {
 			footer={
 				<PublicFooter tagline="Eventual · split it fairly, settle it once.">
 					<Link to="/help">Help</Link>
-					<Link to="/split-expenses">Currencies</Link>
 				</PublicFooter>
 			}
 			mainClassName="gap-8 py-8 sm:gap-12 sm:py-10"

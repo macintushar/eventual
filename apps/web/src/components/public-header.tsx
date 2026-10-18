@@ -91,7 +91,11 @@ export function PublicHeader({
 	);
 }
 
-/** Tagline on the left; page links, then Privacy, Terms and status, on the right. */
+/**
+ * Tagline on the left; page links, then the site-wide links, legal and
+ * status on the right. The site-wide links keep the currency and comparison
+ * pages reachable from every public page.
+ */
 export function PublicFooter({
 	tagline,
 	children,
@@ -104,6 +108,8 @@ export function PublicFooter({
 			<span>{tagline}</span>
 			<nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
 				{children}
+				<Link to="/split-expenses">Currencies</Link>
+				<Link to="/compare/splitwise">vs Splitwise</Link>
 				<Link to="/privacy">Privacy</Link>
 				<Link to="/terms">Terms</Link>
 				<StatusPageCallout />
