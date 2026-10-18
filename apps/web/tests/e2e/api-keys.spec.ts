@@ -310,12 +310,16 @@ test("a full access key uses the app's own pages and profile", async () => {
 	const headers = { "x-api-key": keyNamed("full").secret };
 	const failures: string[] = [];
 	for (const op of spec.filter((candidate) => candidate.cookieOnly)) {
-		const keyManagement = op.path.startsWith("/api/v1/me/api-keys");
+		const sessionOnly =
+			op.path.startsWith("/api/v1/me/api-keys") ||
+			op.path.startsWith("/api/v1/me/devices") ||
+			op.path === "/api/v1/me/push-preferences";
 		const response = await send(op.method, fill(op.path, GROUP), headers);
-		// Key management stays cookie-only; the rest is reachable (a body-less
+		// Key management and native push stay session-only, including for full
+		// access keys. The rest is reachable (a body-less
 		// PATCH may still fail validation, which is past the gate).
 		const refused = response.status() === 403;
-		if (refused !== keyManagement)
+		if (refused !== sessionOnly)
 			failures.push(`${op.method} ${op.path} → ${response.status()}`);
 	}
 	expect(failures, failures.join("\n")).toEqual([]);

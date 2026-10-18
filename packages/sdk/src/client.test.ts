@@ -5,6 +5,67 @@ import { EventualApiError } from "./errors";
 
 type Seen = { url: string; init: RequestInit; headers: Headers };
 
+test("push endpoints use session headers and expose typed devices and preferences", async () => {
+	const device = {
+		id: "d",
+		platform: "android",
+		appVersion: "1",
+		locale: "en",
+		createdAt: "2026-10-01T00:00:00.000Z",
+		lastSeenAt: "2026-10-01T00:00:00.000Z",
+	};
+	const preferences = {
+		expenses: true,
+		payments: false,
+		recurring: true,
+		mutedGroupIds: ["g"],
+	};
+	const { calls, fetch } = fakeFetch((seen) =>
+		Response.json(
+			seen.url.includes("push-preferences")
+				? preferences
+				: seen.init.method === "DELETE"
+					? { success: true }
+					: seen.init.method === "GET"
+						? [device]
+						: device,
+		),
+	);
+	const client = createEventualClient({
+		baseUrl: "https://eventual.test",
+		headers: { Cookie: "better-auth.session_token=test" },
+		fetch,
+		validateResponses: true,
+	});
+	const registered = await client.call("push.device.register", {
+		platform: "android",
+		token: "native-token",
+		appVersion: "1",
+		locale: "en",
+	});
+	assert.equal(registered.id, "d");
+	assert.equal(
+		calls[0].headers.get("cookie"),
+		"better-auth.session_token=test",
+	);
+	assert.equal(calls[0].url, "https://eventual.test/api/v1/me/devices");
+	assert.equal((await client.call("push.device.list"))[0].platform, "android");
+	assert.equal(
+		(await client.call("push.device.delete", { deviceId: "d/1" })).success,
+		true,
+	);
+	assert.equal(calls[2].url, "https://eventual.test/api/v1/me/devices/d%2F1");
+	assert.deepEqual(await client.call("push.preferences.get"), preferences);
+	assert.deepEqual(
+		await client.call("push.preferences.update", {
+			payments: false,
+			mutedGroupIds: ["g"],
+		}),
+		preferences,
+	);
+	assert.equal(calls[4].init.method, "PATCH");
+});
+
 function fakeFetch(respond: (seen: Seen) => Response) {
 	const calls: Seen[] = [];
 	const fetch = (async (

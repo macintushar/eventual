@@ -402,6 +402,33 @@ async function dispatchWebApi(request: Request, path: string) {
 		return route(async () =>
 			webApi.profile(await cookieContext(), await json()),
 		);
+	if (path === "/v1/me/devices" && method === "POST")
+		return route(async () =>
+			webApi.registerPushDevice(await buildContext(request), await json()),
+		);
+	if (path === "/v1/me/devices" && method === "GET")
+		return route(async () =>
+			webApi.listPushDevices(await buildContext(request)),
+		);
+	const device = path.match(/^\/v1\/me\/devices\/([^/]+)$/);
+	if (device && method === "DELETE")
+		return route(async () =>
+			webApi.deletePushDevice(
+				await buildContext(request),
+				decodeURIComponent(device[1]),
+			),
+		);
+	if (path === "/v1/me/push-preferences" && method === "GET")
+		return route(async () =>
+			webApi.getPushPreferences(await buildContext(request)),
+		);
+	if (path === "/v1/me/push-preferences" && method === "PATCH")
+		return route(async () =>
+			webApi.updatePushPreferences(
+				await buildContext(request),
+				(await json()) as Parameters<typeof webApi.updatePushPreferences>[1],
+			),
+		);
 	if (path === "/v1/me/api-keys" && method === "GET")
 		return route(() => webApi.listApiKeys(request));
 	if (path === "/v1/me/api-keys" && method === "POST")

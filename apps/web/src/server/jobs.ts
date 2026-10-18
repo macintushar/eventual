@@ -96,7 +96,16 @@ export async function failJob(
 		.set({
 			lockedAt: null,
 			lockToken: null,
-			dueAt: new Date(now.getTime() + 60_000 * 2 ** (claimed.attempts - 1)),
+			dueAt: new Date(
+				Math.max(
+					now.getTime() + 60_000 * 2 ** (claimed.attempts - 1),
+					error instanceof Error &&
+						"retryAt" in error &&
+						error.retryAt instanceof Date
+						? error.retryAt.getTime()
+						: 0,
+				),
+			),
 			lastError: (error instanceof Error ? error.message : "Job failed").slice(
 				0,
 				1000,
@@ -114,6 +123,9 @@ async function dispatchJob(db: Database, claimed: ClaimedJob) {
 			"./services/recurring"
 		);
 		await materializeRecurringExpense(db, claimed);
+	} else if (claimed.kind === "push" || claimed.kind === "push-device") {
+		const { executePush } = await import("./push");
+		await executePush(db, claimed);
 	} else throw new Error(`Unknown job kind: ${claimed.kind}`);
 }
 

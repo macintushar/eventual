@@ -118,6 +118,13 @@ import {
 	updateGuestSchema,
 	updateMemberWeightSchema,
 } from "./people";
+import {
+	pushDeviceIdSchema,
+	pushDeviceSchema,
+	pushPreferencesSchema,
+	registerPushDeviceSchema,
+	updatePushPreferencesSchema,
+} from "./push";
 
 export type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 
@@ -806,6 +813,46 @@ const defineAppEndpoint = <const Endpoint extends AppEndpointContract>(
  * not part of the scoped REST API, so API keys can't call most of them.
  */
 export const appEndpoints = [
+	defineAppEndpoint({
+		name: "push.device.register",
+		method: "POST",
+		path: "/v1/me/devices",
+		input: registerPushDeviceSchema,
+		output: pushDeviceSchema,
+		access: "session",
+	}),
+	defineAppEndpoint({
+		name: "push.device.list",
+		method: "GET",
+		path: "/v1/me/devices",
+		input: empty,
+		output: z.array(pushDeviceSchema),
+		access: "session",
+	}),
+	defineAppEndpoint({
+		name: "push.device.delete",
+		method: "DELETE",
+		path: "/v1/me/devices/:deviceId",
+		input: pushDeviceIdSchema,
+		output: z.object({ success: z.literal(true) }),
+		access: "session",
+	}),
+	defineAppEndpoint({
+		name: "push.preferences.get",
+		method: "GET",
+		path: "/v1/me/push-preferences",
+		input: empty,
+		output: pushPreferencesSchema,
+		access: "session",
+	}),
+	defineAppEndpoint({
+		name: "push.preferences.update",
+		method: "PATCH",
+		path: "/v1/me/push-preferences",
+		input: updatePushPreferencesSchema,
+		output: pushPreferencesSchema,
+		access: "session",
+	}),
 	defineAppEndpoint({
 		name: "health",
 		method: "GET",

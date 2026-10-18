@@ -1,4 +1,5 @@
 import { apiKey } from "@better-auth/api-key";
+import { expo } from "@better-auth/expo";
 import { storedImageSchema } from "@eventual/schemas";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -10,6 +11,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "#/db";
 import * as schema from "#/db/schema";
 import { env } from "#/env";
+import { createAppleProvider } from "#/lib/apple-auth";
 import { authEmailOptions, emailKey } from "#/lib/auth-email";
 import { guestAuthGuards, guestAuthPlugin } from "#/lib/guest-auth";
 import { lastLoginConsentFromRequest } from "#/lib/last-login-consent";
@@ -24,6 +26,7 @@ import {
 } from "#/server/pending-verification";
 
 const API_KEY_PREFIX = "ev_";
+const NATIVE_APP_ORIGIN = "eventual://";
 const LEGACY_API_KEY_PREFIX = "ss_";
 
 /**
@@ -63,6 +66,34 @@ function pictureFromIdToken(idToken: string) {
 	}
 }
 
+const appleProvider = createAppleProvider(
+	{
+		clientId: env.APPLE_CLIENT_ID,
+		teamId: env.APPLE_TEAM_ID,
+		keyId: env.APPLE_KEY_ID,
+		privateKey: env.APPLE_PRIVATE_KEY,
+		appBundleIdentifier: env.APPLE_APP_BUNDLE_IDENTIFIER,
+	},
+	async (subject) => {
+		const [found] = await db
+			.select({
+				name: schema.user.name,
+				email: schema.user.email,
+				emailVerified: schema.user.emailVerified,
+			})
+			.from(schema.account)
+			.innerJoin(schema.user, eq(schema.user.id, schema.account.userId))
+			.where(
+				and(
+					eq(schema.account.providerId, "apple"),
+					eq(schema.account.accountId, subject),
+				),
+			)
+			.limit(1);
+		return found;
+	},
+);
+
 export const auth = betterAuth({
 	logger: {
 		level: "debug",
@@ -80,9 +111,14 @@ export const auth = betterAuth({
 	appName: "Eventual",
 	baseURL: env.BETTER_AUTH_URL,
 	secret: env.BETTER_AUTH_SECRET,
-	trustedOrigins: import.meta.env?.DEV
-		? ["http://localhost:*", "http://127.0.0.1:*"]
-		: [env.BETTER_AUTH_URL],
+	// `eventual://` is the native app's scheme: its requests carry it as their
+	// origin, and Google sign-in returns to it.
+	trustedOrigins: [
+		...(import.meta.env?.DEV
+			? ["http://localhost:*", "http://127.0.0.1:*", NATIVE_APP_ORIGIN]
+			: [env.BETTER_AUTH_URL, NATIVE_APP_ORIGIN]),
+		...(appleProvider ? ["https://appleid.apple.com"] : []),
+	],
 	database: drizzleAdapter(db, { provider: "sqlite", schema }),
 	...guestAuthGuards(db),
 	user: {
@@ -113,8 +149,8 @@ export const auth = betterAuth({
 			release: releaseVerificationSend,
 		},
 	),
-	socialProviders:
-		env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+	socialProviders: {
+		...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
 			? {
 					google: {
 						clientId: env.GOOGLE_CLIENT_ID,
@@ -124,7 +160,9 @@ export const auth = betterAuth({
 						}),
 					},
 				}
-			: undefined,
+			: {}),
+		...(appleProvider ? { apple: appleProvider } : {}),
+	},
 	account: {
 		// Nothing reads provider tokens; encrypt them at rest anyway.
 		encryptOAuthTokens: true,
@@ -183,6 +221,9 @@ export const auth = betterAuth({
 		},
 	},
 	plugins: [
+		// The native app has no browser cookie jar: it keeps the session cookie
+		// itself and gets it back from Google sign-in through its deep link.
+		expo(),
 		guestAuthPlugin(
 			db,
 			sendEmail,
