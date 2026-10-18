@@ -10,7 +10,7 @@ import { Button } from "#/components/ui/button";
 import { useClientUser } from "#/lib/session";
 
 /** Bump whenever either document's wording changes. */
-export const LEGAL_UPDATED = "26 September 2026";
+export const LEGAL_UPDATED = "18 October 2026";
 
 export const SOURCE_URL = "https://github.com/macintushar/eventual";
 

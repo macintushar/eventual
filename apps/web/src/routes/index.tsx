@@ -125,6 +125,7 @@ export const Route = createFileRoute("/")({
 							name: "Eventual",
 							codeRepository: SOURCE_URL,
 							programmingLanguage: "TypeScript",
+							license: "https://www.gnu.org/licenses/agpl-3.0.html",
 							targetProduct: { "@id": `${SITE_URL}/#app` },
 						},
 					],

@@ -12,6 +12,10 @@ Eventual is one backend with several ways in:
 
 The server is a TanStack Start app on Better Auth organizations, Drizzle ORM and libSQL/Turso.
 
+## Licence
+
+Eventual is licensed under the [GNU Affero General Public License v3.0](LICENSE). You can use, modify and self-host it, including commercially, but if you run a modified version as a service, you must offer its users the source of your version under the same licence.
+
 ## Repository layout
 
 A Bun workspace driven by Turborepo:
