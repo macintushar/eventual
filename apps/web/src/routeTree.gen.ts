@@ -22,6 +22,7 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as ApiSplatRouteImport } from './routes/api/$'
@@ -29,13 +30,17 @@ import { Route as ApiDocsRouteImport } from './routes/api/docs'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppActivityRouteImport } from './routes/app/activity'
 import { Route as AppSettingsRouteRouteImport } from './routes/app/settings/route'
+import { Route as CompareSplitwiseRouteImport } from './routes/compare/splitwise'
 import { Route as HelpIndexRouteImport } from './routes/help/index'
 import { Route as HelpSlugRouteImport } from './routes/help/$slug'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite/$invitationId'
+import { Route as SplitExpensesIndexRouteImport } from './routes/split-expenses/index'
+import { Route as SplitExpensesCurrencyRouteImport } from './routes/split-expenses/$currency'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AppSettingsIndexRouteImport } from './routes/app/settings/index'
 import { Route as AppSettingsApiKeysRouteImport } from './routes/app/settings/api-keys'
 import { Route as AppSettingsProfileRouteImport } from './routes/app/settings/profile'
+import { Route as DocsMcpClientRouteImport } from './routes/docs_.mcp.$client'
 import { Route as AppGroupsGroupIdIndexRouteImport } from './routes/app/groups/$groupId/index'
 import { Route as AppGroupsGroupIdExpensesExpenseIdRouteImport } from './routes/app/groups/$groupId/expenses/$expenseId'
 
@@ -104,6 +109,11 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -139,6 +149,11 @@ const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const CompareSplitwiseRoute = CompareSplitwiseRouteImport.update({
+  id: '/compare/splitwise',
+  path: '/compare/splitwise',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HelpIndexRoute = HelpIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -152,6 +167,16 @@ const HelpSlugRoute = HelpSlugRouteImport.update({
 const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
   id: '/invite/$invitationId',
   path: '/invite/$invitationId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SplitExpensesIndexRoute = SplitExpensesIndexRouteImport.update({
+  id: '/split-expenses/',
+  path: '/split-expenses/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SplitExpensesCurrencyRoute = SplitExpensesCurrencyRouteImport.update({
+  id: '/split-expenses/$currency',
+  path: '/split-expenses/$currency',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -173,6 +198,11 @@ const AppSettingsProfileRoute = AppSettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
   getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const DocsMcpClientRoute = DocsMcpClientRouteImport.update({
+  id: '/docs_/mcp/$client',
+  path: '/docs/mcp/$client',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppGroupsGroupIdIndexRoute = AppGroupsGroupIdIndexRouteImport.update({
   id: '/groups/$groupId/',
@@ -200,19 +230,24 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/verify-email': typeof VerifyEmailRoute
   '/app/settings': typeof AppSettingsRouteRouteWithChildren
   '/api/$': typeof ApiSplatRoute
   '/api/docs': typeof ApiDocsRoute
   '/app/activity': typeof AppActivityRoute
+  '/compare/splitwise': typeof CompareSplitwiseRoute
   '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/split-expenses/$currency': typeof SplitExpensesCurrencyRoute
   '/app/': typeof AppIndexRoute
   '/help/': typeof HelpIndexRoute
+  '/split-expenses/': typeof SplitExpensesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
+  '/docs/mcp/$client': typeof DocsMcpClientRoute
   '/app/settings/': typeof AppSettingsIndexRoute
   '/app/groups/$groupId/': typeof AppGroupsGroupIdIndexRoute
   '/app/groups/$groupId/expenses/$expenseId': typeof AppGroupsGroupIdExpensesExpenseIdRoute
@@ -229,18 +264,23 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/verify-email': typeof VerifyEmailRoute
   '/api/$': typeof ApiSplatRoute
   '/api/docs': typeof ApiDocsRoute
   '/app/activity': typeof AppActivityRoute
+  '/compare/splitwise': typeof CompareSplitwiseRoute
   '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/split-expenses/$currency': typeof SplitExpensesCurrencyRoute
   '/app': typeof AppIndexRoute
   '/help': typeof HelpIndexRoute
+  '/split-expenses': typeof SplitExpensesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
+  '/docs/mcp/$client': typeof DocsMcpClientRoute
   '/app/settings': typeof AppSettingsIndexRoute
   '/app/groups/$groupId': typeof AppGroupsGroupIdIndexRoute
   '/app/groups/$groupId/expenses/$expenseId': typeof AppGroupsGroupIdExpensesExpenseIdRoute
@@ -260,19 +300,24 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/verify-email': typeof VerifyEmailRoute
   '/app/settings': typeof AppSettingsRouteRouteWithChildren
   '/api/$': typeof ApiSplatRoute
   '/api/docs': typeof ApiDocsRoute
   '/app/activity': typeof AppActivityRoute
+  '/compare/splitwise': typeof CompareSplitwiseRoute
   '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/split-expenses/$currency': typeof SplitExpensesCurrencyRoute
   '/app/': typeof AppIndexRoute
   '/help/': typeof HelpIndexRoute
+  '/split-expenses/': typeof SplitExpensesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
+  '/docs_/mcp/$client': typeof DocsMcpClientRoute
   '/app/settings/': typeof AppSettingsIndexRoute
   '/app/groups/$groupId/': typeof AppGroupsGroupIdIndexRoute
   '/app/groups/$groupId/expenses/$expenseId': typeof AppGroupsGroupIdExpensesExpenseIdRoute
@@ -293,19 +338,24 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/reset-password'
     | '/signup'
+    | '/sitemap.xml'
     | '/terms'
     | '/verify-email'
     | '/app/settings'
     | '/api/$'
     | '/api/docs'
     | '/app/activity'
+    | '/compare/splitwise'
     | '/help/$slug'
     | '/invite/$invitationId'
+    | '/split-expenses/$currency'
     | '/app/'
     | '/help/'
+    | '/split-expenses/'
     | '/api/auth/$'
     | '/app/settings/api-keys'
     | '/app/settings/profile'
+    | '/docs/mcp/$client'
     | '/app/settings/'
     | '/app/groups/$groupId/'
     | '/app/groups/$groupId/expenses/$expenseId'
@@ -322,18 +372,23 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/reset-password'
     | '/signup'
+    | '/sitemap.xml'
     | '/terms'
     | '/verify-email'
     | '/api/$'
     | '/api/docs'
     | '/app/activity'
+    | '/compare/splitwise'
     | '/help/$slug'
     | '/invite/$invitationId'
+    | '/split-expenses/$currency'
     | '/app'
     | '/help'
+    | '/split-expenses'
     | '/api/auth/$'
     | '/app/settings/api-keys'
     | '/app/settings/profile'
+    | '/docs/mcp/$client'
     | '/app/settings'
     | '/app/groups/$groupId'
     | '/app/groups/$groupId/expenses/$expenseId'
@@ -352,19 +407,24 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/reset-password'
     | '/signup'
+    | '/sitemap.xml'
     | '/terms'
     | '/verify-email'
     | '/app/settings'
     | '/api/$'
     | '/api/docs'
     | '/app/activity'
+    | '/compare/splitwise'
     | '/help/$slug'
     | '/invite/$invitationId'
+    | '/split-expenses/$currency'
     | '/app/'
     | '/help/'
+    | '/split-expenses/'
     | '/api/auth/$'
     | '/app/settings/api-keys'
     | '/app/settings/profile'
+    | '/docs_/mcp/$client'
     | '/app/settings/'
     | '/app/groups/$groupId/'
     | '/app/groups/$groupId/expenses/$expenseId'
@@ -384,12 +444,17 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ApiSplatRoute: typeof ApiSplatRoute
   ApiDocsRoute: typeof ApiDocsRoute
+  CompareSplitwiseRoute: typeof CompareSplitwiseRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
+  SplitExpensesCurrencyRoute: typeof SplitExpensesCurrencyRoute
+  SplitExpensesIndexRoute: typeof SplitExpensesIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  DocsMcpClientRoute: typeof DocsMcpClientRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -485,6 +550,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
@@ -534,6 +606,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/compare/splitwise': {
+      id: '/compare/splitwise'
+      path: '/compare/splitwise'
+      fullPath: '/compare/splitwise'
+      preLoaderRoute: typeof CompareSplitwiseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/help/': {
       id: '/help/'
       path: '/'
@@ -553,6 +632,20 @@ declare module '@tanstack/react-router' {
       path: '/invite/$invitationId'
       fullPath: '/invite/$invitationId'
       preLoaderRoute: typeof InviteInvitationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/split-expenses/': {
+      id: '/split-expenses/'
+      path: '/split-expenses'
+      fullPath: '/split-expenses/'
+      preLoaderRoute: typeof SplitExpensesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/split-expenses/$currency': {
+      id: '/split-expenses/$currency'
+      path: '/split-expenses/$currency'
+      fullPath: '/split-expenses/$currency'
+      preLoaderRoute: typeof SplitExpensesCurrencyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -582,6 +675,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/settings/profile'
       preLoaderRoute: typeof AppSettingsProfileRouteImport
       parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/docs_/mcp/$client': {
+      id: '/docs_/mcp/$client'
+      path: '/docs/mcp/$client'
+      fullPath: '/docs/mcp/$client'
+      preLoaderRoute: typeof DocsMcpClientRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/app/groups/$groupId/': {
       id: '/app/groups/$groupId/'
@@ -660,12 +760,17 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ApiSplatRoute: ApiSplatRoute,
   ApiDocsRoute: ApiDocsRoute,
+  CompareSplitwiseRoute: CompareSplitwiseRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
+  SplitExpensesCurrencyRoute: SplitExpensesCurrencyRoute,
+  SplitExpensesIndexRoute: SplitExpensesIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  DocsMcpClientRoute: DocsMcpClientRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

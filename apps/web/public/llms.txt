@@ -29,7 +29,7 @@ Key facts:
 
 - [Integrations](https://eventual.macintushar.xyz/docs): the mobile app, Apple Shortcut, MCP setup for Claude, ChatGPT, Codex, Claude Code, Cursor, OpenCode, Hermes and OpenClaw, the TypeScript SDK and the REST API
 - MCP server: `https://eventual.macintushar.xyz/mcp` (Streamable HTTP). Authenticate with `x-api-key: <your-api-key>` or `Authorization: Bearer <your-api-key>`, using an API key created at https://eventual.macintushar.xyz/app/settings/api-keys
-- MCP tools: `listGroups` (your groups and balance in each), `listExpenses` (recent expenses in a group), `createExpense` (log an expense with any split method), `getBalances` (who owes whom, with simplified transfers)
+- MCP tools: `listGroups` (your groups and balance in each), `listExpenses` (recent expenses in a group), `createExpense` (log an expense with any split method), `getBalances` (who owes whom, with simplified transfers), `listExpensePage` (older expenses a page at a time, with filters), `listSettlementPage` (payment history a page at a time)
 - REST API: `/api/v1`, same API keys. [OpenAPI 3.1 spec](https://eventual.macintushar.xyz/api/openapi.json)
 - TypeScript SDK: `@eventual/sdk` (typed fetch client for browsers, Node, Bun and React Native) and `@eventual/schemas` (Zod schemas for every request and response). In the repo under `packages/`; not published to npm. https://github.com/macintushar/eventual/tree/main/packages/sdk
 

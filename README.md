@@ -226,7 +226,7 @@ Status mapping: `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `VALIDA
 
 ## MCP
 
-`POST /mcp` exposes `listGroups`, `listExpenses`, `createExpense`, and `getBalances`. It uses the same Better Auth cookie or API key and service layer as REST. Each HTTP request gets an isolated stateless MCP transport. Setup instructions for each client (Claude Code, the Claude app, Cursor, OpenCode, Hermes, OpenClaw) are at `/docs`.
+`POST /mcp` exposes `listGroups`, `listExpenses`, `listExpensePage`, `listSettlementPage`, `createExpense`, and `getBalances`. It uses the same Better Auth cookie or API key and service layer as REST. Each HTTP request gets an isolated stateless MCP transport. Setup instructions for each client (Claude Code, the Claude app, Cursor, OpenCode, Hermes, OpenClaw) are at `/docs`.
 
 ## Observability
 
