@@ -243,12 +243,6 @@ const categories: FaqCategory[] = [
 				answer:
 					"Shares are exact to the currency's smallest unit and always add up to the total. ₹1,000 split three ways is ₹333.34, ₹333.33 and ₹333.33. Yen, won and dong have no decimals, so they split in whole units; the Kuwaiti dinar splits to a thousandth. Leftover units go one at a time to whoever was rounded down most.",
 			},
-			{
-				id: "digit-grouping",
-				question: "Why do amounts use Indian digit grouping?",
-				answer:
-					"Eventual groups digits the Indian way in every currency, so a large amount reads 3,33,334 rather than 333,334. The amount itself is the same either way.",
-			},
 		],
 	},
 	{

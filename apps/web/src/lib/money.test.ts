@@ -17,6 +17,13 @@ test("every supported currency has an explicit symbol used in formatting", () =>
 	assert.equal(currencySymbol("GBP"), "£");
 });
 
+test("amounts group digits in threes in every currency, rupees included", () => {
+	assert.equal(formatMinor(12_345_670, "INR"), "₹123,456.70");
+	assert.equal(formatMinor(-1_000_000_000, "INR"), "-₹10,000,000.00");
+	assert.equal(formatMinor(333_334, "VND"), "₫333,334");
+	assert.equal(formatMinor(1_234_567, "KWD"), "د.ك\u00A01,234.567");
+});
+
 test("money respects zero, two and three decimal currencies without rounding input", () => {
 	assert.equal(toMinor("200.01", "USD"), 20001);
 	assert.equal(toMinor("200", "JPY"), 200);
