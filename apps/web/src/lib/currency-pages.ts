@@ -22,6 +22,8 @@ export type CurrencyPage = {
 	title: string;
 	description: string;
 	kicker: string;
+	/** "Indian rupees", for "How a bill splits in Indian rupees". */
+	plural: string;
 	lede: string;
 	examples: CurrencyExample[];
 	points: { title: string; text: string }[];
@@ -39,6 +41,7 @@ export const CURRENCY_PAGES: CurrencyPage[] = [
 		description:
 			"Split rent, trips and dinners in Indian rupees. Eventual rounds to the paisa so shares always add up, shows amounts in lakh grouping, and hands off to UPI when you settle.",
 		kicker: "Indian rupee · ₹",
+		plural: "Indian rupees",
 		lede: "Flat rent, a Goa weekend, the chai-and-samosa run. Log it in rupees and Eventual works out who pays whom, down to the paisa, with no rupee lost to rounding.",
 		examples: [
 			{
@@ -94,6 +97,7 @@ export const CURRENCY_PAGES: CurrencyPage[] = [
 		description:
 			"Share a flat in Dubai or plan a trip to the UAE? Eventual splits expenses in dirhams to the fils, keeps them apart from rupees, and tells everyone who pays whom.",
 		kicker: "UAE dirham · AED",
+		plural: "UAE dirhams",
 		lede: "A shared flat in Dubai, or a long weekend in Abu Dhabi with friends flying in from India. Log costs in dirhams, keep the rupee spends separate, and settle each currency on its own.",
 		examples: [
 			{
@@ -144,6 +148,7 @@ export const CURRENCY_PAGES: CurrencyPage[] = [
 		description:
 			"Splitting a Phuket villa or a Bangkok food crawl? Eventual splits expenses in Thai baht evenly, by shares or by percentage, and shows who owes whom when you're back.",
 		kicker: "Thai baht · ฿",
+		plural: "Thai baht",
 		lede: "The villa in Phuket, the long-tail boat, the night-market crawl in Bangkok. Log each one in baht as it happens and settle up once when you're home.",
 		examples: [
 			{
@@ -194,6 +199,7 @@ export const CURRENCY_PAGES: CurrencyPage[] = [
 		description:
 			"Splitting a trip to Hanoi, Da Nang or Ho Chi Minh City? Eventual splits expenses in Vietnamese dong, a currency with no decimals, so shares are always whole đồng.",
 		kicker: "Vietnamese dong · ₫",
+		plural: "Vietnamese dong",
 		lede: "Dong prices run to six and seven digits, and there's no smaller unit. Eventual splits in whole đồng, gives the odd đồng to one person, and keeps the totals exact.",
 		examples: [
 			{

@@ -3,10 +3,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	Activity,
 	ArrowRight,
+	HandCoins,
+	Lock,
 	type LucideIcon,
 	Mail,
 	Receipt,
 	Rocket,
+	Smartphone,
+	UserPlus,
 	UserRound,
 	Users,
 } from "lucide-react";
@@ -28,7 +32,9 @@ import {
 	HELP_ARTICLES,
 	HELP_UPDATED,
 	type HelpArticle,
+	type HelpShotStep,
 	helpArticle,
+	shotSteps,
 } from "#/lib/help";
 import { OG_IMAGES, ogImageMeta } from "#/lib/og";
 import { siteQueryOptions } from "#/lib/queries";
@@ -89,7 +95,7 @@ type FaqItem = {
 	id: string;
 	question: string;
 	answer: string;
-	more?: { slug: "create-a-group" | "add-an-expense" };
+	more?: { slug: HelpArticle["slug"] };
 	shots?: { src: string; alt: string; caption: string }[];
 };
 
@@ -104,6 +110,10 @@ type FaqCategory = {
 const guideIcons: Record<HelpArticle["slug"], LucideIcon> = {
 	"create-a-group": Users,
 	"add-an-expense": Receipt,
+	"invite-people": UserPlus,
+	"settle-up": HandCoins,
+	"locked-expenses": Lock,
+	"use-the-mobile-app": Smartphone,
 };
 
 const categories: FaqCategory[] = [
@@ -172,6 +182,7 @@ const categories: FaqCategory[] = [
 				question: "How do I invite people?",
 				answer:
 					"Invite by email while creating the group, or later with Add person on the Members tab. They get a link. Someone new appears in the group straight away, so you can add them to expenses; when they accept, their account takes over. Someone who already has an account joins once they accept. You can also add people without an email and keep track of their share yourself.",
+				more: { slug: "invite-people" },
 			},
 			{
 				id: "roles",
@@ -197,12 +208,14 @@ const categories: FaqCategory[] = [
 				question: "What does a locked expense mean?",
 				answer:
 					"Once someone marks their share paid, the expense locks. The settled amount cannot quietly change afterwards. Unmark every paid share before you can edit or delete it.",
+				more: { slug: "locked-expenses" },
 			},
 			{
 				id: "settle",
 				question: "How do I settle up?",
 				answer:
 					"The Balances tab shows who owes whom, simplified into as few transfers as possible. Use Record payment there when money actually moves — any member can pay any other any amount, and paying more than owed just flips who owes whom. Eventual keeps each currency separate.",
+				more: { slug: "settle-up" },
 			},
 		],
 	},
@@ -221,7 +234,8 @@ const categories: FaqCategory[] = [
 				id: "mobile-app",
 				question: "Is there an iPhone or Android app?",
 				answer:
-					"Yes, a native app for both, with the same groups, expenses and settling up as the web. It isn't in the App Store or Play Store yet, so for now you build it from the open-source repo. Integration docs has the steps. It signs in to hosted Eventual by default, or to your own server.",
+					"Yes, a native app for both, with the same groups, expenses and settling up as the web. It isn't in the App Store or Play Store yet, so for now you build it from the open-source repo. It signs in to hosted Eventual by default, or to your own server.",
+				more: { slug: "use-the-mobile-app" },
 			},
 			{
 				id: "shortcut",
@@ -242,15 +256,13 @@ const categories: FaqCategory[] = [
 function faqGallery(
 	item: FaqItem,
 	shot: NonNullable<FaqItem["shots"]>[number],
-): { steps: HelpArticle["steps"]; index: number } {
+): { steps: HelpShotStep[]; index: number } {
 	if (item.more) {
 		const article = helpArticle(item.more.slug);
 		if (article) {
-			const index = article.steps.findIndex((step) => step.image === shot.src);
-			return {
-				steps: article.steps,
-				index: index < 0 ? 0 : index,
-			};
+			const steps = shotSteps(article);
+			const index = steps.findIndex((step) => step.image === shot.src);
+			return { steps, index: index < 0 ? 0 : index };
 		}
 	}
 	return {

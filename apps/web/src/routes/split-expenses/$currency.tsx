@@ -1,4 +1,3 @@
-import { currencies } from "@eventual/schemas/currencies";
 import { formatMinor } from "@eventual/schemas/money";
 import { computeShares } from "@eventual/schemas/split";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
@@ -130,7 +129,6 @@ function inputLabel(method: CurrencyExample["method"], input?: number) {
 function CurrencyPageView() {
 	const page = Route.useLoaderData();
 	const user = useClientUser();
-	const name = currencies.find((entry) => entry.code === page.code)?.name;
 	const siblings = CURRENCY_PAGES.filter((entry) => entry.slug !== page.slug);
 
 	return (
@@ -168,7 +166,7 @@ function CurrencyPageView() {
 
 			<section className="flex flex-col gap-4">
 				<h2 className="display-title text-2xl font-bold sm:text-3xl">
-					How a {name?.toLowerCase()} bill splits
+					How a bill splits in {page.plural}
 				</h2>
 				<div className="grid gap-3 sm:gap-4 md:grid-cols-2">
 					{page.examples.map((example) => (
