@@ -34,8 +34,6 @@ import { Route as CompareSplitwiseRouteImport } from './routes/compare/splitwise
 import { Route as HelpIndexRouteImport } from './routes/help/index'
 import { Route as HelpSlugRouteImport } from './routes/help/$slug'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite/$invitationId'
-import { Route as SplitExpensesIndexRouteImport } from './routes/split-expenses/index'
-import { Route as SplitExpensesCurrencyRouteImport } from './routes/split-expenses/$currency'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AppSettingsIndexRouteImport } from './routes/app/settings/index'
 import { Route as AppSettingsApiKeysRouteImport } from './routes/app/settings/api-keys'
@@ -169,16 +167,6 @@ const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
   path: '/invite/$invitationId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SplitExpensesIndexRoute = SplitExpensesIndexRouteImport.update({
-  id: '/split-expenses/',
-  path: '/split-expenses/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SplitExpensesCurrencyRoute = SplitExpensesCurrencyRouteImport.update({
-  id: '/split-expenses/$currency',
-  path: '/split-expenses/$currency',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -240,10 +228,8 @@ export interface FileRoutesByFullPath {
   '/compare/splitwise': typeof CompareSplitwiseRoute
   '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
-  '/split-expenses/$currency': typeof SplitExpensesCurrencyRoute
   '/app/': typeof AppIndexRoute
   '/help/': typeof HelpIndexRoute
-  '/split-expenses/': typeof SplitExpensesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
@@ -273,10 +259,8 @@ export interface FileRoutesByTo {
   '/compare/splitwise': typeof CompareSplitwiseRoute
   '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
-  '/split-expenses/$currency': typeof SplitExpensesCurrencyRoute
   '/app': typeof AppIndexRoute
   '/help': typeof HelpIndexRoute
-  '/split-expenses': typeof SplitExpensesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
@@ -310,10 +294,8 @@ export interface FileRoutesById {
   '/compare/splitwise': typeof CompareSplitwiseRoute
   '/help/$slug': typeof HelpSlugRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
-  '/split-expenses/$currency': typeof SplitExpensesCurrencyRoute
   '/app/': typeof AppIndexRoute
   '/help/': typeof HelpIndexRoute
-  '/split-expenses/': typeof SplitExpensesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
@@ -348,10 +330,8 @@ export interface FileRouteTypes {
     | '/compare/splitwise'
     | '/help/$slug'
     | '/invite/$invitationId'
-    | '/split-expenses/$currency'
     | '/app/'
     | '/help/'
-    | '/split-expenses/'
     | '/api/auth/$'
     | '/app/settings/api-keys'
     | '/app/settings/profile'
@@ -381,10 +361,8 @@ export interface FileRouteTypes {
     | '/compare/splitwise'
     | '/help/$slug'
     | '/invite/$invitationId'
-    | '/split-expenses/$currency'
     | '/app'
     | '/help'
-    | '/split-expenses'
     | '/api/auth/$'
     | '/app/settings/api-keys'
     | '/app/settings/profile'
@@ -417,10 +395,8 @@ export interface FileRouteTypes {
     | '/compare/splitwise'
     | '/help/$slug'
     | '/invite/$invitationId'
-    | '/split-expenses/$currency'
     | '/app/'
     | '/help/'
-    | '/split-expenses/'
     | '/api/auth/$'
     | '/app/settings/api-keys'
     | '/app/settings/profile'
@@ -451,8 +427,6 @@ export interface RootRouteChildren {
   ApiDocsRoute: typeof ApiDocsRoute
   CompareSplitwiseRoute: typeof CompareSplitwiseRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
-  SplitExpensesCurrencyRoute: typeof SplitExpensesCurrencyRoute
-  SplitExpensesIndexRoute: typeof SplitExpensesIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   DocsMcpClientRoute: typeof DocsMcpClientRoute
 }
@@ -634,20 +608,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/split-expenses/': {
-      id: '/split-expenses/'
-      path: '/split-expenses'
-      fullPath: '/split-expenses/'
-      preLoaderRoute: typeof SplitExpensesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/split-expenses/$currency': {
-      id: '/split-expenses/$currency'
-      path: '/split-expenses/$currency'
-      fullPath: '/split-expenses/$currency'
-      preLoaderRoute: typeof SplitExpensesCurrencyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -767,8 +727,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDocsRoute: ApiDocsRoute,
   CompareSplitwiseRoute: CompareSplitwiseRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
-  SplitExpensesCurrencyRoute: SplitExpensesCurrencyRoute,
-  SplitExpensesIndexRoute: SplitExpensesIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   DocsMcpClientRoute: DocsMcpClientRoute,
 }

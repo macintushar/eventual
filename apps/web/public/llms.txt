@@ -21,14 +21,13 @@ Key facts:
 
 ## Help
 
-- [Help center](https://eventual.macintushar.xyz/help): FAQ on groups, invites, roles, split methods, locked expenses, settling up, password reset, the mobile app and integrations
+- [Help center](https://eventual.macintushar.xyz/help): FAQ on groups, invites, roles, split methods, locked expenses, settling up, currencies and rounding, password reset, the mobile app and integrations
 - [How do I create a group?](https://eventual.macintushar.xyz/help/create-a-group): step-by-step guide with screenshots
 - [How do I add an expense?](https://eventual.macintushar.xyz/help/add-an-expense): step-by-step guide covering split methods
 - [How do I invite people to a group?](https://eventual.macintushar.xyz/help/invite-people): adding members, guests and invite links
 - [How do I settle up?](https://eventual.macintushar.xyz/help/settle-up): simplified debts, recording payments and UPI handoff
 - [Why is an expense locked?](https://eventual.macintushar.xyz/help/locked-expenses): how paid shares lock an expense
 - [How do I use the iPhone or Android app?](https://eventual.macintushar.xyz/help/use-the-mobile-app): building the native app and choosing a server
-- [Split expenses in 20 currencies](https://eventual.macintushar.xyz/split-expenses): how each currency rounds, with pages for INR, AED, THB and VND
 - [Eventual vs Splitwise](https://eventual.macintushar.xyz/compare/splitwise): a dated feature comparison
 
 ## Developers

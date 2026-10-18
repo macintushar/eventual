@@ -1,6 +1,5 @@
 // Relative imports only: vite.config.ts loads this file before the app's
 // path aliases exist.
-import { CURRENCY_PAGES } from "./currency-pages";
 import { HELP_ARTICLES, HELP_UPDATED } from "./help";
 import { MCP_CLIENT_INTROS } from "./mcp-clients";
 
@@ -26,11 +25,6 @@ export const PUBLIC_PAGES: PublicPage[] = [
 	...HELP_ARTICLES.map((article) => ({
 		path: `/help/${article.slug}`,
 		updated: HELP_UPDATED.iso,
-	})),
-	{ path: "/split-expenses", updated: MARKETING_UPDATED },
-	...CURRENCY_PAGES.map((page) => ({
-		path: `/split-expenses/${page.slug}`,
-		updated: MARKETING_UPDATED,
 	})),
 	{ path: "/compare/splitwise", updated: MARKETING_UPDATED },
 	{ path: "/privacy", updated: LEGAL_UPDATED_ISO },

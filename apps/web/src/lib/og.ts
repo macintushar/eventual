@@ -1,4 +1,3 @@
-import { CURRENCY_PAGES, type CurrencyPage } from "#/lib/currency-pages";
 import type { HelpArticle } from "#/lib/help";
 import { HELP_ARTICLES } from "#/lib/help";
 import { type McpClient, mcpClients } from "#/lib/mcp-clients";
@@ -38,11 +37,6 @@ export const OG_IMAGES = {
 		kicker: "Compare",
 		title: "Eventual vs Splitwise: free, open source, no daily limits.",
 	},
-	currencies: {
-		slug: "currencies",
-		kicker: "Currencies",
-		title: "Split group expenses in 20 currencies, never converted.",
-	},
 } satisfies Record<string, OgImage>;
 
 export function helpArticleOg(article: HelpArticle): OgImage {
@@ -61,16 +55,6 @@ export function mcpClientOg(client: Pick<McpClient, "id" | "name">): OgImage {
 	};
 }
 
-export function currencyPageOg(page: CurrencyPage): OgImage {
-	return {
-		slug: `currency-${page.slug}`,
-		// Codes, not symbols: the bundled fonts have no ₹ or ₫, and a missing
-		// glyph makes @vercel/og fetch a fallback font over the network.
-		kicker: `${page.kicker.split(" · ")[0]} · ${page.code}`,
-		title: `${page.title}.`,
-	};
-}
-
 /** Every image the generator renders. */
 export function allOgImages(): OgImage[] {
 	return [
@@ -78,7 +62,6 @@ export function allOgImages(): OgImage[] {
 		...HELP_ARTICLES.map(helpArticleOg),
 		// The URL only fills in config snippets; names and ids don't depend on it.
 		...mcpClients("").map(mcpClientOg),
-		...CURRENCY_PAGES.map(currencyPageOg),
 	];
 }
 
