@@ -32,6 +32,15 @@ export const Route = createFileRoute("/help/$slug")({
 				content: loaderData?.title ?? "Help · Eventual",
 			},
 			{
+				property: "og:description",
+				content: loaderData?.lede ?? "How to use Eventual.",
+			},
+			{
+				property: "og:url",
+				content: `${SITE_URL}/help/${loaderData?.slug ?? ""}`,
+			},
+			{ property: "og:type", content: "article" },
+			{
 				name: "twitter:card",
 				content: "summary",
 			},

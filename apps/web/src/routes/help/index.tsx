@@ -49,6 +49,11 @@ export const Route = createFileRoute("/help/")({
 				content: "Help center · Eventual",
 			},
 			{
+				property: "og:description",
+				content:
+					"Answers on creating groups, adding expenses, split methods, locked expenses, repayments, the mobile app and integrations in Eventual.",
+			},
+			{
 				name: "twitter:card",
 				content: "summary",
 			},
@@ -215,8 +220,14 @@ const categories: FaqCategory[] = [
 					"On the login screen, use Forgot your password? We email a one-hour link. After a reset, existing sessions are signed out.",
 			},
 			{
+				id: "mobile-app",
+				question: "Is there an iPhone or Android app?",
+				answer:
+					"Yes, a native app for both, with the same groups, expenses and settling up as the web. It isn't in the App Store or Play Store yet, so for now you build it from the open-source repo. Integration docs has the steps. It signs in to hosted Eventual by default, or to your own server.",
+			},
+			{
 				id: "shortcut",
-				question: "How do I log an expense from my iPhone?",
+				question: "How do I log an expense with Siri or the Action Button?",
 				answer:
 					"Install the Apple Shortcut from Integration docs, then press the Action Button or ask Siri and just type an amount — it splits using group member weights and you can fine-tune later in the app. It also reads bank SMS alerts: share the message to the shortcut, copy it before running, or set a Messages automation for your bank's sender to log them automatically.",
 			},

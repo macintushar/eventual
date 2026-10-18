@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Lock, Scale, Users } from "lucide-react";
+import { ArrowRight, Globe, Lock, Scale, Users } from "lucide-react";
 import { useEffect } from "react";
 
 import {
@@ -43,7 +43,7 @@ export const Route = createFileRoute("/")({
 			{
 				name: "description",
 				content:
-					"Log what everyone paid on trips, in flats and on nights out. Eventual splits it evenly or any way you like and tells each person exactly what they owe.",
+					"Log what everyone paid on trips, in flats and on nights out. Eventual splits it evenly or any way you like and tells each person exactly what they owe. On the web, iPhone and Android, with an API, SDK and MCP server.",
 			},
 			{
 				property: "og:title",
@@ -52,7 +52,7 @@ export const Route = createFileRoute("/")({
 			{
 				property: "og:description",
 				content:
-					"Log what everyone paid on trips, in flats and on nights out. Eventual splits it evenly or any way you like and tells each person exactly what they owe.",
+					"Log what everyone paid on trips, in flats and on nights out. Eventual splits it evenly or any way you like and tells each person exactly what they owe. On the web, iPhone and Android, with an API, SDK and MCP server.",
 			},
 			{
 				property: "og:type",
@@ -99,20 +99,33 @@ export const Route = createFileRoute("/")({
 							publisher: { "@id": `${SITE_URL}/#organization` },
 						},
 						{
-							"@type": "WebApplication",
+							"@type": "SoftwareApplication",
+							"@id": `${SITE_URL}/#app`,
 							name: "Eventual",
+							alternateName: "Eventual expense splitter",
+							disambiguatingDescription:
+								"Open-source app for splitting group expenses in Indian rupees and other currencies.",
 							description:
 								"Split group expenses in rupees. Log what everyone paid on trips, flats and nights out, split evenly or any way you like, and settle up exactly.",
 							url: SITE_URL,
 							applicationCategory: "FinanceApplication",
-							operatingSystem: "Web",
-							browserRequirements: "Requires JavaScript",
+							// The native app is built from source, not listed in a store,
+							// so there's deliberately no downloadUrl or MobileApplication.
+							operatingSystem: "Web, iOS, Android",
+							isAccessibleForFree: true,
 							publisher: { "@id": `${SITE_URL}/#organization` },
 							offers: {
 								"@type": "Offer",
 								price: "0",
 								priceCurrency: "INR",
 							},
+						},
+						{
+							"@type": "SoftwareSourceCode",
+							name: "Eventual",
+							codeRepository: SOURCE_URL,
+							programmingLanguage: "TypeScript",
+							targetProduct: { "@id": `${SITE_URL}/#app` },
 						},
 					],
 				}),
@@ -140,6 +153,44 @@ const features = [
 	},
 ];
 
+/**
+ * One account, three ways in. The native app isn't in the stores yet, so its
+ * card says so and points at the source instead of a store badge.
+ */
+const platforms: {
+	title: string;
+	kicker: string;
+	text: string;
+	link:
+		| { label: string; to: "/signup" | "/docs"; hash?: string }
+		| { label: string; href: string };
+	logos?: Brand[];
+}[] = [
+	{
+		kicker: "Web",
+		title: "Open it in any browser",
+		text: "The full app on your laptop or phone. Nothing to install, and it's where invites land.",
+		link: { label: "Start a group", to: "/signup" },
+	},
+	{
+		kicker: "iPhone & Android",
+		logos: ["apple", "android"],
+		title: "A native app in your pocket",
+		text: "Native tabs and sheets, UPI handoff when you settle up, and it won't lose the expense you're typing if the network drops. Not in the App Store or Play Store yet. Build it from source and point it at any Eventual server.",
+		link: {
+			label: "Build the app",
+			href: `${SOURCE_URL}/tree/main/apps/mobile`,
+		},
+	},
+	{
+		kicker: "Developers",
+		logos: ["typescript"],
+		title: "Build on the same API",
+		text: "A typed TypeScript SDK, a REST API with an OpenAPI 3.1 spec, and an MCP server. The web and mobile apps use the same endpoints.",
+		link: { label: "SDK and API docs", to: "/docs", hash: "sdk" },
+	},
+];
+
 const integrations: {
 	logos: Brand[];
 	title: string;
@@ -149,13 +200,13 @@ const integrations: {
 	{
 		logos: ["shortcuts"],
 		title: "Log it before you forget",
-		text: "Run the Apple Shortcut from your Action Button, Watch or Siri and just type an amount — or let it read a bank SMS. It splits evenly, and you can fine-tune it later.",
+		text: "Run the Apple Shortcut from your Action Button, Watch or Siri and type an amount, or hand it a bank SMS. It splits evenly, and you can fine-tune it later.",
 		hash: "shortcut",
 	},
 	{
 		logos: assistantBrands,
 		title: "Or just tell your AI assistant",
-		text: "“Mac paid ₹3,600 for dinner, split it evenly.” Works with Claude, Cursor, OpenCode, Hermes and OpenClaw.",
+		text: "“Mac paid ₹3,600 for dinner, split it evenly.” Works with Claude, ChatGPT, Cursor and any other app that supports MCP.",
 		hash: "mcp",
 	},
 ];
@@ -209,7 +260,8 @@ function Home() {
 						</Button>
 					</div>
 					<p className="mt-4 text-sm text-muted-foreground">
-						Split evenly, by exact amounts, by shares or by percent.
+						Split evenly, by exact amounts, by shares or by percent. On the web,
+						iPhone and Android.
 					</p>
 				</div>
 
@@ -263,6 +315,65 @@ function Home() {
 						</CardHeader>
 					</Card>
 				))}
+			</section>
+
+			<section className="flex flex-col gap-4 pb-12 sm:gap-6 sm:pb-16">
+				<div className="max-w-2xl">
+					<p className="island-kicker">One account, everywhere</p>
+					<h2 className="display-title mt-3 text-[1.75rem] leading-tight font-bold sm:text-3xl">
+						Web, iPhone, Android, or your own code.
+					</h2>
+					<p className="mt-2 text-muted-foreground">
+						Every app talks to the same API, so an expense logged on one shows
+						up on all the others.
+					</p>
+				</div>
+				<div className="grid gap-3 sm:gap-4 md:grid-cols-3">
+					{platforms.map(({ kicker, logos, title, text, link }) => (
+						<Card key={title} className="feature-card h-full">
+							<CardHeader className="flex h-full flex-col">
+								<div className="mb-2 flex items-center gap-2">
+									{logos ? (
+										logos.map((brand) => (
+											<div
+												key={brand}
+												className="grid size-10 place-items-center rounded-xl border bg-background/70"
+											>
+												<BrandLogo brand={brand} className="size-5" />
+											</div>
+										))
+									) : (
+										<div className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
+											<Globe className="size-5" aria-hidden="true" />
+										</div>
+									)}
+								</div>
+								<p className="text-xs font-medium text-muted-foreground">
+									{kicker}
+								</p>
+								<h3 className="leading-none font-semibold">{title}</h3>
+								<CardDescription className="flex-1">{text}</CardDescription>
+								<Button
+									variant="link"
+									className="mt-2 h-auto w-fit px-0"
+									asChild
+								>
+									{"to" in link ? (
+										<Link to={link.to} hash={link.hash}>
+											{link.label}
+											<ArrowRight data-icon="inline-end" />
+										</Link>
+									) : (
+										<a href={link.href} target="_blank" rel="noreferrer">
+											{link.label}
+											<ArrowRight data-icon="inline-end" />
+										</a>
+									)}
+								</Button>
+							</CardHeader>
+						</Card>
+					))}
+				</div>
 			</section>
 
 			<section className="grid gap-3 pb-12 sm:gap-4 sm:pb-16 md:grid-cols-2">

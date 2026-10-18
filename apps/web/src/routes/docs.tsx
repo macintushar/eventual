@@ -10,12 +10,15 @@ import {
 	KeyRound,
 	MessageSquareText,
 	MousePointerClick,
+	Package,
+	Smartphone,
 	Zap,
 } from "lucide-react";
 import { useState } from "react";
 
 import { type Brand, BrandLogo } from "#/components/brand-logo";
 import { CodeBlock } from "#/components/code-block";
+import { SOURCE_URL } from "#/components/legal-page";
 import { OptionCombobox } from "#/components/option-combobox";
 import {
 	PublicFooter,
@@ -41,11 +44,14 @@ export const Route = createFileRoute("/docs")({
 		context.queryClient.ensureQueryData(siteQueryOptions),
 	head: () => ({
 		meta: [
-			{ title: "Integrations · Eventual" },
+			{
+				title:
+					"Integrations: mobile app, Shortcut, MCP, SDK and API · Eventual",
+			},
 			{
 				name: "description",
 				content:
-					"Log expenses from your iPhone with the Apple Shortcut, or connect Eventual to Claude, Cursor and other AI assistants over MCP.",
+					"Use Eventual on iPhone and Android, log expenses with the Apple Shortcut, connect Claude, Cursor and other AI assistants over MCP, or build on the typed SDK and REST API.",
 			},
 			{
 				property: "og:title",
@@ -54,7 +60,7 @@ export const Route = createFileRoute("/docs")({
 			{
 				property: "og:description",
 				content:
-					"Log expenses from your iPhone with the Apple Shortcut, or connect Eventual to Claude, Cursor and other AI assistants over MCP.",
+					"Use Eventual on iPhone and Android, log expenses with the Apple Shortcut, connect Claude, Cursor and other AI assistants over MCP, or build on the typed SDK and REST API.",
 			},
 			{
 				property: "og:type",
@@ -327,10 +333,56 @@ function DocsPage() {
 					Log it where you already are.
 				</h1>
 				<p className="mt-4 text-base text-muted-foreground sm:text-lg">
-					Log an expense from your iPhone, or ask an AI assistant to do it. Each
-					integration signs in with an API key from your account.
+					Use the iPhone and Android app, log an expense with a Shortcut, ask an
+					AI assistant, or write your own code. The Shortcut, assistants and
+					your own code each sign in with an API key from your account.
 				</p>
 			</section>
+
+			<Card id="mobile" className="island-shell scroll-mt-8 rounded-3xl">
+				<CardHeader>
+					<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+						<Smartphone className="size-5 text-primary" aria-hidden="true" />
+						<h2 className="display-title text-2xl leading-none font-bold">
+							iPhone and Android app
+						</h2>
+						<Badge variant="secondary">Build from source</Badge>
+					</div>
+					<CardDescription>
+						The native app covers everything on the web: groups, expenses,
+						settling up with a UPI handoff, invites, recurring expenses and
+						notifications. You sign in with your normal account, so it doesn't
+						need an API key.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="flex flex-col gap-4">
+					<p className="text-sm text-muted-foreground">
+						It isn't in the App Store or Play Store yet. Build it on your own
+						machine with Xcode or Android Studio. It opens on hosted Eventual,
+						and you can switch to this server with Change on the sign-in screen.
+						Android builds are less tested than iOS so far.
+					</p>
+					<CodeBlock
+						label="Build and run (from the repository root)"
+						code={[
+							`git clone ${SOURCE_URL}.git && cd eventual`,
+							"bun install",
+							"bun run --cwd apps/mobile ios      # or: android",
+						].join("\n")}
+					/>
+					<CodeBlock label="Server address" code={origin} />
+					<Button variant="link" size="sm" className="w-fit px-0" asChild>
+						<a
+							href={`${SOURCE_URL}/tree/main/apps/mobile`}
+							target="_blank"
+							rel="noreferrer"
+						>
+							Mobile app README
+							<ExternalLink data-icon="inline-end" />
+						</a>
+					</Button>
+				</CardContent>
+			</Card>
 
 			<Alert>
 				<KeyRound />
@@ -589,6 +641,55 @@ function DocsPage() {
 							))}
 						</ul>
 					</div>
+				</CardContent>
+			</Card>
+
+			<Card id="sdk" className="island-shell scroll-mt-8 rounded-3xl">
+				<CardHeader>
+					<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+						<Package className="size-5 text-primary" aria-hidden="true" />
+						<h2 className="display-title text-2xl leading-none font-bold">
+							TypeScript SDK
+						</h2>
+						<Badge variant="secondary">@eventual/sdk</Badge>
+					</div>
+					<CardDescription>
+						The web and mobile apps both call the API through a typed{" "}
+						<code>fetch</code> client. You can use it too. Every endpoint name,
+						input and output is checked against shared Zod schemas, so a typo
+						fails at compile time instead of at runtime. It runs in browsers,
+						Node, Bun and React Native.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="flex flex-col gap-4">
+					<CodeBlock
+						label="TypeScript"
+						code={[
+							'import { createEventualClient } from "@eventual/sdk";',
+							"",
+							"const eventual = createEventualClient({",
+							`  baseUrl: "${origin}",`,
+							"  apiKey: process.env.EVENTUAL_API_KEY,",
+							"});",
+							"",
+							'const groups = await eventual.call("group.list");',
+						].join("\n")}
+					/>
+					<p className="text-sm text-muted-foreground">
+						The SDK isn't on npm yet. It lives in <code>packages/sdk</code>{" "}
+						alongside <code>@eventual/schemas</code>. Add it to your project
+						from the repository.
+					</p>
+					<Button variant="link" size="sm" className="w-fit px-0" asChild>
+						<a
+							href={`${SOURCE_URL}/tree/main/packages/sdk`}
+							target="_blank"
+							rel="noreferrer"
+						>
+							SDK source
+							<ExternalLink data-icon="inline-end" />
+						</a>
+					</Button>
 				</CardContent>
 			</Card>
 
