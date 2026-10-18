@@ -224,6 +224,6 @@ export const MCP_CLIENT_INTROS: Record<string, string> = {
 export const MCP_PROMPTS = [
 	"Mac paid ₹3,600 for dinner in Goa weekend, split it evenly.",
 	"Who owes me money, and how much?",
-	"Log ₹1,200 for groceries in Flat 4B, paid by me, 2:1:1.",
-	"What did we spend on the Goa trip?",
+	"Log €84 for groceries in Flat 4B, paid by me, 2:1:1.",
+	"What did we spend in baht on the Bangkok trip?",
 ];

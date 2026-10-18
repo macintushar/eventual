@@ -1,7 +1,7 @@
 {
 	"name": "Eventual",
 	"short_name": "Eventual",
-	"description": "Split group expenses in rupees and 19 other currencies, down to the last paisa.",
+	"description": "Split group expenses in 20 currencies, down to the last cent.",
 	"start_url": "/app",
 	"display": "standalone",
 	"background_color": "#f3f6f9",

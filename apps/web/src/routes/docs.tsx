@@ -2,11 +2,11 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	ArrowRight,
+	Banknote,
 	Bot,
 	Braces,
 	Download,
 	ExternalLink,
-	IndianRupee,
 	KeyRound,
 	MessageSquareText,
 	MousePointerClick,
@@ -90,7 +90,7 @@ export const Route = createFileRoute("/docs")({
 
 const shortcutSteps = [
 	{
-		icon: IndianRupee,
+		icon: Banknote,
 		title: "Type the amount",
 		text: "That's the whole ask. Your group is remembered, the payer is you.",
 	},

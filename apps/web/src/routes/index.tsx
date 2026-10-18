@@ -39,21 +39,23 @@ export const Route = createFileRoute("/")({
 	head: () => ({
 		meta: [
 			{
-				title: "Eventual · Split group expenses in rupees, to the last paisa",
+				title:
+					"Eventual · Split group expenses in any currency, to the last cent",
 			},
 			{
 				name: "description",
 				content:
-					"Log what everyone paid on trips, in flats and on nights out. Eventual splits it evenly or any way you like and tells each person exactly what they owe. On the web, iPhone and Android, with an API, SDK and MCP server.",
+					"Log what everyone paid on trips, in flats and on nights out. Eventual splits it in any of 20 currencies and tells each person exactly what they owe. On the web, iPhone and Android, with an API, SDK and MCP server.",
 			},
 			{
 				property: "og:title",
-				content: "Eventual · Split group expenses in rupees, to the last paisa",
+				content:
+					"Eventual · Split group expenses in any currency, to the last cent",
 			},
 			{
 				property: "og:description",
 				content:
-					"Log what everyone paid on trips, in flats and on nights out. Eventual splits it evenly or any way you like and tells each person exactly what they owe. On the web, iPhone and Android, with an API, SDK and MCP server.",
+					"Log what everyone paid on trips, in flats and on nights out. Eventual splits it in any of 20 currencies and tells each person exactly what they owe. On the web, iPhone and Android, with an API, SDK and MCP server.",
 			},
 			{
 				property: "og:type",
@@ -102,9 +104,9 @@ export const Route = createFileRoute("/")({
 							name: "Eventual",
 							alternateName: "Eventual expense splitter",
 							disambiguatingDescription:
-								"Open-source app for splitting group expenses in Indian rupees and other currencies.",
+								"Open-source app for splitting group expenses in 20 currencies, on the web, iOS and Android.",
 							description:
-								"Split group expenses in rupees. Log what everyone paid on trips, flats and nights out, split evenly or any way you like, and settle up exactly.",
+								"Split group expenses in any of 20 currencies. Log what everyone paid on trips, in flats and on nights out, split evenly or any way you like, and settle up exactly.",
 							url: SITE_URL,
 							applicationCategory: "FinanceApplication",
 							// The native app is built from source, not listed in a store,
@@ -148,7 +150,7 @@ const features = [
 	{
 		icon: Scale,
 		title: "Shares that add up",
-		text: "₹1,000 split three ways is ₹333.34, ₹333.33 and ₹333.33. Never ₹999.99, never an argument.",
+		text: "1,000 split three ways is 333.34, 333.33 and 333.33, in rupees, dollars or dirhams. Never 999.99, never an argument.",
 	},
 ];
 
@@ -238,14 +240,14 @@ function Home() {
 			<section className="grid items-center gap-8 py-8 sm:gap-12 sm:py-12 lg:grid-cols-[1.1fr_.9fr] lg:py-20">
 				<div className="rise-in">
 					<p className="island-kicker">
-						Split expenses for trips, flats and every chai run
+						Split expenses for trips, flats and nights out
 					</p>
 					<h1 className="display-title mt-4 text-[2.5rem] leading-[1.05] font-bold sm:text-5xl md:text-6xl">
 						Settle up without the group-chat maths.
 					</h1>
 					<p className="mt-5 max-w-xl text-base text-muted-foreground sm:mt-6 sm:text-lg">
 						Log what everyone paid. Eventual splits the bill and tells each
-						person exactly who to pay and how much, down to the last paisa.
+						person exactly who to pay and how much, down to the last cent.
 					</p>
 					<div className="mt-7 flex flex-wrap gap-3">
 						<Button size="lg" asChild>

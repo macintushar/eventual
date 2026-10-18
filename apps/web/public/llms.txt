@@ -1,12 +1,12 @@
 # Eventual
 
-> Eventual is a free, open-source expense-splitting app built for Indian rupees, with 20 supported currencies. Log what everyone paid on trips, in shared flats and on nights out; Eventual splits each bill evenly, by exact amounts, by shares or by percent, and tells each person who to pay and how much, down to the last paisa. It runs as a web app at https://eventual.macintushar.xyz, as a native iPhone and Android app built from source, and through a REST API, TypeScript SDK and MCP server.
+> Eventual is a free, open-source expense-splitting app for groups, with 20 supported currencies. Log what everyone paid on trips, in shared flats and on nights out; Eventual splits each bill evenly, by exact amounts, by shares or by percent, and tells each person who to pay and how much, down to the smallest unit of the currency. It runs as a web app at https://eventual.macintushar.xyz, as a native iPhone and Android app built from source, and through a REST API, TypeScript SDK and MCP server.
 
 Key facts:
 
 - Free. No paid plans, no ads. Source: https://github.com/macintushar/eventual. Anyone can self-host it.
 - Groups are private: only invited members see a group's expenses, balances and history.
-- Shares always add up: INR 1,000 split three ways is INR 333.34, 333.33 and 333.33.
+- Shares always add up: 1,000 split three ways is 333.34, 333.33 and 333.33 in a two-decimal currency such as USD, EUR or INR. Currencies without decimals, such as JPY, split in whole units.
 - Once someone marks their share paid, the expense locks so the settled amount can't change.
 - Balances are simplified into as few transfers as possible, per currency. Amounts are never converted between currencies.
 - Supported currencies: INR, USD, EUR, GBP, AED, AUD, CAD, CHF, CNY, HKD, JPY, KRW, KWD, MYR, NPR, NZD, SAR, SGD, THB, VND.

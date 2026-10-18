@@ -19,7 +19,7 @@ export type OgImage = {
 export const OG_IMAGES = {
 	home: {
 		slug: "home",
-		kicker: "Split expenses for trips, flats and every chai run",
+		kicker: "Split expenses for trips, flats and nights out",
 		// Non-breaking hyphen so "group-chat" never splits across lines.
 		title: "Settle up without the group\u2011chat maths.",
 	},

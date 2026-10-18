@@ -154,8 +154,8 @@ const different = [
 		text: "Every feature is free, with no daily cap. There's nothing to unlock.",
 	},
 	{
-		title: "Built for rupees",
-		text: "Lakh grouping, shares exact to the paisa, and a UPI handoff in the mobile app when you settle.",
+		title: "Exact in every currency",
+		text: "Shares are exact to the smallest unit of each currency, so they always add up. Paying in rupees? The mobile app hands off to UPI.",
 	},
 	{
 		title: "Paid means paid",
@@ -198,7 +198,7 @@ function ComparePage() {
 				<p className="text-base text-muted-foreground sm:text-lg">
 					Both apps track who paid what and who owes whom. Splitwise is the
 					established one, with store apps and paid extras. Eventual is free,
-					open source and built around rupees, with nothing behind a paywall.
+					open source and exact in 20 currencies, with nothing behind a paywall.
 				</p>
 				<p className="text-sm text-muted-foreground">
 					Splitwise details checked on{" "}
@@ -287,9 +287,10 @@ function ComparePage() {
 					app from the store today.
 				</p>
 				<p className="text-muted-foreground">
-					Pick Eventual if you're tired of daily limits and ads, split mostly in
-					rupees, want to log expenses through an AI assistant or your own code,
-					or want to host your own copy.{" "}
+					Pick Eventual if you're tired of daily limits and ads, split across
+					currencies without arguing over exchange rates, want to log expenses
+					through an AI assistant or your own code, or want to host your own
+					copy.{" "}
 					<a href={SOURCE_URL} target="_blank" rel="noreferrer">
 						Read the source
 					</a>

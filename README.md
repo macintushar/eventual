@@ -1,6 +1,6 @@
 # Eventual
 
-Split group expenses in rupees (and 19 other currencies), down to the last paisa. Free, open source and self-hostable.
+Split group expenses in 20 currencies, down to the last cent. Free, open source and self-hostable.
 
 Eventual is one backend with several ways in:
 
