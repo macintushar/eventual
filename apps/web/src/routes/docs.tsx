@@ -415,15 +415,6 @@ function DocsPage() {
 									<ExternalLink data-icon="inline-end" />
 								</a>
 							</Button>
-							<Button variant="link" size="sm" asChild>
-								<Link
-									to="/docs/mcp/$client"
-									params={{ client: selectedClient.id }}
-								>
-									{selectedClient.name} guide
-									<ArrowRight data-icon="inline-end" />
-								</Link>
-							</Button>
 						</div>
 						{selectedClient.code ? (
 							<CodeBlock

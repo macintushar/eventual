@@ -1,7 +1,6 @@
 // Relative imports only: vite.config.ts loads this file before the app's
 // path aliases exist.
 import { HELP_ARTICLES, HELP_UPDATED } from "./help";
-import { MCP_CLIENT_INTROS } from "./mcp-clients";
 
 /**
  * Every public, indexable page. Each one is prerendered at build time and
@@ -17,10 +16,6 @@ const LEGAL_UPDATED_ISO = "2026-10-18";
 export const PUBLIC_PAGES: PublicPage[] = [
 	{ path: "/", updated: MARKETING_UPDATED },
 	{ path: "/docs", updated: MARKETING_UPDATED },
-	...Object.keys(MCP_CLIENT_INTROS).map((id) => ({
-		path: `/docs/mcp/${id}`,
-		updated: MARKETING_UPDATED,
-	})),
 	{ path: "/help", updated: HELP_UPDATED.iso },
 	...HELP_ARTICLES.map((article) => ({
 		path: `/help/${article.slug}`,

@@ -1,8 +1,8 @@
 import type { Brand } from "#/components/brand-logo";
 
 /**
- * MCP setup for each supported client. The Integrations page shows them in a
- * picker; /docs/mcp/<id> gives each its own prerendered page.
+ * MCP setup for each supported client, shown in the Integrations page's
+ * picker.
  */
 
 export const KEY = "ev_your_api_key";
@@ -200,30 +200,3 @@ export function mcpClients(mcp: string): McpClient[] {
 		},
 	];
 }
-
-/** One line per client for its own page, so no two pages read the same. */
-export const MCP_CLIENT_INTROS: Record<string, string> = {
-	claude:
-		"Add Eventual as a custom connector once on claude.ai, and Claude can log expenses and check balances from the web, Claude Desktop and the Claude mobile app.",
-	"chatgpt-desktop":
-		"ChatGPT Desktop talks to remote MCP servers over Streamable HTTP. Add Eventual once and ask it to log a bill or tell you who owes what.",
-	hermes:
-		"Hermes, Nous Research's agent, reads MCP servers from its config file. Point it at Eventual and it can log and look up expenses mid-conversation.",
-	opencode:
-		"OpenCode is an open-source coding agent for the terminal. Add Eventual as a remote server and log a split without leaving your editor.",
-	openclaw:
-		"OpenClaw connects to MCP servers from its config or its settings screen. Add Eventual and your assistant can keep the group's tab for you.",
-	"claude-code":
-		"One terminal command adds Eventual to Claude Code for every project, so you can log the team lunch from the same window you code in.",
-	codex:
-		"Codex CLI stores MCP servers in a config it shares with ChatGPT Desktop and the Codex IDE extension. Add Eventual once and use it in all three.",
-	cursor:
-		"Cursor can install Eventual in one click. Then ask its agent to log an expense or settle a balance while you work.",
-};
-
-export const MCP_PROMPTS = [
-	"Mac paid ₹3,600 for dinner in Goa weekend, split it evenly.",
-	"Who owes me money, and how much?",
-	"Log €84 for groceries in Flat 4B, paid by me, 2:1:1.",
-	"What did we spend in baht on the Bangkok trip?",
-];

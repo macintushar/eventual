@@ -38,7 +38,6 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AppSettingsIndexRouteImport } from './routes/app/settings/index'
 import { Route as AppSettingsApiKeysRouteImport } from './routes/app/settings/api-keys'
 import { Route as AppSettingsProfileRouteImport } from './routes/app/settings/profile'
-import { Route as DocsMcpClientRouteImport } from './routes/docs_.mcp.$client'
 import { Route as AppGroupsGroupIdIndexRouteImport } from './routes/app/groups/$groupId/index'
 import { Route as AppGroupsGroupIdExpensesExpenseIdRouteImport } from './routes/app/groups/$groupId/expenses/$expenseId'
 
@@ -187,11 +186,6 @@ const AppSettingsProfileRoute = AppSettingsProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
-const DocsMcpClientRoute = DocsMcpClientRouteImport.update({
-  id: '/docs_/mcp/$client',
-  path: '/docs/mcp/$client',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AppGroupsGroupIdIndexRoute = AppGroupsGroupIdIndexRouteImport.update({
   id: '/groups/$groupId/',
   path: '/groups/$groupId/',
@@ -233,7 +227,6 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
-  '/docs/mcp/$client': typeof DocsMcpClientRoute
   '/app/settings/': typeof AppSettingsIndexRoute
   '/app/groups/$groupId/': typeof AppGroupsGroupIdIndexRoute
   '/app/groups/$groupId/expenses/$expenseId': typeof AppGroupsGroupIdExpensesExpenseIdRoute
@@ -264,7 +257,6 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
-  '/docs/mcp/$client': typeof DocsMcpClientRoute
   '/app/settings': typeof AppSettingsIndexRoute
   '/app/groups/$groupId': typeof AppGroupsGroupIdIndexRoute
   '/app/groups/$groupId/expenses/$expenseId': typeof AppGroupsGroupIdExpensesExpenseIdRoute
@@ -299,7 +291,6 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
-  '/docs_/mcp/$client': typeof DocsMcpClientRoute
   '/app/settings/': typeof AppSettingsIndexRoute
   '/app/groups/$groupId/': typeof AppGroupsGroupIdIndexRoute
   '/app/groups/$groupId/expenses/$expenseId': typeof AppGroupsGroupIdExpensesExpenseIdRoute
@@ -335,7 +326,6 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/app/settings/api-keys'
     | '/app/settings/profile'
-    | '/docs/mcp/$client'
     | '/app/settings/'
     | '/app/groups/$groupId/'
     | '/app/groups/$groupId/expenses/$expenseId'
@@ -366,7 +356,6 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/app/settings/api-keys'
     | '/app/settings/profile'
-    | '/docs/mcp/$client'
     | '/app/settings'
     | '/app/groups/$groupId'
     | '/app/groups/$groupId/expenses/$expenseId'
@@ -400,7 +389,6 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/app/settings/api-keys'
     | '/app/settings/profile'
-    | '/docs_/mcp/$client'
     | '/app/settings/'
     | '/app/groups/$groupId/'
     | '/app/groups/$groupId/expenses/$expenseId'
@@ -428,7 +416,6 @@ export interface RootRouteChildren {
   CompareSplitwiseRoute: typeof CompareSplitwiseRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
-  DocsMcpClientRoute: typeof DocsMcpClientRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -636,13 +623,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsProfileRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
-    '/docs_/mcp/$client': {
-      id: '/docs_/mcp/$client'
-      path: '/docs/mcp/$client'
-      fullPath: '/docs/mcp/$client'
-      preLoaderRoute: typeof DocsMcpClientRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/app/groups/$groupId/': {
       id: '/app/groups/$groupId/'
       path: '/groups/$groupId'
@@ -728,7 +708,6 @@ const rootRouteChildren: RootRouteChildren = {
   CompareSplitwiseRoute: CompareSplitwiseRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
-  DocsMcpClientRoute: DocsMcpClientRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

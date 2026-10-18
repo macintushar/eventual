@@ -1,6 +1,5 @@
 import type { HelpArticle } from "#/lib/help";
 import { HELP_ARTICLES } from "#/lib/help";
-import { type McpClient, mcpClients } from "#/lib/mcp-clients";
 import { SITE_URL } from "#/lib/site";
 
 /**
@@ -47,22 +46,9 @@ export function helpArticleOg(article: HelpArticle): OgImage {
 	};
 }
 
-export function mcpClientOg(client: Pick<McpClient, "id" | "name">): OgImage {
-	return {
-		slug: `mcp-${client.id}`,
-		kicker: "AI assistants · MCP",
-		title: `Log shared expenses by asking ${client.name}.`,
-	};
-}
-
 /** Every image the generator renders. */
 export function allOgImages(): OgImage[] {
-	return [
-		...Object.values(OG_IMAGES),
-		...HELP_ARTICLES.map(helpArticleOg),
-		// The URL only fills in config snippets; names and ids don't depend on it.
-		...mcpClients("").map(mcpClientOg),
-	];
+	return [...Object.values(OG_IMAGES), ...HELP_ARTICLES.map(helpArticleOg)];
 }
 
 export const OG_WIDTH = 1200;
