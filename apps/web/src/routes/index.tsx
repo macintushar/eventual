@@ -115,7 +115,7 @@ export const Route = createFileRoute("/")({
 							offers: {
 								"@type": "Offer",
 								price: "0",
-								priceCurrency: "INR",
+								priceCurrency: "USD",
 							},
 						},
 						{
@@ -148,7 +148,7 @@ const features = [
 	{
 		icon: Scale,
 		title: "Shares that add up",
-		text: "1,000 split three ways is 333.34, 333.33 and 333.33, in rupees, dollars or dirhams. Never 999.99, never an argument.",
+		text: "1,000 split three ways is 333.34, 333.33 and 333.33, in whichever of the 20 currencies you use. Never 999.99, never an argument.",
 	},
 ];
 
@@ -205,19 +205,19 @@ const integrations: {
 	{
 		logos: assistantBrands,
 		title: "Or just tell your AI assistant",
-		text: "“Mac paid ₹3,600 for dinner, split it evenly.” Works with Claude, ChatGPT, Cursor and any other app that supports MCP.",
+		text: "“Mac paid €360 for dinner, split it evenly.” Works with Claude, ChatGPT, Cursor and any other app that supports MCP.",
 		hash: "mcp",
 	},
 ];
 
 /**
  * Illustrative figures for the landing preview — not real data. They must add
- * up: ₹11,760 split three ways is ₹3,920 each, so you're owed ₹2,440.
+ * up: €1,176 split three ways is €392 each, so you're owed €244.
  */
 const sampleRows = [
-	{ name: "Beach shack dinner", who: "Mac paid", amount: "₹3,600" },
-	{ name: "Scooter rental", who: "Arjun paid", amount: "₹1,800" },
-	{ name: "Villa booking", who: "You paid", amount: "₹6,360" },
+	{ name: "Beach shack dinner", who: "Mac paid", amount: "€360" },
+	{ name: "Scooter rental", who: "Arjun paid", amount: "€180" },
+	{ name: "Villa booking", who: "You paid", amount: "€636" },
 ];
 
 function Home() {
@@ -268,10 +268,10 @@ function Home() {
 					<CardHeader>
 						<div className="flex items-start justify-between gap-3">
 							<div>
-								<CardDescription>Goa weekend</CardDescription>
+								<CardDescription>Lisbon weekend</CardDescription>
 								<CardTitle className="display-title text-3xl font-bold">
 									You are owed{" "}
-									<span className="tabular text-positive">₹2,440</span>
+									<span className="tabular text-positive">€244</span>
 								</CardTitle>
 							</div>
 							<Badge variant="secondary">3 members</Badge>
@@ -291,7 +291,7 @@ function Home() {
 						</ItemGroup>
 						<Alert className="border-positive/30 bg-positive/10 text-positive">
 							<AlertDescription>
-								Arjun pays you ₹2,120 and Mac pays you ₹320. Then you're all
+								Arjun pays you €212 and Mac pays you €32. Then you're all
 								square.
 							</AlertDescription>
 						</Alert>

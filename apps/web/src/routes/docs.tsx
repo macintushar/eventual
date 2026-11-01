@@ -332,7 +332,7 @@ function DocsPage() {
 								`GET  ${origin}/api/shortcut/groups`,
 								`GET  ${origin}/api/shortcut/groups/{groupId}/members`,
 								`POST ${origin}/api/shortcut/groups/{groupId}/expenses`,
-								`     { "amount": 1200.5, "currency": "INR", "description": "optional",`,
+								`     { "amount": 42.5, "currency": "EUR", "description": "optional",`,
 								`       "paidByUserId": "optional, defaults to you" }`,
 							].join("\n")}
 						/>
@@ -368,7 +368,7 @@ function DocsPage() {
 					</div>
 					<CardDescription>
 						Connect any assistant that supports MCP. Then just say "Mac paid
-						₹3,600 for dinner in Goa weekend, split it evenly" or "Who owes me
+						€360 for dinner in Lisbon weekend, split it evenly" or "Who owes me
 						money?"
 					</CardDescription>
 				</CardHeader>
