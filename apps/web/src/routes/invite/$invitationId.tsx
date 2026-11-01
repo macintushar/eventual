@@ -27,12 +27,31 @@ import { EmptyMedia } from "#/components/ui/empty";
 import { Spinner } from "#/components/ui/spinner";
 import { useAppMutation } from "#/lib/app-mutation";
 import { authClient } from "#/lib/auth-client";
+import { OG_IMAGES, ogImageMeta } from "#/lib/og";
 import { invitationQueryOptions, sessionQueryOptions } from "#/lib/queries";
 import { clearSession } from "#/lib/session";
 import { isApiNotFound } from "#/lib/web-api-client";
 
+// Generic on purpose: link previews are fetched by chat apps' servers, so the
+// group and inviter names stay out of the tags.
+const inviteDescription =
+	"Open the link to join the group, add expenses and see who owes whom.";
+
 export const Route = createFileRoute("/invite/$invitationId")({
-	head: () => ({ meta: [{ name: "robots", content: "noindex" }] }),
+	head: () => ({
+		meta: [
+			{ title: "You're invited to a group · Eventual" },
+			{ name: "robots", content: "noindex" },
+			{ name: "description", content: inviteDescription },
+			{
+				property: "og:title",
+				content: "You're invited to a group on Eventual",
+			},
+			{ property: "og:description", content: inviteDescription },
+			{ property: "og:site_name", content: "Eventual" },
+			...ogImageMeta(OG_IMAGES.invite),
+		],
+	}),
 	loader: async ({ context, params }) => {
 		try {
 			await Promise.all([

@@ -36,6 +36,13 @@ export const OG_IMAGES = {
 		kicker: "Compare",
 		title: "Eventual vs Splitwise: free, open source, no daily limits.",
 	},
+	// Shared by every invite link. Generic on purpose: chat apps fetch previews
+	// from their own servers, so group and inviter names stay out of it.
+	invite: {
+		slug: "invite",
+		kicker: "You're invited",
+		title: "Join the group and split expenses on Eventual.",
+	},
 } satisfies Record<string, OgImage>;
 
 export function helpArticleOg(article: HelpArticle): OgImage {
