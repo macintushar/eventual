@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Globe, Lock, Scale, Users } from "lucide-react";
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 
 import {
 	assistantBrands,
@@ -8,6 +8,11 @@ import {
 	BrandLogo,
 } from "#/components/brand-logo";
 import { SOURCE_URL } from "#/components/legal-page";
+import {
+	LockedFigure,
+	SplitFigure,
+} from "#/components/marketing/feature-figures";
+import { PlatformsDemo } from "#/components/marketing/platforms-demo";
 import { SettleDemo } from "#/components/marketing/settle-demo";
 import {
 	PublicFooter,
@@ -120,21 +125,30 @@ export const Route = createFileRoute("/")({
 	component: Home,
 });
 
-const features = [
+const features: {
+	icon: typeof Users;
+	title: string;
+	text: string;
+	figure?: ReactNode;
+	lead?: boolean;
+}[] = [
 	{
-		icon: Users,
-		title: "Only your group sees it",
-		text: "Expenses, balances and history are visible to invited members. Nobody else.",
+		icon: Scale,
+		title: "Shares that add up",
+		text: "1,000 split three ways is 333.34, 333.33 and 333.33, in whichever of the 20 currencies you use. Never 999.99, never an argument.",
+		figure: <SplitFigure />,
+		lead: true,
 	},
 	{
 		icon: Lock,
 		title: "Paid means paid",
 		text: "Once someone marks their share paid, the expense locks. The amount they settled can't quietly change afterwards.",
+		figure: <LockedFigure />,
 	},
 	{
-		icon: Scale,
-		title: "Shares that add up",
-		text: "1,000 split three ways is 333.34, 333.33 and 333.33, in whichever of the 20 currencies you use. Never 999.99, never an argument.",
+		icon: Users,
+		title: "Only your group sees it",
+		text: "Expenses, balances and history are visible to invited members. Nobody else.",
 	},
 ];
 
@@ -245,18 +259,47 @@ function Home() {
 				</div>
 			</section>
 
-			<section className="grid gap-3 pb-12 sm:gap-4 sm:pb-16 md:grid-cols-3">
-				{features.map(({ icon: Icon, title, text }) => (
-					<Card key={title} className="feature-card">
-						<CardHeader>
-							<div className="mb-2 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
-								<Icon className="size-5" aria-hidden="true" />
-							</div>
-							{/* Real h2: search engines see a proper outline, the
+			<section className="grid gap-3 pb-12 sm:gap-4 sm:pb-16 md:grid-cols-3 md:grid-rows-[auto_auto]">
+				{features.map(({ icon: Icon, title, text, figure, lead }) => (
+					<Card
+						key={title}
+						className={cn(
+							"feature-card",
+							lead && "md:col-span-2 md:row-span-2",
+						)}
+					>
+						<CardHeader
+							className={cn(
+								"flex h-full flex-col gap-2",
+								lead &&
+									"md:grid md:grid-cols-2 md:grid-rows-1 md:content-center md:items-center md:gap-10",
+							)}
+						>
+							<div className="flex flex-col gap-2">
+								<div className="mb-2 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
+									<Icon className="size-5" aria-hidden="true" />
+								</div>
+								{/* Real h2: search engines see a proper outline, the
 							    classes keep the CardTitle look */}
-							<h2 className="leading-none font-semibold">{title}</h2>
-
-							<CardDescription>{text}</CardDescription>
+								<h2
+									className={cn(
+										"leading-none font-semibold",
+										lead && "display-title text-2xl leading-tight font-bold",
+									)}
+								>
+									{title}
+								</h2>
+								<CardDescription className={cn(lead && "max-w-md text-base")}>
+									{text}
+								</CardDescription>
+							</div>
+							{figure ? (
+								<div
+									className={cn("mt-4 flex flex-1 flex-col", lead && "md:mt-0")}
+								>
+									{figure}
+								</div>
+							) : null}
 						</CardHeader>
 					</Card>
 				))}
@@ -273,50 +316,34 @@ function Home() {
 						up on all the others.
 					</p>
 				</div>
-				<div className="grid gap-3 sm:gap-4 md:grid-cols-3">
+				<div className="-mx-4 sm:mx-0">
+					<PlatformsDemo />
+				</div>
+				<div className="grid gap-8 sm:gap-6 md:grid-cols-3">
 					{platforms.map(({ kicker, logos, title, text, link }) => (
-						<Card key={title} className="feature-card h-full">
-							<CardHeader className="flex h-full flex-col">
-								<div className="mb-2 flex items-center gap-2">
-									{logos ? (
-										logos.map((brand) => (
-											<div
-												key={brand}
-												className="grid size-10 place-items-center rounded-xl border bg-background/70"
-											>
-												<BrandLogo brand={brand} className="size-5" />
-											</div>
-										))
-									) : (
-										<div className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
-											<Globe className="size-5" aria-hidden="true" />
-										</div>
-									)}
-								</div>
-								<p className="text-xs font-medium text-muted-foreground">
-									{kicker}
-								</p>
-								<h3 className="leading-none font-semibold">{title}</h3>
-								<CardDescription className="flex-1">{text}</CardDescription>
-								<Button
-									variant="link"
-									className="mt-2 h-auto w-fit px-0"
-									asChild
-								>
-									{"to" in link ? (
-										<Link to={link.to} hash={link.hash}>
-											{link.label}
-											<ArrowRight data-icon="inline-end" />
-										</Link>
-									) : (
-										<a href={link.href} target="_blank" rel="noreferrer">
-											{link.label}
-											<ArrowRight data-icon="inline-end" />
-										</a>
-									)}
-								</Button>
-							</CardHeader>
-						</Card>
+						<div key={title} className="flex flex-col gap-2">
+							<p className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+								{logos?.map((brand) => (
+									<BrandLogo key={brand} brand={brand} className="size-4" />
+								)) ?? <Globe className="size-4" aria-hidden="true" />}
+								{kicker}
+							</p>
+							<h3 className="font-semibold">{title}</h3>
+							<p className="flex-1 text-sm text-muted-foreground">{text}</p>
+							<Button variant="link" className="h-auto w-fit px-0" asChild>
+								{"to" in link ? (
+									<Link to={link.to} hash={link.hash}>
+										{link.label}
+										<ArrowRight data-icon="inline-end" />
+									</Link>
+								) : (
+									<a href={link.href} target="_blank" rel="noreferrer">
+										{link.label}
+										<ArrowRight data-icon="inline-end" />
+									</a>
+								)}
+							</Button>
+						</div>
 					))}
 				</div>
 			</section>

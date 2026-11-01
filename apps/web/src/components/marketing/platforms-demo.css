@@ -1,0 +1,207 @@
+/* Device pair. Wide: the window inset 85px top-left and off the bottom; the
+   phone straddles its right edge, a third outside, over the table's empty
+   right margin, so no amount sits under it. Compact: the phone alone,
+   centered and off the bottom. */
+.pd .pd-window {
+	position: absolute;
+	top: 36px;
+	left: 85px;
+	width: 810px;
+	height: 560px;
+	box-shadow: var(--ss-shadow-hero);
+}
+
+.pd .pd-page {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	height: 100%;
+	padding: 30px 40px;
+	background: var(--background);
+	font-size: 14px;
+}
+
+.pd .pd-title {
+	font-size: 36px;
+	line-height: 1.05;
+	font-weight: 700;
+}
+
+.pd .pd-sub {
+	margin-top: 8px;
+	color: var(--muted-foreground);
+	font-size: 14px;
+}
+
+.pd .pd-table {
+	width: 520px;
+	overflow: hidden;
+	border-radius: 18px;
+	background: var(--card);
+	box-shadow:
+		0 0 0 1px var(--border),
+		0 6px 16px -10px rgb(0 0 0 / 0.2);
+}
+
+.pd .pd-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.3fr) 64px 84px;
+	align-items: center;
+	gap: 12px;
+	padding: 11px 16px;
+	border-top: 1px solid var(--border);
+}
+
+.pd .pd-row--head {
+	border-top: 0;
+	color: var(--muted-foreground);
+	font-weight: 500;
+	font-size: 13px;
+}
+
+/* The new row arrives tinted and keeps a faint wash, so the eye finds it. */
+.pd .pd-new {
+	background: color-mix(in oklab, var(--accent-blue) 8%, var(--card));
+}
+
+.pd .pd-phone {
+	position: absolute;
+	top: 64px;
+	left: 695px;
+	filter: drop-shadow(0 30px 40px rgb(0 0 0 / 0.18));
+}
+
+/* Inside the phone everything is in iOS points (402 wide), after
+   apps/mobile's theme: canvas, paper rows, Inter Tight display. */
+.pd .pd-app {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	min-height: 100%;
+	padding: 62px 20px 0;
+	background: var(--background);
+	color: var(--foreground);
+	font-size: 17px;
+}
+
+.pd .pd-nav {
+	display: flex;
+	justify-content: space-between;
+	margin: 4px -4px 10px;
+}
+
+.pd .pd-glass {
+	display: grid;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	border-radius: 999px;
+	background: color-mix(in oklab, var(--card) 80%, transparent);
+	box-shadow:
+		0 0 0 0.5px var(--border),
+		0 4px 12px rgb(0 0 0 / 0.08);
+}
+
+.pd .pd-kicker {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--muted-foreground);
+	font-size: 14px;
+	font-weight: 500;
+}
+
+.pd .pd-tape {
+	width: 20px;
+	height: 8px;
+	border-radius: 2px;
+	background: var(--accent-blue);
+	opacity: 0.75;
+	transform: rotate(-4deg);
+}
+
+.pd .pd-display {
+	margin-top: -4px;
+	font-family: "Inter Tight", var(--ss-font);
+	font-size: 34px;
+	line-height: 1.02;
+	font-weight: 500;
+	letter-spacing: -0.035em;
+}
+
+.pd .pd-psub {
+	margin-top: -6px;
+	color: var(--muted-foreground);
+	font-size: 16px;
+}
+
+.pd .pd-add {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	height: 50px;
+	margin-top: 10px;
+	border-radius: 999px;
+	background: var(--primary);
+	color: var(--primary-foreground);
+	font-weight: 600;
+}
+
+.pd .pd-tabs {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	padding: 4px;
+	border-radius: 999px;
+	background: var(--muted);
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--muted-foreground);
+}
+
+.pd .pd-tabs span {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: 6px 0 5px;
+	border-radius: 999px;
+}
+
+.pd .pd-tabs [data-active] {
+	background: var(--card);
+	color: var(--foreground);
+	box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+}
+
+.pd .pd-list {
+	overflow: hidden;
+	border-radius: 18px;
+	background: var(--card);
+	box-shadow: 0 0 0 1px var(--border);
+}
+
+.pd .pd-prow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 14px 18px;
+	border-bottom: 1px solid var(--border);
+}
+
+.pd .pd-prow-title {
+	display: block;
+	font-weight: 600;
+}
+
+.pd .pd-prow-meta {
+	display: block;
+	margin-top: 2px;
+	color: var(--muted-foreground);
+	font-size: 14px;
+}
+
+.pd .ss-stage[data-layout="compact"] .pd-phone {
+	top: 24px;
+	left: 45px;
+}
