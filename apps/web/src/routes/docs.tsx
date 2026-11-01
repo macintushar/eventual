@@ -19,6 +19,7 @@ import { useState } from "react";
 import { BrandLogo } from "#/components/brand-logo";
 import { CodeBlock } from "#/components/code-block";
 import { SOURCE_URL } from "#/components/legal-page";
+import { IntegrationsDemo } from "#/components/marketing/integrations-demo";
 import { OptionCombobox } from "#/components/option-combobox";
 import {
 	PublicFooter,
@@ -143,6 +144,10 @@ function DocsPage() {
 					your own code each sign in with an API key from your account.
 				</p>
 			</section>
+
+			<div className="-mx-4 -mt-2 sm:mx-0">
+				<IntegrationsDemo />
+			</div>
 
 			<Card id="mobile" className="island-shell scroll-mt-8 rounded-3xl">
 				<CardHeader>

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Globe, Lock, Scale, Users } from "lucide-react";
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 
 import {
 	assistantBrands,
@@ -9,27 +9,18 @@ import {
 } from "#/components/brand-logo";
 import { SOURCE_URL } from "#/components/legal-page";
 import {
+	LockedFigure,
+	SplitFigure,
+} from "#/components/marketing/feature-figures";
+import { PlatformsDemo } from "#/components/marketing/platforms-demo";
+import { SettleDemo } from "#/components/marketing/settle-demo";
+import {
 	PublicFooter,
 	PublicPage,
 	publicSiteActions,
 } from "#/components/public-header";
-import { Alert, AlertDescription } from "#/components/ui/alert";
-import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "#/components/ui/card";
-import {
-	Item,
-	ItemContent,
-	ItemDescription,
-	ItemGroup,
-	ItemTitle,
-} from "#/components/ui/item";
+import { Card, CardDescription, CardHeader } from "#/components/ui/card";
 import { OG_IMAGES, ogImageMeta } from "#/lib/og";
 import { useClientUser } from "#/lib/session";
 import { SITE_URL } from "#/lib/site";
@@ -134,21 +125,30 @@ export const Route = createFileRoute("/")({
 	component: Home,
 });
 
-const features = [
+const features: {
+	icon: typeof Users;
+	title: string;
+	text: string;
+	figure?: ReactNode;
+	lead?: boolean;
+}[] = [
 	{
-		icon: Users,
-		title: "Only your group sees it",
-		text: "Expenses, balances and history are visible to invited members. Nobody else.",
+		icon: Scale,
+		title: "Shares that add up",
+		text: "In euros or dollars, 1,000 split three ways is 333.34, 333.33 and 333.33. Each of the 20 currencies splits to its own smallest unit, so shares always add up. Never 999.99, never an argument.",
+		figure: <SplitFigure />,
+		lead: true,
 	},
 	{
 		icon: Lock,
 		title: "Paid means paid",
 		text: "Once someone marks their share paid, the expense locks. The amount they settled can't quietly change afterwards.",
+		figure: <LockedFigure />,
 	},
 	{
-		icon: Scale,
-		title: "Shares that add up",
-		text: "In euros or dollars, 1,000 split three ways is 333.34, 333.33 and 333.33. Each of the 20 currencies splits to its own smallest unit, so shares always add up. Never 999.99, never an argument.",
+		icon: Users,
+		title: "Only your group sees it",
+		text: "Expenses, balances and history are visible to invited members. Nobody else.",
 	},
 ];
 
@@ -210,16 +210,6 @@ const integrations: {
 	},
 ];
 
-/**
- * Illustrative figures for the landing preview — not real data. They must add
- * up: €1,176 split three ways is €392 each, so you're owed €244.
- */
-const sampleRows = [
-	{ name: "Beach shack dinner", who: "Mac paid", amount: "€360" },
-	{ name: "Scooter rental", who: "Arjun paid", amount: "€180" },
-	{ name: "Villa booking", who: "You paid", amount: "€636" },
-];
-
 function Home() {
 	const navigate = Route.useNavigate();
 
@@ -235,8 +225,8 @@ function Home() {
 				<PublicFooter tagline="Eventual · split it fairly, settle it once." />
 			}
 		>
-			<section className="grid items-center gap-8 py-8 sm:gap-12 sm:py-12 lg:grid-cols-[1.1fr_.9fr] lg:py-20">
-				<div className="rise-in">
+			<section className="flex flex-col gap-8 pt-8 pb-12 sm:gap-10 sm:pt-12 sm:pb-16">
+				<div className="rise-in max-w-3xl">
 					<p className="island-kicker">
 						Split expenses for trips, flats and nights out
 					</p>
@@ -264,53 +254,52 @@ function Home() {
 					</p>
 				</div>
 
-				<Card className="island-shell rise-in rounded-3xl">
-					<CardHeader>
-						<div className="flex items-start justify-between gap-3">
-							<div>
-								<CardDescription>Lisbon weekend</CardDescription>
-								<CardTitle className="display-title text-3xl font-bold">
-									You are owed{" "}
-									<span className="tabular text-positive">€244</span>
-								</CardTitle>
-							</div>
-							<Badge variant="secondary">3 members</Badge>
-						</div>
-					</CardHeader>
-					<CardContent className="flex flex-col gap-4">
-						<ItemGroup>
-							{sampleRows.map((row) => (
-								<Item key={row.name} size="sm">
-									<ItemContent>
-										<ItemTitle>{row.name}</ItemTitle>
-										<ItemDescription>{row.who}</ItemDescription>
-									</ItemContent>
-									<strong className="tabular shrink-0">{row.amount}</strong>
-								</Item>
-							))}
-						</ItemGroup>
-						<Alert className="border-positive/30 bg-positive/10 text-positive">
-							<AlertDescription>
-								Arjun pays you €212 and Mac pays you €32. Then you're all
-								square.
-							</AlertDescription>
-						</Alert>
-					</CardContent>
-				</Card>
+				<div className="rise-in -mx-4 sm:mx-0">
+					<SettleDemo />
+				</div>
 			</section>
 
-			<section className="grid gap-3 pb-12 sm:gap-4 sm:pb-16 md:grid-cols-3">
-				{features.map(({ icon: Icon, title, text }) => (
-					<Card key={title} className="feature-card">
-						<CardHeader>
-							<div className="mb-2 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
-								<Icon className="size-5" aria-hidden="true" />
-							</div>
-							{/* Real h2: search engines see a proper outline, the
+			<section className="grid gap-3 pb-12 sm:gap-4 sm:pb-16 md:grid-cols-3 md:grid-rows-[auto_auto]">
+				{features.map(({ icon: Icon, title, text, figure, lead }) => (
+					<Card
+						key={title}
+						className={cn(
+							"feature-card",
+							lead && "md:col-span-2 md:row-span-2",
+						)}
+					>
+						<CardHeader
+							className={cn(
+								"flex h-full flex-col gap-2",
+								lead &&
+									"md:grid md:grid-cols-2 md:grid-rows-1 md:content-center md:items-center md:gap-10",
+							)}
+						>
+							<div className="flex flex-col gap-2">
+								<div className="mb-2 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
+									<Icon className="size-5" aria-hidden="true" />
+								</div>
+								{/* Real h2: search engines see a proper outline, the
 							    classes keep the CardTitle look */}
-							<h2 className="leading-none font-semibold">{title}</h2>
-
-							<CardDescription>{text}</CardDescription>
+								<h2
+									className={cn(
+										"leading-none font-semibold",
+										lead && "display-title text-2xl leading-tight font-bold",
+									)}
+								>
+									{title}
+								</h2>
+								<CardDescription className={cn(lead && "max-w-md text-base")}>
+									{text}
+								</CardDescription>
+							</div>
+							{figure ? (
+								<div
+									className={cn("mt-4 flex flex-1 flex-col", lead && "md:mt-0")}
+								>
+									{figure}
+								</div>
+							) : null}
 						</CardHeader>
 					</Card>
 				))}
@@ -327,50 +316,34 @@ function Home() {
 						up on all the others.
 					</p>
 				</div>
-				<div className="grid gap-3 sm:gap-4 md:grid-cols-3">
+				<div className="-mx-4 sm:mx-0">
+					<PlatformsDemo />
+				</div>
+				<div className="grid gap-8 sm:gap-6 md:grid-cols-3">
 					{platforms.map(({ kicker, logos, title, text, link }) => (
-						<Card key={title} className="feature-card h-full">
-							<CardHeader className="flex h-full flex-col">
-								<div className="mb-2 flex items-center gap-2">
-									{logos ? (
-										logos.map((brand) => (
-											<div
-												key={brand}
-												className="grid size-10 place-items-center rounded-xl border bg-background/70"
-											>
-												<BrandLogo brand={brand} className="size-5" />
-											</div>
-										))
-									) : (
-										<div className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
-											<Globe className="size-5" aria-hidden="true" />
-										</div>
-									)}
-								</div>
-								<p className="text-xs font-medium text-muted-foreground">
-									{kicker}
-								</p>
-								<h3 className="leading-none font-semibold">{title}</h3>
-								<CardDescription className="flex-1">{text}</CardDescription>
-								<Button
-									variant="link"
-									className="mt-2 h-auto w-fit px-0"
-									asChild
-								>
-									{"to" in link ? (
-										<Link to={link.to} hash={link.hash}>
-											{link.label}
-											<ArrowRight data-icon="inline-end" />
-										</Link>
-									) : (
-										<a href={link.href} target="_blank" rel="noreferrer">
-											{link.label}
-											<ArrowRight data-icon="inline-end" />
-										</a>
-									)}
-								</Button>
-							</CardHeader>
-						</Card>
+						<div key={title} className="flex flex-col gap-2">
+							<p className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+								{logos?.map((brand) => (
+									<BrandLogo key={brand} brand={brand} className="size-4" />
+								)) ?? <Globe className="size-4" aria-hidden="true" />}
+								{kicker}
+							</p>
+							<h3 className="font-semibold">{title}</h3>
+							<p className="flex-1 text-sm text-muted-foreground">{text}</p>
+							<Button variant="link" className="h-auto w-fit px-0" asChild>
+								{"to" in link ? (
+									<Link to={link.to} hash={link.hash}>
+										{link.label}
+										<ArrowRight data-icon="inline-end" />
+									</Link>
+								) : (
+									<a href={link.href} target="_blank" rel="noreferrer">
+										{link.label}
+										<ArrowRight data-icon="inline-end" />
+									</a>
+								)}
+							</Button>
+						</div>
 					))}
 				</div>
 			</section>

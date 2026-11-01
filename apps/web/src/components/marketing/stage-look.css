@@ -1,0 +1,54 @@
+/*
+ * Eventual's look for stageshow stages: the kit's tokens mapped onto the
+ * app's own variables, so every illustration follows light and dark mode with
+ * the rest of the page. Shared by every marketing stage (`.ev-stage`).
+ */
+.ev-stage .ss-stage {
+	--ss-font: "Inter", ui-sans-serif, system-ui, sans-serif;
+	--ss-canvas: var(--background);
+	--ss-surface: var(--card);
+	--ss-chrome: var(--card);
+	--ss-well: var(--background);
+	--ss-raised: var(--popover);
+	--ss-line: var(--border);
+	--ss-line-faint: color-mix(in oklab, var(--border) 60%, transparent);
+	--ss-text-strong: var(--foreground);
+	--ss-text: var(--muted-foreground);
+	--ss-text-faint: color-mix(
+		in oklab,
+		var(--muted-foreground) 70%,
+		transparent
+	);
+	--ss-icon: var(--muted-foreground);
+	--ss-accent: var(--accent-blue);
+	--ss-success: var(--positive);
+	--ss-danger: var(--negative);
+	--ss-radius-window: 16px;
+	color: var(--foreground);
+	font-family: var(--ss-font);
+	/* The page is the ground: no plate behind the window. */
+	background: transparent;
+	overflow: hidden;
+}
+
+/* On the dark page depth comes from lighter surfaces and a hairline, not a
+   shadow that disappears into near-black. */
+.dark .ev-stage .ss-stage {
+	--ss-ink-1: rgba(255, 255, 255, 0.05);
+	--ss-ink-2: rgba(255, 255, 255, 0.07);
+	--ss-ink-3: rgba(255, 255, 255, 0.1);
+	--ss-ink-4: rgba(255, 255, 255, 0.13);
+	--ss-ink-5: rgba(255, 255, 255, 0.18);
+	--ss-shadow-hero:
+		0 0 0 1px var(--border), 0 30px 60px -20px rgba(0, 0, 0, 0.7);
+	--ss-shadow-window: 0 0 0 1px var(--border);
+	--ss-shadow-satellite:
+		0 0 0 1px #3a3a3a, 0 16px 40px -12px rgba(0, 0, 0, 0.8);
+	--ss-shadow-float: 0 0 0 1px #3a3a3a, 0 16px 40px -12px rgba(0, 0, 0, 0.8);
+}
+
+/* A stage is an illustration: the cursor and scripted presses do the
+   interacting, so the page's own pointer never targets anything inside. */
+.ev-stage .ss-stage * {
+	pointer-events: none;
+}

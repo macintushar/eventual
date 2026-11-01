@@ -146,7 +146,7 @@ const categories: FaqCategory[] = [
 				shots: [
 					{
 						src: "/help/expense-details.webp",
-						alt: "The Add an expense dialog with Groceries and ₹2,400 filled in.",
+						alt: "The Add an expense dialog with Groceries and €48.60 filled in.",
 						caption: "Description, amount, currency, date and who paid.",
 					},
 				],
@@ -241,7 +241,7 @@ const categories: FaqCategory[] = [
 				id: "rounding",
 				question: "How are shares rounded?",
 				answer:
-					"Shares are exact to the currency's smallest unit and always add up to the total. ₹1,000 split three ways is ₹333.34, ₹333.33 and ₹333.33. Yen, won and dong have no decimals, so they split in whole units; the Kuwaiti dinar splits to a thousandth. Leftover units go one at a time to whoever was rounded down most.",
+					"Shares are exact to the currency's smallest unit and always add up to the total. €1,000 split three ways is €333.34, €333.33 and €333.33. Yen, won and dong have no decimals, so they split in whole units; the Kuwaiti dinar splits to a thousandth. Leftover units go one at a time to whoever was rounded down most.",
 			},
 		],
 	},

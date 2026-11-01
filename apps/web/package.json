@@ -11,6 +11,7 @@
 		"api:docs:check": "tsx scripts/generate-openapi.ts --check",
 		"og:generate": "bun scripts/generate-og.tsx",
 		"og:check": "bun scripts/generate-og.tsx --check",
+		"help:shots": "tsx scripts/capture-help.ts",
 		"test": "TURSO_DATABASE_URL=:memory: BETTER_AUTH_SECRET=local-test-secret-at-least-thirty-two-characters tsx --test 'src/**/*.test.ts'",
 		"test:e2e": "playwright test",
 		"test:e2e:ui": "playwright test --project=chromium --project=mobile",

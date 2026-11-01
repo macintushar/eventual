@@ -1,0 +1,84 @@
+/* Wide: the chat window inset 85px top-left, off the bottom; the phone
+   straddles its right edge, a third outside, over the empty side of the
+   conversation. Compact: the phone alone, its notification whole. */
+.id .id-window {
+	position: absolute;
+	top: 36px;
+	left: 85px;
+	width: 700px;
+	height: 460px;
+	box-shadow: var(--ss-shadow-hero);
+}
+
+.id .id-chat {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	width: 520px;
+	height: 100%;
+	padding: 28px 32px;
+	background: var(--card);
+	font-size: 15px;
+	line-height: 1.5;
+}
+
+.id .id-ask {
+	align-self: flex-end;
+	max-width: 380px;
+	padding: 10px 16px;
+	border-radius: 18px;
+	background: var(--muted);
+}
+
+.id .id-tool {
+	display: inline-flex;
+	align-self: flex-start;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 12px;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	color: var(--muted-foreground);
+	font-size: 13px;
+}
+
+.id .id-answer {
+	display: flex;
+	gap: 12px;
+}
+
+.id .id-answer-mark {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+}
+
+.id .id-answer p {
+	margin: 2px 0 0;
+}
+
+.id .id-app-icon {
+	width: 100%;
+	height: 100%;
+	border-radius: 9px;
+}
+
+.id .id-phone {
+	position: absolute;
+	top: 56px;
+	left: 690px;
+	filter: drop-shadow(0 30px 40px rgb(0 0 0 / 0.2));
+}
+
+.id .ss-stage[data-layout="compact"] .id-phone {
+	top: 24px;
+	left: 35px;
+}
+
+.id .id-window .ss-window__body {
+	background: var(--card);
+}
