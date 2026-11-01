@@ -7,6 +7,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig, loadEnv } from "vite";
+import { PUBLIC_PAGES } from "./src/lib/public-pages";
 
 /**
  * Paths the dev server must not treat as source.
@@ -63,15 +64,13 @@ const config = defineConfig(({ mode }) => {
 			devtools(),
 			nitro({
 				watchOptions: { ignored: devWatchIgnored },
-				routeRules: {
-					"/": { prerender: true },
-					"/docs": { prerender: true },
-					"/help": { prerender: true },
-					"/help/create-a-group": { prerender: true },
-					"/help/add-an-expense": { prerender: true },
-					"/privacy": { prerender: true },
-					"/terms": { prerender: true },
-				},
+				// Public pages and the sitemap come from one list, so a page added
+				// there is both prerendered and listed.
+				routeRules: Object.fromEntries(
+					[...PUBLIC_PAGES.map((page) => page.path), "/sitemap.xml"].map(
+						(path) => [path, { prerender: true }],
+					),
+				),
 			}),
 			tailwindcss(),
 			tanstackStart(),

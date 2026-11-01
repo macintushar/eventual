@@ -91,7 +91,11 @@ export function PublicHeader({
 	);
 }
 
-/** Tagline on the left; page links, then Privacy, Terms and status, on the right. */
+/**
+ * Tagline on the left; page links, then the site-wide links, legal and
+ * status on the right. The site-wide link keeps the comparison page
+ * reachable from every public page.
+ */
 export function PublicFooter({
 	tagline,
 	children,
@@ -104,6 +108,7 @@ export function PublicFooter({
 			<span>{tagline}</span>
 			<nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
 				{children}
+				<Link to="/compare/splitwise">vs Splitwise</Link>
 				<Link to="/privacy">Privacy</Link>
 				<Link to="/terms">Terms</Link>
 				<StatusPageCallout />
@@ -145,7 +150,7 @@ export function PublicPage({
 				<footer className="page-wrap py-8 text-xs text-muted-foreground">
 					<Separator className="mb-8" />
 					{footer ?? (
-						<PublicFooter tagline="Eventual · expenses without the spreadsheet." />
+						<PublicFooter tagline="Eventual · split it fairly, settle it once." />
 					)}
 				</footer>
 			) : null}

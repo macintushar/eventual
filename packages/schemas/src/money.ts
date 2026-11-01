@@ -34,9 +34,9 @@ export function fromMinor(amountMinor: number, currency = "INR"): string {
 }
 
 /**
- * Currencies ICU's en-IN pattern writes with a no-break space after the symbol (it
- * spells them by code, so they need separating). Listed explicitly because
- * React Native's Hermes has no `formatToParts` to read it from.
+ * Currencies whose symbol needs a no-break space before the digits (ICU spells
+ * them by code, so they need separating). Listed explicitly because React
+ * Native's Hermes has no `formatToParts` to read it from.
  */
 const SPACED_SYMBOLS = new Set([
 	"AED",
@@ -49,10 +49,13 @@ const SPACED_SYMBOLS = new Set([
 	"THB",
 ]);
 
-/** "-₹1,23,456.70": the sign, our symbol, then en-IN grouping. */
+/**
+ * "-₹123,456.70": the sign, our symbol, then digits grouped in threes. Every
+ * currency, rupees included, uses the same grouping.
+ */
 export function formatMinor(amountMinor: number, currency = "INR"): string {
 	const decimals = currencyDecimals(currency);
-	const digits = new Intl.NumberFormat("en-IN", {
+	const digits = new Intl.NumberFormat("en-US", {
 		minimumFractionDigits: decimals,
 		maximumFractionDigits: decimals,
 	}).format(Math.abs(amountMinor) / 10 ** decimals);

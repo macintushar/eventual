@@ -31,6 +31,17 @@ const brands = {
 	opencode: { name: "OpenCode", src: lobe("opencode"), mono: true },
 	hermes: { name: "Hermes", src: lobe("nousresearch"), mono: true },
 	openclaw: { name: "OpenClaw", src: lobe("openclaw-color"), mono: false },
+	apple: { name: "Apple", src: iconify("simple-icons/apple"), mono: true },
+	android: {
+		name: "Android",
+		src: `${iconify("simple-icons/android")}?color=%233ddc84`,
+		mono: false,
+	},
+	typescript: {
+		name: "TypeScript",
+		src: iconify("logos/typescript-icon"),
+		mono: false,
+	},
 	upi: { name: "UPI", src: iconify("thesvg-color/upi"), mono: false },
 	wise: {
 		name: "Wise",

@@ -1,6 +1,20 @@
 # Eventual
 
-Eventual is a TanStack Start expense-sharing app for multi-currency groups. It uses Better Auth organizations, Drizzle ORM, libSQL/Turso, a versioned JSON REST API, and an authenticated MCP endpoint.
+Split it fairly, settle it once: group expenses in 20 currencies, on the web, iPhone and Android. Free, open source and self-hostable.
+
+Eventual is one backend with several ways in:
+
+- **Web app**: the full product in any browser. Hosted at [eventual.macintushar.xyz](https://eventual.macintushar.xyz).
+- **iPhone and Android app**: a native Expo app with platform tabs, sheets and UPI handoff. Not in the App Store or Play Store yet; build it from [`apps/mobile`](apps/mobile/README.md). It signs in to the hosted service or to your own server.
+- **TypeScript SDK**: `@eventual/sdk`, the typed client both apps use. Every endpoint is checked against shared Zod schemas.
+- **REST API and MCP**: a versioned JSON API with an OpenAPI 3.1 spec, and an MCP server for Claude, ChatGPT, Cursor and other assistants.
+- **Apple Shortcuts**: log an expense from the Action Button, Siri or a bank SMS.
+
+The server is a TanStack Start app on Better Auth organizations, Drizzle ORM and libSQL/Turso.
+
+## Licence
+
+Eventual is licensed under the [GNU Affero General Public License v3.0](LICENSE). You can use, modify and self-host it, including commercially, but if you run a modified version as a service, you must offer its users the source of your version under the same licence.
 
 ## Repository layout
 
@@ -8,11 +22,12 @@ A Bun workspace driven by Turborepo:
 
 | Path | Package | What it is |
 | --- | --- | --- |
-| `apps/web` | `@eventual/web` | The TanStack Start app: UI, `/api`, MCP, jobs. Deploys to Vercel. |
+| `apps/web` | `@eventual/web` | The TanStack Start app and the server for every client: UI, `/api`, MCP, push, jobs. Deploys to Vercel. |
+| `apps/mobile` | `@eventual/mobile` | The Expo / React Native app for iOS and Android. Built locally; see [its README](apps/mobile/README.md). |
 | `packages/schemas` | `@eventual/schemas` | Zod schemas for every request and response, currencies, error codes, and the HTTP contract (`contract.ts`). No server code. |
-| `packages/sdk` | `@eventual/sdk` | A typed `fetch` client built from the contract. Runs in browsers, Node and React Native. |
+| `packages/sdk` | `@eventual/sdk` | A typed `fetch` client built from the contract. Runs in browsers, Node, Bun and React Native. |
 
-Packages export TypeScript source, so there is nothing to build before using them. From the root, `bun run typecheck`, `bun run test` and `bun run build` run every package through Turborepo; `bun run check` runs Biome over the whole repo. App commands (`dev`, `db:*`, `test:e2e`, …) run from `apps/web`, and paths below like `src/…` are relative to it.
+Packages export TypeScript source, so there is nothing to build before using them. From the root, `bun run typecheck`, `bun run test` and `bun run build` run every package through Turborepo; `bun run check` runs Biome over the whole repo. Web commands (`dev`, `db:*`, `test:e2e`, …) run from `apps/web`, and paths below like `src/…` are relative to it unless they name another package. Mobile commands are in [apps/mobile/README.md](apps/mobile/README.md).
 
 ### Calling the API from another app
 
@@ -211,7 +226,7 @@ Status mapping: `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `VALIDA
 
 ## MCP
 
-`POST /mcp` exposes `listGroups`, `listExpenses`, `createExpense`, and `getBalances`. It uses the same Better Auth cookie or API key and service layer as REST. Each HTTP request gets an isolated stateless MCP transport. Setup instructions for each client (Claude Code, the Claude app, Cursor, OpenCode, Hermes, OpenClaw) are at `/docs`.
+`POST /mcp` exposes `listGroups`, `listExpenses`, `listExpensePage`, `listSettlementPage`, `createExpense`, and `getBalances`. It uses the same Better Auth cookie or API key and service layer as REST. Each HTTP request gets an isolated stateless MCP transport. Setup instructions for each client (Claude Code, the Claude app, Cursor, OpenCode, Hermes, OpenClaw) are at `/docs`.
 
 ## Observability
 

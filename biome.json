@@ -24,6 +24,7 @@
 			"!**/.output",
 			"!**/src/routeTree.gen.ts",
 			"!**/src/styles.css",
+			"!**/src/stageshow/kit",
 			"apps/mobile/*.ts",
 			"apps/mobile/*.tsx",
 			"apps/mobile/*.json",
@@ -34,7 +35,13 @@
 		"enabled": true,
 		"indentStyle": "tab"
 	},
-	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	},
 	"linter": {
 		"enabled": true,
 		"rules": {
@@ -44,7 +51,13 @@
 	"overrides": [
 		{
 			"includes": ["**/e2e/**/*"],
-			"linter": { "rules": { "suspicious": { "noExplicitAny": "off" } } }
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noExplicitAny": "off"
+					}
+				}
+			}
 		}
 	],
 	"javascript": {

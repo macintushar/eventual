@@ -1,6 +1,8 @@
-# Eventual mobile
+# Eventual for iPhone and Android
 
-Expo / React Native app for iOS and Android, using the existing Bun workspace and `@eventual/sdk`. Start commands below from the repository root.
+The native Eventual app: Expo / React Native for iOS and Android, built on the same `@eventual/sdk` as the web app. It isn't in the App Store or Play Store yet, so you build it locally. Start commands below from the repository root.
+
+On first launch the app uses hosted Eventual (`https://eventual.macintushar.xyz`). To use your own instance, tap **Change** next to the server on the sign-in screen and enter its address.
 
 ## Local development
 
@@ -28,9 +30,11 @@ Native `ios/` and `android/` directories are generated and ignored. Change app c
 - Hosted-only native push registration, preferences, server delivery, and notification routing. Custom servers remain usable without push.
 - Root Turbo typechecking and Biome coverage. Native builds stay explicit local commands and do not join the web deployment build.
 
-## Validation and release follow-ups
+## Status
 
-The implementation threads report a successful local iOS build and simulator QA of the main flows. Android and physical-device QA remain outstanding. The latest launch-invite replay fix still needs a simulator retest after switching servers.
+Not in the App Store or Play Store. Local iOS builds and the main flows are tested in the Simulator; Android and physical devices are not yet. The launch-invite replay fix still needs a Simulator retest after switching servers.
+
+Release follow-ups:
 
 - Run a local Android build and emulator pass, then physical-device tests including UPI handoff.
 - Verify real push delivery with APNs/FCM credentials and the hosted job schedule; see [push deployment notes](../web/PUSH.md). Apply the new database migration before enabling push.

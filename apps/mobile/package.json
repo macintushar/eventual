@@ -1,6 +1,7 @@
 {
 	"name": "@eventual/mobile",
 	"version": "0.1.0",
+	"license": "AGPL-3.0-only",
 	"main": "expo-router/entry",
 	"dependencies": {
 		"@better-auth/core": "1.7.7",

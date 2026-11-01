@@ -1,35 +1,44 @@
 # Eventual
 
-> Eventual is a free web app for splitting group expenses in Indian rupees (and other currencies). Log what everyone paid on trips, in shared flats and on nights out; Eventual splits each bill evenly, by exact amounts, by shares or by percent, and tells each person exactly who to pay and how much, down to the last paisa.
+> Eventual is a free, open-source expense-splitting app for groups, with 20 supported currencies. Log what everyone paid on trips, in shared flats and on nights out; Eventual splits each bill evenly, by exact amounts, by shares or by percent, and tells each person who to pay and how much. Shares always add up to the total. It runs as a web app at https://eventual.macintushar.xyz, as a native iPhone and Android app built from source, and through a REST API, TypeScript SDK and MCP server.
 
 Key facts:
 
-- Free to use. No paid plans.
+- Free. No paid plans, no ads. Source: https://github.com/macintushar/eventual. Anyone can self-host it.
 - Groups are private: only invited members see a group's expenses, balances and history.
-- Shares always add up: INR 1,000 split three ways is INR 333.34, 333.33 and 333.33.
+- Shares always add up: 1,000 split three ways is 333.34, 333.33 and 333.33 in a two-decimal currency such as USD, EUR or INR. Currencies without decimals, such as JPY, split in whole units.
 - Once someone marks their share paid, the expense locks so the settled amount can't change.
-- Balances are simplified into as few transfers as possible. Each currency is kept separate; amounts are never converted.
-- Eventual records who owes whom. It does not move money.
-- Expenses can be logged from the web app, an Apple Shortcut (iPhone, iPad, Mac, Watch, Siri), any MCP-capable AI assistant, or the REST API.
+- Balances are simplified into as few transfers as possible, per currency. Amounts are never converted between currencies.
+- Supported currencies: INR, USD, EUR, GBP, AED, AUD, CAD, CHF, CNY, HKD, JPY, KRW, KWD, MYR, NPR, NZD, SAR, SGD, THB, VND.
+- Eventual records who owes whom. It does not move money; the mobile app can hand off to a UPI app to pay.
+- Every app uses the same API, so an expense logged in one shows up in all the others.
+
+## Apps
+
+- Web app: https://eventual.macintushar.xyz. Works in any modern browser on desktop or phone.
+- iPhone and Android app: native Expo app in `apps/mobile`. Not in the App Store or Google Play yet; build it from source. It signs in to the hosted service or any self-hosted Eventual server. Setup: https://github.com/macintushar/eventual/tree/main/apps/mobile
+- Apple Shortcuts: log an expense from iPhone, iPad, Mac, Apple Watch or Siri, including from a bank SMS. https://eventual.macintushar.xyz/docs#shortcut
 
 ## Help
 
-- [Help center](https://eventual.macintushar.xyz/help): FAQ on groups, invites, roles, split methods, locked expenses, settling up, password reset and integrations
+- [Help center](https://eventual.macintushar.xyz/help): FAQ on groups, invites, roles, split methods, locked expenses, settling up, currencies and rounding, password reset, the mobile app and integrations
 - [How do I create a group?](https://eventual.macintushar.xyz/help/create-a-group): step-by-step guide with screenshots
 - [How do I add an expense?](https://eventual.macintushar.xyz/help/add-an-expense): step-by-step guide covering split methods
+- [How do I invite people to a group?](https://eventual.macintushar.xyz/help/invite-people): adding members, guests and invite links
+- [How do I settle up?](https://eventual.macintushar.xyz/help/settle-up): simplified debts, recording payments and UPI handoff
+- [Why is an expense locked?](https://eventual.macintushar.xyz/help/locked-expenses): how paid shares lock an expense
+- [How do I use the iPhone or Android app?](https://eventual.macintushar.xyz/help/use-the-mobile-app): building the native app and choosing a server
+- [Eventual vs Splitwise](https://eventual.macintushar.xyz/compare/splitwise): a dated feature comparison
 
-## Integrations
+## Developers
 
-- [Integrations](https://eventual.macintushar.xyz/docs): Apple Shortcut download and MCP setup for Claude, ChatGPT, Cursor, Codex, Claude Code, OpenCode, Hermes and OpenClaw
+- [Integrations](https://eventual.macintushar.xyz/docs): the mobile app, Apple Shortcut, MCP setup for Claude, ChatGPT, Codex, Claude Code, Cursor, OpenCode, Hermes and OpenClaw, the TypeScript SDK and the REST API
 - MCP server: `https://eventual.macintushar.xyz/mcp` (Streamable HTTP). Authenticate with `x-api-key: <your-api-key>` or `Authorization: Bearer <your-api-key>`, using an API key created at https://eventual.macintushar.xyz/app/settings/api-keys
-- MCP tools: `listGroups` (your groups and balance in each), `listExpenses` (recent expenses in a group), `createExpense` (log an expense with any split method), `getBalances` (who owes whom, with simplified transfers)
-- [OpenAPI spec](https://eventual.macintushar.xyz/api/openapi.json): the REST API under `/api/v1`, same API-key authentication
+- MCP tools: `listGroups` (your groups and balance in each), `listExpenses` (recent expenses in a group), `createExpense` (log an expense with any split method), `getBalances` (who owes whom, with simplified transfers), `listExpensePage` (older expenses a page at a time, with filters), `listSettlementPage` (payment history a page at a time)
+- REST API: `/api/v1`, same API keys. [OpenAPI 3.1 spec](https://eventual.macintushar.xyz/api/openapi.json)
+- TypeScript SDK: `@eventual/sdk` (typed fetch client for browsers, Node, Bun and React Native) and `@eventual/schemas` (Zod schemas for every request and response). In the repo under `packages/`; not published to npm. https://github.com/macintushar/eventual/tree/main/packages/sdk
 
 ## Legal
 
 - [Privacy policy](https://eventual.macintushar.xyz/privacy)
 - [Terms of service](https://eventual.macintushar.xyz/terms)
-
-## Optional
-
-- [Source code](https://github.com/macintushar/eventual)
