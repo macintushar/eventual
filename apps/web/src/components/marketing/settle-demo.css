@@ -1,0 +1,267 @@
+/* Wide: a 960px window inset 60px top and sides, running off the bottom.
+   Compact: the window pinned 16px from the left, off the right and bottom. */
+.sd .sd-window {
+	position: absolute;
+	top: 36px;
+	left: 60px;
+	width: 960px;
+	height: 640px;
+	box-shadow: var(--ss-shadow-hero);
+}
+
+.sd .sd-page {
+	display: flex;
+	flex-direction: column;
+	gap: 22px;
+	height: 100%;
+	padding: 30px 40px;
+	background: var(--background);
+	font-size: 15px;
+}
+
+.sd .sd-title {
+	font-size: 40px;
+	line-height: 1.05;
+	font-weight: 700;
+}
+
+.sd .sd-sub {
+	margin-top: 8px;
+	color: var(--muted-foreground);
+	font-size: 14px;
+}
+
+.sd .sd-tabs {
+	display: flex;
+	gap: 2px;
+	align-self: flex-start;
+	padding: 4px;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	background: var(--muted);
+	font-size: 14px;
+	color: var(--muted-foreground);
+}
+
+.sd .sd-tabs span {
+	padding: 5px 16px;
+	border-radius: 999px;
+}
+
+.sd .sd-tabs [data-active] {
+	background: var(--card);
+	color: var(--foreground);
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+.sd .sd-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+	align-items: start;
+	gap: 20px;
+}
+
+.sd .sd-card {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	padding: 22px 24px 24px;
+	border-radius: 22px;
+}
+
+.sd .sd-card-title {
+	font-weight: 600;
+	font-size: 16px;
+}
+
+.sd .sd-amount {
+	display: block;
+	min-width: 6ch;
+}
+
+.sd .sd-bar {
+	transition: width 900ms cubic-bezier(0.45, 0, 0.1, 1) 150ms;
+}
+
+.sd .sd-debt {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 8px;
+	padding: 10px 10px 10px 16px;
+	border: 1px solid var(--border);
+	border-radius: 14px;
+	font-size: 14px;
+}
+
+.sd .sd-debt--stacked {
+	flex-direction: column;
+	align-items: stretch;
+	padding: 12px 12px 12px 14px;
+}
+
+.sd .sd-debt-who {
+	display: flex;
+	white-space: nowrap;
+	align-items: center;
+	gap: 8px;
+	font-weight: 500;
+}
+
+.sd .sd-debt-end {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.sd .sd-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 32px;
+	padding: 0 14px;
+	border-radius: 999px;
+	background: var(--primary);
+	color: var(--primary-foreground);
+	font-size: 13px;
+	font-weight: 500;
+	white-space: nowrap;
+	transition:
+		transform 120ms ease,
+		filter 120ms ease;
+}
+
+.sd .sd-button[data-pressed] {
+	transform: scale(0.96);
+	filter: brightness(1.25);
+}
+
+.sd .sd-button--wide {
+	height: 38px;
+	font-size: 14px;
+}
+
+.sd .sd-scrim {
+	position: absolute;
+	inset: 0;
+	background: rgb(0 0 0 / 0.18);
+	opacity: 0;
+	transition: opacity 240ms ease;
+}
+
+.sd .sd-scrim[data-show] {
+	opacity: 1;
+}
+
+.sd .sd-dialog {
+	position: absolute;
+	top: 150px;
+	left: 360px;
+	width: 360px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 22px;
+	border-radius: 22px;
+	--ss-popover-bg: var(--popover);
+	--ss-popover-shadow: var(--ss-shadow-float);
+	font-size: 14px;
+}
+
+.sd .sd-dialog-title {
+	font-size: 17px;
+	font-weight: 600;
+}
+
+.sd .sd-dialog-who {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: 500;
+}
+
+.sd .sd-field {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 40px;
+	padding: 0 14px;
+	border: 1px solid var(--input);
+	border-radius: 12px;
+	font-size: 15px;
+}
+
+.sd .sd-history {
+	display: grid;
+}
+
+.sd .sd-history > * {
+	grid-area: 1 / 1;
+}
+
+.sd .sd-history-empty {
+	color: var(--muted-foreground);
+	font-size: 14px;
+	transition: opacity 200ms ease;
+}
+
+.sd .sd-history-empty[data-hide] {
+	opacity: 0;
+}
+
+.sd .sd-paid {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-size: 14px;
+}
+
+.sd .sd-rest {
+	position: absolute;
+	top: 250px;
+	left: 520px;
+	width: 1px;
+	height: 1px;
+}
+
+/* ------------------------------------------------------------- compact */
+
+.sd .ss-stage[data-layout="compact"] .sd-window {
+	top: 20px;
+	left: 16px;
+	width: 358px;
+	height: 520px;
+}
+
+.sd .ss-stage[data-layout="compact"] .sd-page {
+	gap: 16px;
+	padding: 20px 18px;
+}
+
+.sd .ss-stage[data-layout="compact"] .sd-title {
+	font-size: 30px;
+}
+
+.sd .ss-stage[data-layout="compact"] .sd-grid {
+	grid-template-columns: 1fr;
+	gap: 14px;
+}
+
+.sd .ss-stage[data-layout="compact"] .sd-card {
+	gap: 14px;
+	padding: 18px 16px;
+}
+
+.sd .ss-stage[data-layout="compact"] .sd-dialog {
+	top: 120px;
+	left: 37px;
+	width: 316px;
+	padding: 18px;
+}
+
+.sd .ss-stage[data-layout="compact"] .sd-rest {
+	top: 120px;
+	left: 300px;
+}

@@ -8,28 +8,14 @@ import {
 	BrandLogo,
 } from "#/components/brand-logo";
 import { SOURCE_URL } from "#/components/legal-page";
+import { SettleDemo } from "#/components/marketing/settle-demo";
 import {
 	PublicFooter,
 	PublicPage,
 	publicSiteActions,
 } from "#/components/public-header";
-import { Alert, AlertDescription } from "#/components/ui/alert";
-import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "#/components/ui/card";
-import {
-	Item,
-	ItemContent,
-	ItemDescription,
-	ItemGroup,
-	ItemTitle,
-} from "#/components/ui/item";
+import { Card, CardDescription, CardHeader } from "#/components/ui/card";
 import { OG_IMAGES, ogImageMeta } from "#/lib/og";
 import { useClientUser } from "#/lib/session";
 import { SITE_URL } from "#/lib/site";
@@ -210,16 +196,6 @@ const integrations: {
 	},
 ];
 
-/**
- * Illustrative figures for the landing preview — not real data. They must add
- * up: €1,176 split three ways is €392 each, so you're owed €244.
- */
-const sampleRows = [
-	{ name: "Beach shack dinner", who: "Mac paid", amount: "€360" },
-	{ name: "Scooter rental", who: "Arjun paid", amount: "€180" },
-	{ name: "Villa booking", who: "You paid", amount: "€636" },
-];
-
 function Home() {
 	const navigate = Route.useNavigate();
 
@@ -235,8 +211,8 @@ function Home() {
 				<PublicFooter tagline="Eventual · split it fairly, settle it once." />
 			}
 		>
-			<section className="grid items-center gap-8 py-8 sm:gap-12 sm:py-12 lg:grid-cols-[1.1fr_.9fr] lg:py-20">
-				<div className="rise-in">
+			<section className="flex flex-col gap-8 pt-8 pb-12 sm:gap-10 sm:pt-12 sm:pb-16">
+				<div className="rise-in max-w-3xl">
 					<p className="island-kicker">
 						Split expenses for trips, flats and nights out
 					</p>
@@ -264,39 +240,9 @@ function Home() {
 					</p>
 				</div>
 
-				<Card className="island-shell rise-in rounded-3xl">
-					<CardHeader>
-						<div className="flex items-start justify-between gap-3">
-							<div>
-								<CardDescription>Lisbon weekend</CardDescription>
-								<CardTitle className="display-title text-3xl font-bold">
-									You are owed{" "}
-									<span className="tabular text-positive">€244</span>
-								</CardTitle>
-							</div>
-							<Badge variant="secondary">3 members</Badge>
-						</div>
-					</CardHeader>
-					<CardContent className="flex flex-col gap-4">
-						<ItemGroup>
-							{sampleRows.map((row) => (
-								<Item key={row.name} size="sm">
-									<ItemContent>
-										<ItemTitle>{row.name}</ItemTitle>
-										<ItemDescription>{row.who}</ItemDescription>
-									</ItemContent>
-									<strong className="tabular shrink-0">{row.amount}</strong>
-								</Item>
-							))}
-						</ItemGroup>
-						<Alert className="border-positive/30 bg-positive/10 text-positive">
-							<AlertDescription>
-								Arjun pays you €212 and Mac pays you €32. Then you're all
-								square.
-							</AlertDescription>
-						</Alert>
-					</CardContent>
-				</Card>
+				<div className="rise-in -mx-4 sm:mx-0">
+					<SettleDemo />
+				</div>
 			</section>
 
 			<section className="grid gap-3 pb-12 sm:gap-4 sm:pb-16 md:grid-cols-3">
