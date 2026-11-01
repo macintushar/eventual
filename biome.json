@@ -50,9 +50,7 @@
 	},
 	"overrides": [
 		{
-			"includes": [
-				"**/e2e/**/*"
-			],
+			"includes": ["**/e2e/**/*"],
 			"linter": {
 				"rules": {
 					"suspicious": {
