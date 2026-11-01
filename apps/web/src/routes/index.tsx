@@ -135,7 +135,7 @@ const features: {
 	{
 		icon: Scale,
 		title: "Shares that add up",
-		text: "1,000 split three ways is 333.34, 333.33 and 333.33, in whichever of the 20 currencies you use. Never 999.99, never an argument.",
+		text: "In euros or dollars, 1,000 split three ways is 333.34, 333.33 and 333.33. Each of the 20 currencies splits to its own smallest unit, so shares always add up. Never 999.99, never an argument.",
 		figure: <SplitFigure />,
 		lead: true,
 	},
