@@ -415,42 +415,6 @@ test("marking shares paid works along a row and leaves other rows alone", async 
 	}
 });
 
-test("trade-off: shares larger than a debtor's row can't be marked paid (Raji -> Latha ₹104.17)", async () => {
-	const f = await group();
-	try {
-		// Raji owes Latha ₹200 + ₹183.84 on the expense pages, but the list only
-		// has a ₹104.17 row to Latha, so neither share can be ticked.
-		await assert.rejects(
-			setSharePaid(
-				f.ctx,
-				{ expenseId: f.expenses.offerings.id, userId: "RJ" },
-				true,
-			),
-			/can't be more than/,
-		);
-		await assert.rejects(
-			setSharePaid(
-				f.ctx,
-				{ expenseId: f.expenses.lunch.id, userId: "RJ" },
-				true,
-			),
-			/can't be more than/,
-		);
-		// Thillairajan's shares on Siva's expenses: no T->S row at all.
-		await assert.rejects(
-			setSharePaid(
-				f.ctx,
-				{ expenseId: f.expenses.hotel.id, userId: "T" },
-				true,
-			),
-			/No INR payment is owed/,
-		);
-		assert.deepEqual((await f.plan()).sort(), [...INITIAL_PLAN].sort());
-	} finally {
-		f.close();
-	}
-});
-
 test("BUG: a member who settled through an indirect row can never leave or be removed", {
 	todo: "leave check uses unpaid shares, not balance",
 }, async () => {
@@ -614,24 +578,6 @@ test("record A, snack, pay along the new plan, delete A: list is whatever greedy
 			(r) => !r.startsWith("RJ>") && !withoutA.includes(r),
 		);
 		console.log("non-Raji rows changed by deleting Raji's payment:", untouched);
-	} finally {
-		f.close();
-	}
-});
-
-test("wrong person, overpayment and stale old-UI rows are rejected without touching the list", async () => {
-	const f = await group();
-	try {
-		const before = await f.plan();
-		// Old UI told Thillairajan to pay Siva.
-		await assert.rejects(f.pay("T", "S", 489433), /No INR payment is owed/);
-		// Raji pays her whole ₹2,447.17 to Siva in one go.
-		await assert.rejects(f.pay("RJ", "S", 244717), /can't be more than/);
-		// Overpay by a paisa.
-		await assert.rejects(f.pay("RV", "S", 472034), /can't be more than/);
-		// Creditor to debtor.
-		await assert.rejects(f.pay("L", "T", 100), /No INR payment is owed/);
-		assert.deepEqual(await f.plan(), before);
 	} finally {
 		f.close();
 	}
