@@ -3,7 +3,7 @@
 // Tests prefixed "BY-DESIGN:" pin down surprising-but-intended behaviour.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { validateRepayment } from "#/lib/settlements";
+import { repaymentSuggestion } from "#/lib/settlements";
 import {
 	type BalanceMember,
 	type LedgerStep,
@@ -12,6 +12,23 @@ import {
 	simplifyBalances,
 	type Transfer,
 } from "#/server/domain/balances";
+
+/**
+ * Payments are free-form now, so nothing rejects an off-plan payment. Stability
+ * still means a shown row survives with at least the amount someone pays on it.
+ */
+function fitsPlan(
+	transfers: Parameters<typeof repaymentSuggestion>[0],
+	input: Parameters<typeof repaymentSuggestion>[1] & {
+		amountMinor: number | null;
+	},
+): string | null {
+	return input.amountMinor !== null &&
+		input.amountMinor > 0 &&
+		repaymentSuggestion(transfers, input) >= input.amountMinor
+		? null
+		: "not on the suggested plan";
+}
 
 // ---------- helpers ----------
 
@@ -201,7 +218,7 @@ test("prod data: every order of paying every row in full is stable and accepted"
 			const plan = planTransfers(trip, steps);
 			assert.deepEqual(asMap(plan), remaining);
 			assert.equal(
-				validateRepayment(plan, {
+				fitsPlan(plan, {
 					fromUserId: row.from.userId,
 					toUserId: row.to.userId,
 					currency: "INR",
@@ -249,7 +266,7 @@ test("fuzz: payments chosen from the displayed plan only shrink that row and are
 			const amount =
 				rng() < 0.5 ? row.amountMinor : int(rng, 1, row.amountMinor);
 			assert.equal(
-				validateRepayment(before, {
+				fitsPlan(before, {
 					fromUserId: row.from.userId,
 					toUserId: row.to.userId,
 					currency: row.currency,
@@ -405,7 +422,7 @@ test("fuzz: deleting any payment from a valid history still yields a valid plan"
 				const s = without[j];
 				if (s.kind !== "payment") continue;
 				if (
-					validateRepayment(planTransfers(members, without.slice(0, j)), {
+					fitsPlan(planTransfers(members, without.slice(0, j)), {
 						fromUserId: s.fromUserId,
 						toUserId: s.toUserId,
 						currency: s.currency,
