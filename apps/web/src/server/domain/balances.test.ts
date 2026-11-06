@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { type BalanceExpense, computeBalances } from "#/server/domain/balances";
+import {
+	type BalanceExpense,
+	computeBalances,
+	type LedgerStep,
+	planTransfers,
+} from "#/server/domain/balances";
 
 const members = [
 	{ userId: "A", name: "Alice" },
@@ -206,4 +211,90 @@ test("unbalanced member projections fail even when missing debts cancel across c
 			),
 		/Group balances do not sum to zero/,
 	);
+});
+
+// Shaped like the "Hassanamba temple visit" group: paying one suggested row
+// exactly used to make a different creditor the largest and reassign
+// everyone else's rows.
+const trip = [
+	{ userId: "T", name: "Thillairajan" },
+	{ userId: "R", name: "Ravi" },
+	{ userId: "J", name: "Raji" },
+	{ userId: "L", name: "Latha" },
+	{ userId: "S", name: "Siva" },
+];
+const tripDebts: LedgerStep = {
+	kind: "debts",
+	currency: "INR",
+	balances: { T: -489433, R: -472033, J: -244717, L: 499850, S: 706333 },
+};
+const paid = (fromUserId: string, toUserId: string, amountMinor: number) =>
+	({
+		kind: "payment",
+		currency: "INR",
+		fromUserId,
+		toUserId,
+		amountMinor,
+	}) satisfies LedgerStep;
+const rows = (steps: LedgerStep[]) =>
+	planTransfers(trip, steps).map(
+		(row) => `${row.from.userId}>${row.to.userId}:${row.amountMinor}`,
+	);
+
+test("paying a suggested row exactly leaves every other row untouched", () => {
+	assert.deepEqual(rows([tripDebts]), [
+		"T>S:489433",
+		"R>L:472033",
+		"J>S:216900",
+		"J>L:27817",
+	]);
+	assert.deepEqual(rows([tripDebts, paid("J", "S", 216900)]), [
+		"T>S:489433",
+		"R>L:472033",
+		"J>L:27817",
+	]);
+	assert.deepEqual(rows([tripDebts, paid("J", "L", 27817)]), [
+		"T>S:489433",
+		"R>L:472033",
+		"J>S:216900",
+	]);
+});
+
+test("a partial payment on a suggested row only shrinks that row", () => {
+	assert.deepEqual(rows([tripDebts, paid("T", "S", 100000)]), [
+		"T>S:389433",
+		"R>L:472033",
+		"J>S:216900",
+		"J>L:27817",
+	]);
+});
+
+test("new debts or an off-plan payment rebuild a plan that settles exactly", () => {
+	for (const steps of [
+		[
+			tripDebts,
+			paid("J", "S", 216900),
+			{ ...tripDebts, balances: { T: -100, L: 100 } },
+		],
+		[tripDebts, paid("T", "L", 1000)],
+		[tripDebts, paid("J", "S", 300000)],
+	] satisfies LedgerStep[][]) {
+		const net = new Map<string, number>();
+		const add = (userId: string, amount: number) =>
+			net.set(userId, (net.get(userId) ?? 0) + amount);
+		for (const step of steps)
+			if (step.kind === "debts")
+				for (const [userId, amount] of Object.entries(step.balances))
+					add(userId, amount);
+			else {
+				add(step.fromUserId, step.amountMinor);
+				add(step.toUserId, -step.amountMinor);
+			}
+		for (const row of planTransfers(trip, steps)) {
+			assert.ok(row.amountMinor > 0);
+			add(row.from.userId, row.amountMinor);
+			add(row.to.userId, -row.amountMinor);
+		}
+		assert.ok([...net.values()].every((value) => value === 0));
+	}
 });
