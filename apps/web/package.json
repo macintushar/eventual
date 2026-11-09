@@ -46,7 +46,7 @@
 		"@libsql/client": "^0.18.0",
 		"@logtape/logtape": "^2.3.10",
 		"@logtape/sentry": "^2.3.10",
-		"@modelcontextprotocol/sdk": "^1.27.1",
+		"@modelcontextprotocol/sdk": "^1.32.2",
 		"@posthog/react": "^1.10.6",
 		"@scalar/api-reference-react": "^0.9.77",
 		"@sentry/tanstackstart-react": "^10.74.0",
