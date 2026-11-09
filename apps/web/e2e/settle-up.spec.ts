@@ -23,14 +23,7 @@ import {
 	waitForHydration,
 } from "./support";
 
-const GUESTS = [
-	"Kai",
-	"Toby",
-	"Lee",
-	"Jo",
-	"Ash",
-	"Riley",
-] as const;
+const GUESTS = ["Kai", "Toby", "Lee", "Jo", "Ash", "Riley"] as const;
 type Person = (typeof GUESTS)[number] | "Sam";
 
 /** The list right after the first two payments, by name and minor units. */
@@ -314,10 +307,7 @@ test("ticking a share paid and an off-plan payment still settle the group exactl
 		await expect
 			.poll(() => g.plan())
 			.toEqual(
-				[
-					...without(INITIAL_PLAN, "Toby>Lee"),
-					"Toby>Lee:300000",
-				].sort(),
+				[...without(INITIAL_PLAN, "Toby>Lee"), "Toby>Lee:300000"].sort(),
 			);
 
 		// Jo pays Lee ₹500, more than the ₹104.17 row suggests. Payments
@@ -395,11 +385,7 @@ test.fixme("a member who settled through an indirect row can be removed", async 
 		}
 		expect(await g.plan()).toEqual([]);
 		expect((await g.nets()).Toby).toBe(0);
-		await json(
-			a.context,
-			"DELETE",
-			`/groups/${g.id}/members/${g.ids.Toby}`,
-		);
+		await json(a.context, "DELETE", `/groups/${g.id}/members/${g.ids.Toby}`);
 	} finally {
 		await a.context.close();
 	}
